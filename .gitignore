@@ -1,0 +1,95 @@
+# ==============================================================================
+# 1. FICHIERS TEMPORAIRES, TESTS & DOCUMENTS PRIVÉS
+# ==============================================================================
+*.copy
+*.tmp
+private-docs/
+private/
+
+# ==============================================================================
+# 2. SÉCURITÉ & VARIABLES D'ENVIRONNEMENT (ZÉRO SECRET VERSIONNÉ)
+# ==============================================================================
+.env*
+!.env.example
+/environments
+environment.ts
+environment.*.ts
+!src/environments/environment.prod.ts
+# Note : Conserver un fichier d'exemple ou template (ex: environment.template.ts) 
+# pour permettre aux développeurs/agents de cloner la structure attendue sans les secrets.
+
+# ==============================================================================
+# 3. SUPABASE (CLI & RUNTIME LOCAL)
+# ==============================================================================
+supabase/.temp/
+supabase/.functions-pnpm/
+supabase/.storage/
+supabase/.branches/
+
+# ==============================================================================
+# 4. OUTILS D'IA & AGENTS (CLAUDE, BOLT, GEMINI, CURSOR)
+# ==============================================================================
+# Vibe coding & outils externes
+.bolt
+
+# Claude Code (Gestion hybride : garder les instructions partagées, ignorer les sessions locales)
+.claude/settings.local.json
+.claude/cache/
+.claude/worktrees/
+CLAUDE.local.md
+# Si vous souhaitez isoler totalement Claude Code par défaut :
+# .claude/
+
+# Antigravity / Gemini / CodeGraph locaux
+.gemini/
+.codegraph/
+
+# ==============================================================================
+# 5. ANGULAR & BUILDS
+# ==============================================================================
+.angular
+/dist
+/tmp
+/out-tsc
+/bazel-out
+/coverage
+.sass-cache/
+/typings
+
+# ==============================================================================
+# 6. NODE & PNPM
+# ==============================================================================
+/node_modules
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs
+*.log
+testem.log
+/connect.lock
+/libpeerconnection.log
+
+# ==============================================================================
+# 7. IDE & ÉDITEURS (VS CODE, JETBRAINS, OS)
+# ==============================================================================
+# JetBrains & autres
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Visual Studio Code (Whitelist des fichiers d'équipe utiles)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/*
+
+# Fichiers système
+.DS_Store
+Thumbs.db
