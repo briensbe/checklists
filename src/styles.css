@@ -63,6 +63,161 @@
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  /* Couleurs de fond et surfaces */
+  --bg-app: var(--color-slate-50);
+  --bg-card: #ffffff;
+  --bg-card-subtle: rgba(248, 250, 252, 0.7);
+  --bg-card-hover: rgba(241, 245, 249, 0.7);
+  --border-color: var(--color-slate-200);
+  --border-color-subtle: var(--color-slate-100);
+  --text-main: var(--color-slate-800);
+  --text-heading: var(--color-slate-900);
+  --text-muted: var(--color-slate-500);
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --input-bg: var(--color-slate-50);
+  --input-border: var(--color-slate-300);
+
+  /* Puces et badges de statut */
+  --chip-ok-bg: var(--color-emerald-50);
+  --chip-ok-text: var(--color-emerald-700);
+  --chip-ok-border: var(--color-emerald-200);
+
+  --chip-ko-bg: var(--color-rose-50);
+  --chip-ko-text: var(--color-rose-700);
+  --chip-ko-border: var(--color-rose-200);
+
+  --chip-na-bg: var(--color-slate-100);
+  --chip-na-text: var(--color-slate-600);
+  --chip-na-border: var(--color-slate-200);
+
+  --chip-pending-bg: var(--color-amber-50);
+  --chip-pending-text: var(--color-amber-700);
+  --chip-pending-border: var(--color-amber-200);
+
+  --pill-quality-bg: var(--color-brand-50);
+  --pill-quality-text: var(--color-brand-700);
+  --pill-quality-border: var(--color-brand-200);
+
+  --btn-batch-bg: var(--color-emerald-100);
+  --btn-batch-text: var(--color-emerald-800);
+  --btn-batch-border: var(--color-emerald-300);
+  --btn-batch-hover: var(--color-emerald-200);
+
+  /* Filtres & icônes de section */
+  --filter-active-bg: var(--color-brand-50);
+  --filter-active-text: var(--color-brand-700);
+  --filter-active-border: var(--color-brand-200);
+
+  --section-icon-bg: var(--bg-card);
+  --section-icon-text: var(--color-brand-700);
+  --section-icon-border: var(--border-color);
+
+  --section-pill-pending-bg: var(--color-slate-200);
+  --section-pill-pending-text: var(--color-slate-700);
+  --section-pill-complete-bg: var(--color-emerald-100);
+  --section-pill-complete-text: var(--color-emerald-800);
+
+  /* Lignes de checklist et segmented controls */
+  --row-status-ok-bg: rgba(236, 253, 245, 0.4);
+  --row-status-ko-bg: rgba(255, 241, 242, 0.4);
+  --row-status-na-bg: rgba(248, 250, 252, 0.4);
+  --controls-bg: var(--color-slate-100);
+  --controls-btn-text: var(--color-slate-600);
+  --controls-btn-hover-bg: rgba(226, 232, 240, 0.6);
+  --controls-btn-hover-text: var(--color-slate-900);
+  --controls-na-active-bg: var(--color-slate-700);
+  --controls-na-active-text: #ffffff;
+  --label-ko-color: var(--color-rose-700);
+  --label-na-color: var(--color-slate-600);
+  --label-default-color: var(--color-brand-700);
+}
+
+/* Variables pour le Dark Mode */
+[data-theme="dark"] {
+  --color-slate-50: #0f172a;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #334155;
+  --color-slate-300: #475569;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #cbd5e1;
+  --color-slate-600: #e2e8f0;
+  --color-slate-700: #f1f5f9;
+  --color-slate-800: #f8fafc;
+  --color-slate-900: #ffffff;
+
+  --color-brand-50: #082f49;
+  --color-brand-100: #0c4a6e;
+  --color-brand-200: #075985;
+  --color-brand-500: #38bdf8;
+  --color-brand-600: #0ea5e9;
+
+  --bg-app: #0b1120;
+  --bg-card: #151e32;
+  --bg-card-subtle: #1a253c;
+  --bg-card-hover: #1e2c47;
+  --border-color: #263550;
+  --border-color-subtle: #1e2b42;
+  --text-main: #e2e8f0;
+  --text-heading: #f8fafc;
+  --text-muted: #94a3b8;
+  --header-bg: rgba(21, 30, 50, 0.95);
+  --input-bg: #101728;
+  --input-border: #2c3c58;
+
+  /* Puces et badges de statut contrastés pour le Dark Mode */
+  --chip-ok-bg: rgba(6, 78, 59, 0.4);
+  --chip-ok-text: #34d399;
+  --chip-ok-border: #059669;
+
+  --chip-ko-bg: rgba(76, 5, 25, 0.4);
+  --chip-ko-text: #fb7185;
+  --chip-ko-border: #e11d48;
+
+  --chip-na-bg: rgba(30, 41, 59, 0.6);
+  --chip-na-text: #cbd5e1;
+  --chip-na-border: #475569;
+
+  --chip-pending-bg: rgba(69, 26, 3, 0.4);
+  --chip-pending-text: #fbbf24;
+  --chip-pending-border: #d97706;
+
+  --pill-quality-bg: rgba(8, 47, 73, 0.6);
+  --pill-quality-text: #38bdf8;
+  --pill-quality-border: #0284c7;
+
+  --btn-batch-bg: #065f46;
+  --btn-batch-text: #ecfdf5;
+  --btn-batch-border: #10b981;
+  --btn-batch-hover: #047857;
+
+  /* Filtres & icônes de section contrastés pour le Dark Mode */
+  --filter-active-bg: rgba(14, 165, 233, 0.18);
+  --filter-active-text: #38bdf8;
+  --filter-active-border: #0284c7;
+
+  --section-icon-bg: rgba(14, 165, 233, 0.12);
+  --section-icon-text: #38bdf8;
+  --section-icon-border: rgba(56, 189, 248, 0.3);
+
+  --section-pill-pending-bg: rgba(51, 65, 85, 0.7);
+  --section-pill-pending-text: #cbd5e1;
+  --section-pill-complete-bg: rgba(6, 78, 59, 0.5);
+  --section-pill-complete-text: #34d399;
+
+  /* Lignes de checklist et segmented controls contrastés en Dark Mode */
+  --row-status-ok-bg: rgba(6, 78, 59, 0.15);
+  --row-status-ko-bg: rgba(76, 5, 25, 0.2);
+  --row-status-na-bg: rgba(30, 41, 59, 0.25);
+  --controls-bg: #101728;
+  --controls-btn-text: #94a3b8;
+  --controls-btn-hover-bg: rgba(30, 41, 59, 0.8);
+  --controls-btn-hover-text: #f8fafc;
+  --controls-na-active-bg: #334155;
+  --controls-na-active-text: #f8fafc;
+  --label-ko-color: #fb7185;
+  --label-na-color: #94a3b8;
+  --label-default-color: #38bdf8;
 }
 
 *, *::before, *::after {
@@ -74,10 +229,11 @@
 html, body {
   height: 100%;
   font-family: var(--font-family);
-  background-color: var(--color-slate-50);
-  color: var(--color-slate-800);
+  background-color: var(--bg-app);
+  color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Redimensionnement et mise à l'échelle des icônes SVG */

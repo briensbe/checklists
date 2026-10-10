@@ -1,5 +1,6 @@
-import { Component, input, output } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { ChecklistTemplate } from '../../models/checklist.model';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-header',
@@ -8,6 +9,8 @@ import { ChecklistTemplate } from '../../models/checklist.model';
   styleUrl: './header.component.css'
 })
 export class HeaderComponent {
+  readonly themeService = inject(ThemeService);
+
   readonly template = input<ChecklistTemplate | null>(null);
   readonly templates = input<ChecklistTemplate[]>([]);
   readonly isSaving = input<boolean>(false);

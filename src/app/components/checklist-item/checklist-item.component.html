@@ -1,7 +1,8 @@
 <div 
   class="item-row"
   [class.status-ko]="answer()?.status === 'KO'"
-  [class.status-ok]="answer()?.status === 'OK'">
+  [class.status-ok]="answer()?.status === 'OK'"
+  [class.status-na]="answer()?.status === 'NA'">
   <div class="item-layout">
     <!-- Libellé, Aide et Champ complémentaire -->
     <div class="item-info">
