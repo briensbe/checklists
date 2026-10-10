@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ChecklistSessionService } from './checklist-session.service';
 import { TemplateService } from './template.service';
+import { EvidenceService } from './evidence.service';
 
 @Injectable({
   providedIn: 'root'
@@ -11,20 +12,92 @@ import { TemplateService } from './template.service';
 export class ExportService {
   private sessionService = inject(ChecklistSessionService);
   private templateService = inject(TemplateService);
+  private evidenceService = inject(EvidenceService);
 
-  exportJson(): void {
+  getJsonDraft(): string {
     const session = this.sessionService.currentSession();
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(session, null, 2));
+    const template = this.templateService.activeTemplate();
+    const metrics = this.sessionService.metrics();
+    const applicableItems = this.sessionService.applicableItems();
+    const evidenceCounts = this.evidenceService.evidenceCounts();
+
+    const details = applicableItems.map(item => {
+      const ans = session.answers[item.id] || { status: null, comment: '', extra: {} };
+      return {
+        sectionId: item.sectionId,
+        sectionTitle: item.sectionTitle,
+        itemId: item.id,
+        label: item.label,
+        help: item.help || '',
+        status: ans.status || null,
+        comment: ans.comment || '',
+        extra: ans.extra || {},
+        evidenceCount: evidenceCounts[item.id] || 0
+      };
+    });
+
+    const enrichedAnswers: Record<string, any> = {};
+    for (const item of applicableItems) {
+      const ans = session.answers[item.id] || { status: null, comment: '', extra: {} };
+      enrichedAnswers[item.id] = {
+        status: ans.status || null,
+        comment: ans.comment || '',
+        extra: ans.extra || {},
+        label: item.label,
+        sectionTitle: item.sectionTitle,
+        evidenceCount: evidenceCounts[item.id] || 0
+      };
+    }
+
+    for (const [key, ans] of Object.entries(session.answers)) {
+      if (!enrichedAnswers[key]) {
+        enrichedAnswers[key] = ans;
+      }
+    }
+
+    const exportData = {
+      id: session.id,
+      templateId: session.templateId,
+      templateName: template?.name || session.templateId,
+      contextValues: session.contextValues,
+      metrics: {
+        total: metrics.total,
+        answered: metrics.answered,
+        okCount: metrics.okCount,
+        koCount: metrics.koCount,
+        naCount: metrics.naCount,
+        pending: metrics.pending,
+        percent: metrics.percent
+      },
+      details,
+      answers: enrichedAnswers,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt
+    };
+
+    return JSON.stringify(exportData, null, 2);
+  }
+
+  getJsonFilename(): string {
+    const session = this.sessionService.currentSession();
     const version = session.contextValues['version'] || 'brouillon';
     const date = session.contextValues['date'] || new Date().toISOString().split('T')[0];
-    const filename = `audit_livraison_${version}_${date}.json`;
+    return `audit_livraison_${version}_${date}.json`;
+  }
+
+  exportJson(): void {
+    const jsonStr = this.getJsonDraft();
+    const filename = this.getJsonFilename();
+    const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
 
     const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('href', url);
     downloadAnchor.setAttribute('download', filename);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    URL.revokeObjectURL(url);
   }
 
   exportExcel(): void {

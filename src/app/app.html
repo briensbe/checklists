@@ -5,7 +5,7 @@
     [templates]="templateService.availableTemplates()"
     [isSaving]="sessionService.isSaving()"
     (templateChange)="onTemplateSelected($event)"
-    (exportJson)="exportService.exportJson()"
+    (exportJson)="isJsonDraftModalOpen.set(true)"
     (importJson)="onImportJson($event)"
     (resetSession)="onResetSession()">
   </app-header>
@@ -103,5 +103,15 @@
       (fileAdded)="onEvidenceFileAdded(itemId, $event)"
       (deleteEvidence)="onEvidenceDeleted($event)">
     </app-evidence-attachment>
+  }
+
+  <!-- Fenêtre intermédiaire : Brouillon JSON -->
+  @if (isJsonDraftModalOpen()) {
+    <app-json-draft-modal
+      [jsonContent]="exportService.getJsonDraft()"
+      [filename]="exportService.getJsonFilename()"
+      (close)="isJsonDraftModalOpen.set(false)"
+      (exportFile)="exportService.exportJson()">
+    </app-json-draft-modal>
   }
 </div>

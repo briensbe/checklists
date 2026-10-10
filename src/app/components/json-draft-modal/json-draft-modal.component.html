@@ -1,0 +1,94 @@
+<div class="modal-backdrop" (click)="onBackdropClick($event)" role="dialog" aria-modal="true" aria-labelledby="json-modal-title">
+  <div class="modal-dialog">
+    <!-- En-tête de la modale -->
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+        </div>
+        <div>
+          <h3 id="json-modal-title" class="modal-title">Brouillon JSON de l'audit</h3>
+          <p class="modal-subtitle">Fichier : <code>{{ filename() }}</code></p>
+        </div>
+      </div>
+
+      <button 
+        type="button"
+        (click)="onClose()"
+        class="btn-close"
+        aria-label="Fermer la fenêtre">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Corps de la modale -->
+    <div class="modal-body">
+      <!-- Barre d'information & statistiques -->
+      <div class="info-bar">
+        <div class="badges-row">
+          <span class="badge badge-meta">Format : JSON UTF-8</span>
+          <span class="badge badge-meta">{{ lineCount() }} lignes</span>
+          <span class="badge badge-meta">{{ formattedSize() }}</span>
+        </div>
+        <span class="info-tip">
+          Ce brouillon peut être partagé ou réimporté ultérieurement via le bouton Importer JSON.
+        </span>
+      </div>
+
+      <!-- Zone de prévisualisation du code JSON -->
+      <div class="code-container">
+        <pre class="json-code"><code>{{ jsonContent() }}</code></pre>
+      </div>
+    </div>
+
+    <!-- Pied de la modale avec actions -->
+    <div class="modal-footer">
+      <div class="footer-left">
+        <button 
+          type="button" 
+          (click)="onClose()" 
+          class="btn-secondary">
+          Fermer
+        </button>
+      </div>
+
+      <div class="footer-right">
+        <!-- Bouton Copier dans le presse-papier -->
+        <button 
+          type="button" 
+          (click)="copyToClipboard()" 
+          class="btn-copy"
+          [class.copied]="isCopied()"
+          [title]="isCopied() ? 'Copié dans le presse-papier' : 'Copier tout le JSON dans le presse-papier'">
+          @if (isCopied()) {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon icon-success">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Copié !</span>
+          } @else {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+            <span>Copier dans le presse-papier</span>
+          }
+        </button>
+
+        <!-- Bouton Exporter / Télécharger dans un fichier -->
+        <button 
+          type="button" 
+          (click)="onExportFile()" 
+          class="btn-export-file"
+          title="Télécharger ce brouillon sous forme de fichier JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          <span>Télécharger le fichier</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
