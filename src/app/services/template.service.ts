@@ -54,6 +54,23 @@ export class TemplateService {
     return parsed;
   }
 
+  async saveTemplate(template: ChecklistTemplate): Promise<void> {
+    this.validateTemplate(template);
+    await this.db.templates.put(template);
+    const updated = await this.db.templates.toArray();
+    this.availableTemplates.set(updated);
+    this.activeTemplate.set(template);
+  }
+
+  async deleteTemplate(templateId: string): Promise<void> {
+    await this.db.templates.delete(templateId);
+    const updated = await this.db.templates.toArray();
+    this.availableTemplates.set(updated);
+    if (this.activeTemplate()?.id === templateId) {
+      this.activeTemplate.set(updated.length > 0 ? updated[0] : null);
+    }
+  }
+
   validateTemplate(template: ChecklistTemplate): void {
     if (!template.id || !template.name || !Array.isArray(template.sections)) {
       throw new Error('Format de template invalide : un identifiant, un nom et des sections sont obligatoires.');

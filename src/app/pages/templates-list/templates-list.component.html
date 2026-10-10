@@ -1,0 +1,133 @@
+<div class="templates-page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Modèles de Checklists</h1>
+      <p class="page-subtitle">Consultez, concevez, importez ou exportez vos templates réutilisables.</p>
+    </div>
+    <div class="header-actions">
+      <label class="btn btn-secondary file-upload-label">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+        </svg>
+        Importer JSON
+        <input type="file" accept=".json" (change)="onFileSelected($event)" hidden />
+      </label>
+
+      <button class="btn btn-primary" [routerLink]="['/templates/builder']">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+        </svg>
+        Nouveau modèle
+      </button>
+    </div>
+  </div>
+
+  @if (importError()) {
+    <div class="alert-error">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 alert-icon">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <span>{{ importError() }}</span>
+      <button class="btn-close-alert" (click)="importError.set(null)">✕</button>
+    </div>
+  }
+
+  <div class="templates-list">
+    @for (tpl of templateService.availableTemplates(); track tpl.id) {
+      <div class="template-card">
+        <div class="template-card-main">
+          <div class="template-header">
+            <div class="template-titles">
+              <div class="template-title-line">
+                <h3 class="template-name">{{ tpl.name }}</h3>
+                <span class="version-tag">v{{ tpl.version }}</span>
+              </div>
+              <p class="template-desc">{{ tpl.description || 'Aucune description' }}</p>
+            </div>
+            
+            <div class="template-actions">
+              <button class="btn btn-primary btn-sm" (click)="launchChecklist(tpl)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.58-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.458 14.98 14.98 0 01.06-.312m0 0l2.699 2.71z" />
+                </svg>
+                <span>Lancer une checklist</span>
+              </button>
+              <button class="btn btn-outline btn-sm" [routerLink]="['/templates', tpl.id, 'edit']">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                </svg>
+                <span>Modifier</span>
+              </button>
+              <button class="btn btn-outline btn-sm" (click)="exportTemplateJson(tpl)" title="Exporter le JSON">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.5V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                <span>Exporter JSON</span>
+              </button>
+              @if (templateService.availableTemplates().length > 1) {
+                <button class="btn btn-danger-icon" (click)="deleteTemplate(tpl.id)" title="Supprimer le modèle">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="template-meta-bar">
+            <span>{{ tpl.sections.length }} section(s)</span>
+            <span>•</span>
+            <button class="btn-toggle-structure" (click)="toggleExpand(tpl.id)">
+              {{ isExpanded(tpl.id) ? '▲ Masquer la structure' : '▼ Voir la structure des contrôles' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Dépliage arborescent de la structure -->
+        @if (isExpanded(tpl.id)) {
+          <div class="template-structure">
+            @for (sec of tpl.sections; track sec.id) {
+              <div class="structure-section">
+                <h4 class="structure-section-title">
+                  <span>{{ sec.title }}</span>
+                  <span class="items-count-badge">{{ sec.items.length }} contrôle(s)</span>
+                </h4>
+                <div class="structure-items">
+                  @for (it of sec.items; track it.id) {
+                    <div class="structure-item">
+                      <div class="item-header-row">
+                        <span class="item-label">{{ it.label }}</span>
+                        <div class="item-type-badges">
+                          @if (it.controlType === 'checkbox') {
+                            <span class="badge badge-blue">Case à cocher</span>
+                            @if (it.withTimestamp) {
+                              <span class="badge badge-purple">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 inline-svg">
+                                  <circle cx="12" cy="12" r="10" />
+                                  <polyline points="12 6 12 12 16 14" />
+                                </svg>
+                                Horodatée
+                              </span>
+                            }
+                          } @else if (it.controlType === 'choice') {
+                            <span class="badge badge-amber">Choix multiples</span>
+                            <span class="badge badge-gray">({{ it.customChoices?.length || 0 }} options)</span>
+                          } @else {
+                            <span class="badge badge-green">Statut OK/KO</span>
+                          }
+                        </div>
+                      </div>
+                      @if (it.help) {
+                        <p class="item-help">{{ it.help }}</p>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

@@ -49,6 +49,8 @@
             [answer]="answers()[item.id]"
             [evidenceCount]="evidenceCounts()[item.id] || 0"
             (statusChange)="statusChange.emit({ itemId: item.id, status: $event })"
+            (checkboxChange)="checkboxChange.emit({ itemId: item.id, checked: $event.checked, withTimestamp: $event.withTimestamp })"
+            (choiceChange)="choiceChange.emit({ itemId: item.id, choiceId: $event })"
             (commentChange)="commentChange.emit({ itemId: item.id, comment: $event })"
             (extraChange)="extraChange.emit({ itemId: item.id, key: $event.key, value: $event.value })"
             (openEvidence)="openEvidence.emit($event)">

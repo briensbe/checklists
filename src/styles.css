@@ -131,6 +131,16 @@
   --label-ko-color: var(--color-rose-700);
   --label-na-color: var(--color-slate-600);
   --label-default-color: var(--color-brand-700);
+
+  /* Variables d'interface génériques */
+  --primary: var(--color-brand-600);
+  --primary-hover: var(--color-brand-700);
+  --bg-main: var(--bg-app);
+  --card-bg: var(--bg-card);
+  --bg-hover: var(--color-slate-100);
+  --track-bg: var(--color-slate-200);
+  --badge-bg: var(--color-brand-50);
+  --badge-border: var(--color-brand-200);
 }
 
 /* Variables pour le Dark Mode */
@@ -219,6 +229,16 @@
   --label-ko-color: #fb7185;
   --label-na-color: #94a3b8;
   --label-default-color: #38bdf8;
+
+  /* Variables d'interface génériques en Dark Mode */
+  --primary: var(--color-brand-500);
+  --primary-hover: var(--color-brand-600);
+  --bg-main: var(--bg-app);
+  --card-bg: var(--bg-card);
+  --bg-hover: var(--color-slate-100);
+  --track-bg: var(--color-slate-200);
+  --badge-bg: var(--color-brand-50);
+  --badge-border: var(--color-brand-200);
 }
 
 *, *::before, *::after {
@@ -241,9 +261,14 @@ html, body {
 svg {
   display: block;
   flex-shrink: 0;
-  max-width: 100%;
-  max-height: 100%;
 }
+
+svg.w-3 { width: 0.75rem; height: 0.75rem; }
+svg.w-3\.5, svg.w-3-5, svg.w-3\.5 { width: 0.875rem; height: 0.875rem; }
+svg.w-4 { width: 1rem; height: 1rem; }
+svg.w-5 { width: 1.25rem; height: 1.25rem; }
+svg.w-6 { width: 1.5rem; height: 1.5rem; }
+svg.w-12 { width: 3rem; height: 3rem; }
 
 /* Scrollbar discrète */
 ::-webkit-scrollbar {

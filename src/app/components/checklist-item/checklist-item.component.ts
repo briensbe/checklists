@@ -1,9 +1,11 @@
 import { Component, input, output, signal, computed } from '@angular/core';
 import { ChecklistItemTemplate, ItemAnswer, ControlStatus } from '../../models/checklist.model';
+import { DatePipe } from '@angular/common';
 
 @Component({
   selector: 'app-checklist-item',
   standalone: true,
+  imports: [DatePipe],
   templateUrl: './checklist-item.component.html',
   styleUrl: './checklist-item.component.css'
 })
@@ -15,6 +17,8 @@ export class ChecklistItemComponent {
   readonly requireNaReason = computed<boolean>(() => !!this.item().requireNaReason);
 
   readonly statusChange = output<ControlStatus>();
+  readonly checkboxChange = output<{ checked: boolean; withTimestamp: boolean }>();
+  readonly choiceChange = output<string>();
   readonly commentChange = output<string>();
   readonly extraChange = output<{ key: string; value: string }>();
   readonly openEvidence = output<string>();
@@ -34,6 +38,15 @@ export class ChecklistItemComponent {
 
   toggleCommentBox(): void {
     this.manuallyOpenedComment.update(v => !v);
+  }
+
+  onCheckboxToggle(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const isChecked = target.checked;
+    this.checkboxChange.emit({
+      checked: isChecked,
+      withTimestamp: !!this.item().withTimestamp
+    });
   }
 
   onCommentChange(event: Event): void {

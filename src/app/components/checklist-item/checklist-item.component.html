@@ -1,15 +1,37 @@
 <div 
   class="item-row"
   [class.status-ko]="answer()?.status === 'KO'"
-  [class.status-ok]="answer()?.status === 'OK'"
+  [class.status-ok]="answer()?.status === 'OK' || answer()?.checked"
   [class.status-na]="answer()?.status === 'NA'">
   <div class="item-layout">
     <!-- Libellé, Aide et Champ complémentaire -->
     <div class="item-info">
       <div class="item-title-row">
-        <span class="item-label">{{ item().label }}</span>
+        @if (item().controlType === 'checkbox') {
+          <label class="item-checkbox-label">
+            <input 
+              type="checkbox" 
+              class="item-checkbox-input"
+              [checked]="!!answer()?.checked" 
+              (change)="onCheckboxToggle($event)" />
+            <span class="item-label" [class.item-checked]="answer()?.checked">{{ item().label }}</span>
+          </label>
+        } @else {
+          <span class="item-label">{{ item().label }}</span>
+        }
+
         @if (item().mode === 'patch') {
           <span class="badge-patch">Patch</span>
+        }
+
+        @if (item().controlType === 'checkbox' && item().withTimestamp && answer()?.checked && answer()?.checkedAt) {
+          <span class="timestamp-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>Coché le {{ answer()?.checkedAt | date:'dd/MM/yyyy à HH:mm:ss' }}</span>
+          </span>
         }
       </div>
 
@@ -29,43 +51,58 @@
       }
     </div>
 
-    <!-- Contrôles segmented buttons + Bouton Trombone (Preuves) + Note -->
+    <!-- Contrôles segmented buttons / choix / Trombone (Preuves) -->
     <div class="item-controls">
-      <!-- Bouton OK -->
-      <button 
-        type="button"
-        (click)="statusChange.emit('OK')"
-        [class.active-ok]="answer()?.status === 'OK'"
-        class="btn-status">
-        <span class="status-dot dot-ok"></span>
-        OK
-      </button>
+      @if (item().controlType === 'choice') {
+        <!-- Boutons de choix dynamiques -->
+        <div class="choice-buttons-group">
+          @for (c of item().customChoices; track c.id) {
+            <button
+              type="button"
+              class="btn-choice"
+              [class.active]="answer()?.selectedChoice === c.id"
+              [class.blocking]="c.isBlocking"
+              (click)="choiceChange.emit(c.id)">
+              <span class="choice-dot" [style.background-color]="c.color || '#3b82f6'"></span>
+              {{ c.label }}
+            </button>
+          }
+        </div>
+      } @else if (item().controlType !== 'checkbox') {
+        <!-- Mode Statut classique OK / KO / NA -->
+        <button 
+          type="button"
+          (click)="statusChange.emit('OK')"
+          [class.active-ok]="answer()?.status === 'OK'"
+          class="btn-status">
+          <span class="status-dot dot-ok"></span>
+          OK
+        </button>
 
-      <!-- Bouton KO -->
-      <button 
-        type="button"
-        (click)="statusChange.emit('KO')"
-        [class.active-ko]="answer()?.status === 'KO'"
-        class="btn-status">
-        <span class="status-dot dot-ko"></span>
-        KO
-      </button>
+        <button 
+          type="button"
+          (click)="statusChange.emit('KO')"
+          [class.active-ko]="answer()?.status === 'KO'"
+          class="btn-status">
+          <span class="status-dot dot-ko"></span>
+          KO
+        </button>
 
-      <!-- Bouton NA -->
-      <button 
-        type="button"
-        (click)="statusChange.emit('NA')"
-        [class.active-na]="answer()?.status === 'NA'"
-        class="btn-status">
-        <span class="status-dot dot-na"></span>
-        N/A
-      </button>
+        <button 
+          type="button"
+          (click)="statusChange.emit('NA')"
+          [class.active-na]="answer()?.status === 'NA'"
+          class="btn-status">
+          <span class="status-dot dot-na"></span>
+          N/A
+        </button>
+      }
 
-      <!-- Bouton Trombone Universel (Preuves) -->
+      <!-- Bouton Preuves -->
       <button 
         type="button"
         (click)="openEvidence.emit(item().id)"
-        title="Ajouter ou consulter des preuves (Ctrl+V, images, fichiers)"
+        title="Ajouter ou consulter des preuves"
         [class.has-content]="evidenceCount() > 0"
         class="btn-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -78,7 +115,7 @@
         }
       </button>
 
-      <!-- Bouton Commentaire / Observation -->
+      <!-- Bouton Commentaire -->
       <button 
         type="button"
         (click)="toggleCommentBox()"

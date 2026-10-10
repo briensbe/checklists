@@ -48,6 +48,7 @@ describe('ExportService', () => {
     // Mock session answers
     sessionService.currentSession.set({
       id: 'current',
+      title: 'Audit Test Qualité',
       templateId: 'test-template',
       contextValues: { version: '2026.4.0' },
       answers: {

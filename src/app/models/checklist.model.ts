@@ -18,10 +18,22 @@ export interface ExtraFieldSchema {
   placeholder?: string;
 }
 
+export type ItemControlType = 'status' | 'checkbox' | 'choice';
+
+export interface CustomChoiceOption {
+  id: string;
+  label: string;
+  color?: string; // CSS color or badge tone (ex: green, red, amber, blue, slate)
+  isBlocking?: boolean;
+}
+
 export interface ChecklistItemTemplate {
   id: string;
   label: string;
   help?: string;
+  controlType?: ItemControlType; // Par défaut 'status' si non spécifié
+  withTimestamp?: boolean; // Pour type 'checkbox': active l'horodatage automatique au clic
+  customChoices?: CustomChoiceOption[]; // Pour type 'choice'
   mode?: 'all' | 'patch'; // Applicable context condition
   extraField?: ExtraFieldSchema;
   requireNaReason?: boolean; // Option de template : exige un motif obligatoire si N/A
@@ -45,12 +57,16 @@ export interface ChecklistTemplate {
 
 export interface ItemAnswer {
   status: ControlStatus | null;
+  checked?: boolean;
+  checkedAt?: string; // ISO date-time
+  selectedChoice?: string; // Option id or label
   comment: string;
   extra?: Record<string, string>;
 }
 
 export interface ChecklistSession {
-  id: string; // Session ID (ex: 'current' or uuid)
+  id: string; // UUID
+  title: string; // Nom explicite de la session/audit
   templateId: string;
   contextValues: Record<string, string>;
   answers: Record<string, ItemAnswer>;

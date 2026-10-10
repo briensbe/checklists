@@ -21,6 +21,8 @@ export class ExportService {
     const applicableItems = this.sessionService.applicableItems();
     const evidenceCounts = this.evidenceService.evidenceCounts();
 
+    if (!session) return '{}';
+
     const details = applicableItems.map(item => {
       const ans = session.answers[item.id] || { status: null, comment: '', extra: {} };
       return {
@@ -29,7 +31,11 @@ export class ExportService {
         itemId: item.id,
         label: item.label,
         help: item.help || '',
+        controlType: item.controlType || 'status',
         status: ans.status || null,
+        checked: ans.checked || false,
+        checkedAt: ans.checkedAt || null,
+        selectedChoice: ans.selectedChoice || null,
         comment: ans.comment || '',
         extra: ans.extra || {},
         evidenceCount: evidenceCounts[item.id] || 0
@@ -40,9 +46,7 @@ export class ExportService {
     for (const item of applicableItems) {
       const ans = session.answers[item.id] || { status: null, comment: '', extra: {} };
       enrichedAnswers[item.id] = {
-        status: ans.status || null,
-        comment: ans.comment || '',
-        extra: ans.extra || {},
+        ...ans,
         label: item.label,
         sectionTitle: item.sectionTitle,
         evidenceCount: evidenceCounts[item.id] || 0
@@ -57,6 +61,7 @@ export class ExportService {
 
     const exportData = {
       id: session.id,
+      title: session.title,
       templateId: session.templateId,
       templateName: template?.name || session.templateId,
       contextValues: session.contextValues,
@@ -80,9 +85,10 @@ export class ExportService {
 
   getJsonFilename(): string {
     const session = this.sessionService.currentSession();
-    const version = session.contextValues['version'] || 'brouillon';
-    const date = session.contextValues['date'] || new Date().toISOString().split('T')[0];
-    return `audit_livraison_${version}_${date}.json`;
+    if (!session) return 'checklist.json';
+    const cleanTitle = (session.title || 'checklist').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    const date = new Date().toISOString().split('T')[0];
+    return `${cleanTitle}_${date}.json`;
   }
 
   exportJson(): void {
@@ -102,17 +108,19 @@ export class ExportService {
 
   exportExcel(): void {
     const session = this.sessionService.currentSession();
+    if (!session) return;
+
     const metrics = this.sessionService.metrics();
     const applicableItems = this.sessionService.applicableItems();
 
     const rows: (string | number)[][] = [];
 
     // Header & Métadonnées
-    rows.push(['RAPPORT DE CONTRÔLE PERMANENT DE LIVRAISON', '', '', '']);
+    rows.push([session.title.toUpperCase(), '', '', '']);
     rows.push(['Version :', session.contextValues['version'] || 'N/A', 'Date :', session.contextValues['date'] || 'N/A']);
     rows.push([
       'Type de livraison :',
-      session.contextValues['mode'] === 'patch' ? 'Patch' : 'Livraison complète',
+      session.contextValues['mode'] === 'patch' ? 'Patch' : 'Complet',
       'Responsable :',
       session.contextValues['responsible'] || 'N/A'
     ]);
@@ -120,12 +128,12 @@ export class ExportService {
       'Taux de complétude :',
       `${metrics.percent}%`,
       'Synthèse :',
-      `${metrics.okCount} OK, ${metrics.koCount} KO, ${metrics.naCount} N/A`
+      `${metrics.answered} / ${metrics.total} complété(s)`
     ]);
     rows.push([]);
 
     // En-tête du tableau
-    rows.push(['Catégorie', "Contrôle / Règle d'audit", 'Statut', 'Commentaire / Justification / Observations']);
+    rows.push(['Catégorie', 'Tâche / Contrôle', 'État / Statut', 'Commentaire / Observations']);
 
     // Données des points de contrôle
     for (const item of applicableItems) {
@@ -138,31 +146,43 @@ export class ExportService {
         commentText += (commentText ? ' | ' : '') + extras;
       }
 
+      let stateText = 'À TRAITER';
+      const type = item.controlType || 'status';
+      if (type === 'checkbox') {
+        stateText = ans.checked ? (ans.checkedAt ? `FAIT (${ans.checkedAt})` : 'FAIT') : 'NON FAIT';
+      } else if (type === 'choice') {
+        stateText = ans.selectedChoice || 'NON SÉLECTIONNÉ';
+      } else {
+        stateText = ans.status || 'À TRAITER';
+      }
+
       rows.push([
         item.sectionTitle,
         item.label,
-        ans.status || 'À TRAITER',
+        stateText,
         commentText
       ]);
     }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [
-      { wch: 28 }, // Catégorie
-      { wch: 55 }, // Contrôle
-      { wch: 14 }, // Statut
-      { wch: 50 }  // Commentaires
+      { wch: 28 },
+      { wch: 55 },
+      { wch: 20 },
+      { wch: 50 }
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Contrôle Livraison');
+    XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
 
-    const fileName = `Checklist-${session.contextValues['version'] || 'Release'}.xlsx`;
+    const fileName = `${(session.title || 'Checklist').replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
     XLSX.writeFile(wb, fileName);
   }
 
   exportPdf(): void {
     const session = this.sessionService.currentSession();
+    if (!session) return;
+
     const metrics = this.sessionService.metrics();
     const applicableItems = this.sessionService.applicableItems();
 
@@ -179,16 +199,16 @@ export class ExportService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
-    doc.text("RAPPORT D'AUDIT DE LIVRAISON LOGICIELLE", 14, 12);
+    doc.text(session.title.toUpperCase(), 14, 12);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text("Contrôle Permanent & Traçabilité de Déploiement", 14, 18);
+    doc.text("Rapport d'exécution de checklist", 14, 18);
 
     // Bloc Métadonnées
     doc.setTextColor(30, 41, 59);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('Paramètres de la mise en production :', 14, 32);
+    doc.text('Paramètres & Synthèse :', 14, 32);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
@@ -196,13 +216,13 @@ export class ExportService {
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(14, 35, 182, 22, 2, 2, 'F');
 
-    doc.text(`Version : ${session.contextValues['version'] || 'Non spécifiée'}`, 18, 41);
-    doc.text(`Type : ${session.contextValues['mode'] === 'patch' ? 'Patch' : 'Livraison complète'}`, 18, 47);
+    doc.text(`Titre : ${session.title}`, 18, 41);
+    doc.text(`Version : ${session.contextValues['version'] || 'N/A'}`, 18, 47);
     doc.text(`Responsable : ${session.contextValues['responsible'] || 'Non renseigné'}`, 18, 53);
 
-    doc.text(`Date de contrôle : ${session.contextValues['date'] || 'N/A'}`, 110, 41);
+    doc.text(`Date : ${session.contextValues['date'] || new Date().toLocaleDateString('fr-FR')}`, 110, 41);
     doc.text(`Progression : ${metrics.percent}% (${metrics.answered}/${metrics.total})`, 110, 47);
-    doc.text(`Synthèse : ${metrics.okCount} OK  |  ${metrics.koCount} KO  |  ${metrics.naCount} N/A`, 110, 53);
+    doc.text(`Complétés : ${metrics.okCount}  |  En attente : ${metrics.pending}`, 110, 53);
 
     // Données pour le tableau
     const tableData: (string | number)[][] = [];
@@ -216,17 +236,27 @@ export class ExportService {
         commentText += (commentText ? '\n' : '') + extras;
       }
 
+      let stateText = '-';
+      const type = item.controlType || 'status';
+      if (type === 'checkbox') {
+        stateText = ans.checked ? 'FAIT' : 'NON FAIT';
+      } else if (type === 'choice') {
+        stateText = ans.selectedChoice || '-';
+      } else {
+        stateText = ans.status || 'À TRAITER';
+      }
+
       tableData.push([
         item.sectionTitle,
         item.label,
-        ans.status || 'À TRAITER',
+        stateText,
         commentText || '-'
       ]);
     }
 
     autoTable(doc, {
       startY: 62,
-      head: [['Section', 'Point de contrôle', 'Statut', 'Observations / Justification']],
+      head: [['Section', 'Tâche / Contrôle', 'État', 'Observations / Justification']],
       body: tableData,
       theme: 'striped',
       styles: {
@@ -242,24 +272,8 @@ export class ExportService {
       columnStyles: {
         0: { cellWidth: 35 },
         1: { cellWidth: 70 },
-        2: { cellWidth: 22, halign: 'center' },
-        3: { cellWidth: 55 }
-      },
-      didParseCell: (data) => {
-        if (data.column.index === 2 && data.section === 'body') {
-          const val = data.cell.raw;
-          if (val === 'OK') {
-            data.cell.styles.textColor = [16, 149, 106];
-            data.cell.styles.fontStyle = 'bold';
-          } else if (val === 'KO') {
-            data.cell.styles.textColor = [225, 29, 72];
-            data.cell.styles.fontStyle = 'bold';
-          } else if (val === 'NA') {
-            data.cell.styles.textColor = [100, 116, 139];
-          } else {
-            data.cell.styles.textColor = [217, 119, 6];
-          }
-        }
+        2: { cellWidth: 26, halign: 'center' },
+        3: { cellWidth: 51 }
       },
       margin: { top: 15, left: 14, right: 14, bottom: 20 },
       didDrawPage: () => {
@@ -267,11 +281,11 @@ export class ExportService {
         doc.setFontSize(8);
         doc.setTextColor(148, 163, 184);
         doc.text(`Page ${pageCount}`, 196, 290, { align: 'right' });
-        doc.text(`Document généré le ${new Date().toLocaleDateString('fr-FR')} - Piste d'audit`, 14, 290);
+        doc.text(`Document généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, 290);
       }
     });
 
-    const fileName = `Audit_Livraison_${session.contextValues['version'] || 'Version'}.pdf`;
+    const fileName = `${(session.title || 'Checklist').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
     doc.save(fileName);
   }
 }

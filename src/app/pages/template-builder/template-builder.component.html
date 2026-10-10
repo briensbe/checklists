@@ -1,0 +1,210 @@
+<div class="builder-page">
+  <div class="page-header">
+    <div>
+      <div class="breadcrumb">
+        <a routerLink="/templates">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+            <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
+          </svg>
+          Retour aux modèles
+        </a>
+      </div>
+      <h1 class="page-title">{{ isEditing() ? 'Modifier le modèle' : 'Nouveau modèle de checklist' }}</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" (click)="previewMode.set(!previewMode())">
+        @if (previewMode()) {
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+            <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
+            <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
+          </svg>
+          Mode Édition
+        } @else {
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+            <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+            <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+          </svg>
+          Aperçu
+        }
+      </button>
+      <button class="btn btn-primary" (click)="save()">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
+          <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+        </svg>
+        Enregistrer le modèle
+      </button>
+    </div>
+  </div>
+
+  @if (previewMode()) {
+    <!-- Mode Aperçu -->
+    <div class="preview-box">
+      <h2>{{ template().name }} (v{{ template().version }})</h2>
+      <p class="preview-desc">{{ template().description }}</p>
+      
+      <div class="preview-sections">
+        @for (sec of template().sections; track sec.id) {
+          <div class="preview-section">
+            <h3>{{ sec.title }}</h3>
+            @for (it of sec.items; track it.id) {
+              <div class="preview-item">
+                <span class="preview-item-label">{{ it.label }}</span>
+                <div class="preview-item-control">
+                  @if (it.controlType === 'checkbox') {
+                    <label class="preview-checkbox">
+                      <input type="checkbox" disabled />
+                      <span>À cocher {{ it.withTimestamp ? '(avec horodatage)' : '' }}</span>
+                    </label>
+                  } @else if (it.controlType === 'choice') {
+                    <div class="preview-choices">
+                      @for (c of it.customChoices; track c.id) {
+                        <button class="btn-choice-preview" [style.border-color]="c.color">{{ c.label }}</button>
+                      }
+                    </div>
+                  } @else {
+                    <div class="preview-status-buttons">
+                      <button class="btn-status-preview ok">OK</button>
+                      <button class="btn-status-preview ko">KO</button>
+                      <button class="btn-status-preview na">N/A</button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  } @else {
+    <!-- Formulaire d'édition du template -->
+    <div class="builder-layout">
+      <!-- Métadonnées principales -->
+      <div class="card meta-card">
+        <h3 class="card-title">Informations Générales</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du modèle *</label>
+            <input type="text" class="form-input" [(ngModel)]="template().name" placeholder="Ex: Déploiement Vendredi Soir" />
+          </div>
+          <div class="form-group">
+            <label>Version</label>
+            <input type="text" class="form-input" [(ngModel)]="template().version" placeholder="1.0.0" />
+          </div>
+          <div class="form-group full-width">
+            <label>Description</label>
+            <textarea class="form-textarea" rows="2" [(ngModel)]="template().description" placeholder="À quoi sert cette checklist..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sections & Items -->
+      <div class="sections-builder">
+        @for (sec of template().sections; track sec.id; let sIdx = $index) {
+          <div class="card section-card">
+            <div class="section-card-header">
+              <div class="section-title-inputs">
+                <input type="text" class="icon-input" [(ngModel)]="sec.icon" placeholder="Titre abrégé" title="Identifiant court ou tag" />
+                <input type="text" class="section-title-input" [(ngModel)]="sec.title" placeholder="Titre de la section" />
+              </div>
+
+              <div class="section-actions">
+                <button class="btn-icon" (click)="moveSection(sIdx, 'up')" [disabled]="sIdx === 0" title="Monter cette section">
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                    <path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <button class="btn-icon" (click)="moveSection(sIdx, 'down')" [disabled]="sIdx === template().sections.length - 1" title="Descendre cette section">
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                    <path fill-rule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <button class="btn-icon btn-danger" (click)="removeSection(sIdx)" title="Supprimer la section">
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Liste des items de la section -->
+            <div class="items-list">
+              @for (it of sec.items; track it.id; let itIdx = $index) {
+                <div class="item-builder-row">
+                  <div class="item-main-inputs">
+                    <input type="text" class="form-input item-label-input" [(ngModel)]="it.label" placeholder="Libellé de la tâche / contrôle" />
+                    
+                    <select class="form-select control-type-select" [ngModel]="it.controlType || 'status'" (ngModelChange)="onControlTypeChange(it, $event)">
+                      <option value="checkbox">Case à cocher</option>
+                      <option value="choice">Choix personnalisé</option>
+                      <option value="status">Statut (OK/KO/NA)</option>
+                    </select>
+
+                    <button class="btn-icon btn-danger" (click)="removeItem(sec, itIdx)" title="Supprimer l'item">
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- Options spécifiques selon le type -->
+                  <div class="item-extra-options">
+                    <input type="text" class="form-input item-help-input" [(ngModel)]="it.help" placeholder="Aide ou consigne optionnelle..." />
+
+                    @if (it.controlType === 'checkbox') {
+                      <label class="checkbox-option-toggle">
+                        <input type="checkbox" [(ngModel)]="it.withTimestamp" />
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                        <span>Activer l'horodatage automatique au clic</span>
+                      </label>
+                    }
+
+                    @if (it.controlType === 'choice') {
+                      <div class="custom-choices-editor">
+                        <span class="choices-title">Options de choix configurables :</span>
+                        @for (opt of it.customChoices; track opt.id; let optIdx = $index) {
+                          <div class="choice-option-pill">
+                            <input type="text" class="choice-label-input" [(ngModel)]="opt.label" placeholder="Nom du choix (ex: Jaune)" />
+                            <select class="choice-color-select" [(ngModel)]="opt.color">
+                              <option value="blue">Bleu</option>
+                              <option value="green">Vert</option>
+                              <option value="yellow">Jaune</option>
+                              <option value="red">Rouge</option>
+                              <option value="slate">Gris</option>
+                              <option value="purple">Violet</option>
+                            </select>
+                            <label class="choice-blocking" title="Compte comme non conforme si sélectionné">
+                              <input type="checkbox" [(ngModel)]="opt.isBlocking" />
+                              <span>Bloquant</span>
+                            </label>
+                            <button class="btn-remove-choice" (click)="removeChoiceOption(it, optIdx)">
+                              <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                              </svg>
+                            </button>
+                          </div>
+                        }
+                        <button class="btn-add-choice" (click)="addChoiceOption(it)">+ Ajouter une option de choix</button>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
+              <button class="btn btn-outline btn-add-item" (click)="addItem(sec)">
+                + Ajouter une tâche / item à cette section
+              </button>
+            </div>
+          </div>
+        }
+
+        <button class="btn btn-secondary btn-add-section" (click)="addSection()">
+          + Ajouter une nouvelle section
+        </button>
+      </div>
+    </div>
+  }
+</div>
