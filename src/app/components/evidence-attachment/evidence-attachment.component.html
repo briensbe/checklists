@@ -1,0 +1,120 @@
+<div class="modal-backdrop">
+  <div class="modal-dialog">
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Preuves & Pièces Jointes</h3>
+          <p class="modal-subtitle">Contrôle : {{ itemLabel() }}</p>
+        </div>
+      </div>
+
+      <button 
+        type="button"
+        (click)="close.emit()"
+        class="btn-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body">
+      <!-- Zone d'action : Glisser-déposer / Ctrl+V / Sélection -->
+      <div 
+        (paste)="onPaste($event)"
+        (drop)="onDrop($event)"
+        (dragover)="onDragOver($event)"
+        tabindex="0"
+        class="dropzone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dropzone-icon">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <p class="dropzone-title">
+          Collez ici une capture d'écran (<kbd class="kbd-shortcut">Ctrl+V</kbd>) ou glissez un fichier
+        </p>
+        <p class="dropzone-help">PNG, JPG, PDF, TXT ou LOG jusqu'à 50 Mo</p>
+
+        <label class="btn-browse">
+          Parcourir un fichier...
+          <input type="file" (change)="onFileSelected($event)" class="file-input-hidden">
+        </label>
+      </div>
+
+      <!-- Liste des preuves attachées -->
+      <div>
+        <h4 class="evidence-list-title">
+          Pièces jointes enregistrées ({{ evidences().length }})
+        </h4>
+
+        @if (evidences().length === 0) {
+          <p class="empty-evidence">Aucune preuve attachée pour ce contrôle.</p>
+        } @else {
+          <div class="evidence-items-stack">
+            @for (ev of evidences(); track ev.id) {
+              <div class="evidence-card">
+                <div class="evidence-left">
+                  @if (ev.type === 'image') {
+                    <div class="evidence-thumb">
+                      <img [src]="getBlobUrl(ev)" [alt]="ev.name">
+                    </div>
+                  } @else {
+                    <div class="evidence-icon-doc">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                  }
+
+                  <div class="evidence-details">
+                    <p class="evidence-name">{{ ev.name }}</p>
+                    <p class="evidence-meta">
+                      {{ formatSize(ev.size) }} • {{ ev.createdAt | date:'short' }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="evidence-actions">
+                  <a 
+                    [href]="getBlobUrl(ev)"
+                    [download]="ev.name"
+                    title="Télécharger la preuve"
+                    class="btn-evidence-action">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </a>
+                  <button 
+                    type="button"
+                    (click)="deleteEvidence.emit(ev.id)"
+                    title="Supprimer la preuve"
+                    class="btn-evidence-action btn-evidence-delete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <button 
+        type="button"
+        (click)="close.emit()"
+        class="btn-modal-close">
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>

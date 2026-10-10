@@ -1,0 +1,124 @@
+/* CHECKLIST SECTION COMPONENT (CSS STANDARD) */
+
+.section-card {
+  background-color: #ffffff;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--color-slate-200);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  transition: all 0.15s ease-in-out;
+}
+
+.section-header {
+  padding: 1rem;
+  background-color: rgba(248, 250, 252, 0.7);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease-in-out;
+}
+
+@media (min-width: 640px) {
+  .section-header {
+    padding: 1rem 1.5rem;
+  }
+}
+
+.section-header:hover {
+  background-color: rgba(241, 245, 249, 0.7);
+}
+
+.section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-icon-box {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background-color: #ffffff;
+  border: 1px solid var(--color-slate-200);
+  color: var(--color-brand-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-xs);
+}
+
+.section-icon-box svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-slate-800);
+}
+
+@media (min-width: 640px) {
+  .section-title {
+    font-size: 1rem;
+  }
+}
+
+.section-counter {
+  font-size: 0.75rem;
+  color: var(--color-slate-500);
+}
+
+.section-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-status-pill {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.section-status-pill.is-complete {
+  background-color: var(--color-emerald-100);
+  color: var(--color-emerald-800);
+}
+
+.section-status-pill.is-pending {
+  background-color: var(--color-slate-200);
+  color: var(--color-slate-700);
+}
+
+.chevron-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-slate-400);
+  transform: rotate(0deg);
+  transition: transform 0.2s ease-in-out;
+}
+
+.chevron-icon.is-expanded {
+  transform: rotate(180deg);
+}
+
+.section-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-body > *:not(:last-child) {
+  border-bottom: 1px solid var(--color-slate-100);
+}
+
+.empty-section-message {
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-slate-400);
+}

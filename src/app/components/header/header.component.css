@@ -1,0 +1,214 @@
+/* HEADER COMPONENT (CSS STANDARD) */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-slate-200);
+  box-shadow: var(--shadow-xs);
+}
+
+.header-container {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .header-container {
+    padding: 0 1.5rem;
+  }
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-icon-box {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--color-brand-800), var(--color-brand-600));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(7, 89, 133, 0.25);
+}
+
+.brand-icon-box svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.brand-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+  line-height: 1.25;
+}
+
+.brand-subtitle {
+  font-size: 0.75rem;
+  color: var(--color-slate-500);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .header-actions {
+    gap: 0.75rem;
+  }
+}
+
+.template-selector {
+  display: none;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+@media (min-width: 1024px) {
+  .template-selector {
+    display: flex;
+  }
+}
+
+.selector-label {
+  font-size: 0.75rem;
+  color: var(--color-slate-500);
+  font-weight: 500;
+}
+
+.template-select {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-md);
+  padding: 0.375rem 0.625rem;
+  color: var(--color-slate-700);
+  outline: none;
+}
+
+.template-select:focus {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 2px var(--color-brand-100);
+}
+
+.save-badge {
+  display: none;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+@media (min-width: 640px) {
+  .save-badge {
+    display: inline-flex;
+  }
+}
+
+.save-badge.saved {
+  background-color: var(--color-emerald-50);
+  color: var(--color-emerald-700);
+  border-color: var(--color-emerald-200);
+}
+
+.save-badge.saving {
+  display: inline-flex;
+  background-color: var(--color-amber-50);
+  color: var(--color-amber-700);
+  border-color: var(--color-amber-200);
+}
+
+.badge-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+.badge-dot.saved {
+  background-color: var(--color-emerald-500);
+}
+
+.badge-dot.saving {
+  background-color: var(--color-amber-500);
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-slate-700);
+  background-color: var(--color-slate-100);
+  border: 1px solid var(--color-slate-300);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-action:hover {
+  background-color: var(--color-slate-200);
+}
+
+.btn-action svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--color-slate-500);
+}
+
+.btn-reset {
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-rose-700);
+  background-color: transparent;
+  border: 1px solid var(--color-rose-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-reset:hover {
+  background-color: var(--color-rose-50);
+}
+
+.hidden-mobile {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .hidden-mobile {
+    display: inline;
+  }
+}
+
+.file-input-hidden {
+  display: none;
+}

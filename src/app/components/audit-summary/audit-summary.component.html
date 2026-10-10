@@ -1,0 +1,139 @@
+<section class="summary-card">
+  <!-- En-tête de la section contexte -->
+  <div class="summary-header">
+    <div>
+      <span class="pill-badge">CONTRÔLE QUALITÉ & AUDIT</span>
+      <h2 class="summary-title">Paramètres de la session</h2>
+      <p class="summary-subtitle">Renseignez le contexte opérationnel avant de valider la conformité des contrôles.</p>
+    </div>
+
+    <!-- Actions d'export -->
+    <div class="export-actions">
+      <button 
+        type="button"
+        (click)="exportExcel.emit()"
+        class="btn-export btn-excel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export Excel (.xlsx)
+      </button>
+
+      <button 
+        type="button"
+        (click)="exportPdf.emit()"
+        class="btn-export btn-pdf">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+        Export Audit PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Champs dynamiques du schéma de contexte -->
+  <div class="context-grid">
+    @for (field of template()?.contextSchema; track field.id) {
+      <div>
+        <label [for]="'ctx_' + field.id" class="field-label">
+          {{ field.label }} {{ field.required ? '*' : '' }}
+        </label>
+
+        @if (field.type === 'select') {
+          <select 
+            [id]="'ctx_' + field.id"
+            [value]="contextValues()[field.id] || field.defaultValue || ''"
+            (change)="onContextChange(field.id, $event)"
+            class="field-select">
+            @for (opt of field.options; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        } @else if (field.type === 'date') {
+          <input 
+            type="date"
+            [id]="'ctx_' + field.id"
+            [value]="contextValues()[field.id] || ''"
+            (input)="onContextChange(field.id, $event)"
+            class="field-input">
+        } @else {
+          <input 
+            type="text"
+            [id]="'ctx_' + field.id"
+            [value]="contextValues()[field.id] || ''"
+            [placeholder]="field.placeholder || ''"
+            (input)="onContextChange(field.id, $event)"
+            class="field-input">
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Barre de progression et métriques réactives -->
+  <div class="progress-section">
+    <div class="progress-container">
+      <div class="progress-info">
+        <span>
+          Progression de la revue
+          <span class="progress-percent">{{ metrics().percent }}%</span>
+        </span>
+        <span>{{ metrics().answered }} / {{ metrics().total }} points renseignés</span>
+      </div>
+      <div class="progress-bar-track">
+        <div 
+          class="progress-bar-fill"
+          [style.width.%]="metrics().percent">
+        </div>
+      </div>
+    </div>
+
+    <!-- Chips et action de groupe -->
+    <div class="chips-container">
+      <span class="chip chip-ok">{{ metrics().okCount }} OK</span>
+      <span class="chip chip-ko">{{ metrics().koCount }} KO</span>
+      <span class="chip chip-na">{{ metrics().naCount }} N/A</span>
+      <span class="chip chip-pending">{{ metrics().pending }} Restants</span>
+
+      <button 
+        type="button"
+        (click)="markAllOk.emit()"
+        class="btn-batch-ok">
+        ✓ Passer le reste à OK
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Barre des filtres et navigation -->
+<div class="filters-toolbar">
+  <div class="filters-group">
+    <span class="filter-label">Afficher :</span>
+    <button 
+      type="button"
+      (click)="filterChange.emit('all')"
+      [class.active]="filter() === 'all'"
+      class="btn-filter">
+      Tous ({{ metrics().total }})
+    </button>
+    <button 
+      type="button"
+      (click)="filterChange.emit('pending')"
+      [class.active]="filter() === 'pending'"
+      class="btn-filter">
+      À traiter ({{ metrics().pending }})
+    </button>
+    <button 
+      type="button"
+      (click)="filterChange.emit('ko')"
+      [class.active]="filter() === 'ko'"
+      class="btn-filter">
+      KO uniquement ({{ metrics().koCount }})
+    </button>
+  </div>
+
+  <div class="toggle-group">
+    <button type="button" (click)="collapseAll.emit(false)" class="btn-link">Tout déplier</button>
+    <span>•</span>
+    <button type="button" (click)="collapseAll.emit(true)" class="btn-link">Tout replier</button>
+  </div>
+</div>
