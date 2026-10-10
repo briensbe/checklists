@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { HeaderComponent } from './components/header/header.component';
 import { AuditSummaryComponent } from './components/audit-summary/audit-summary.component';
 import { ChecklistSectionComponent } from './components/checklist-section/checklist-section.component';

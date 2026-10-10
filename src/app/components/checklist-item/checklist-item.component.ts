@@ -1,4 +1,4 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, computed } from '@angular/core';
 import { ChecklistItemTemplate, ItemAnswer, ControlStatus } from '../../models/checklist.model';
 
 @Component({
@@ -12,6 +12,8 @@ export class ChecklistItemComponent {
   readonly answer = input<ItemAnswer | undefined>();
   readonly evidenceCount = input<number>(0);
 
+  readonly requireNaReason = computed<boolean>(() => !!this.item().requireNaReason);
+
   readonly statusChange = output<ControlStatus>();
   readonly commentChange = output<string>();
   readonly extraChange = output<{ key: string; value: string }>();
@@ -22,8 +24,10 @@ export class ChecklistItemComponent {
   isCommentBoxVisible(): boolean {
     const ans = this.answer();
     if (this.manuallyOpenedComment()) return true;
-    if (ans && (ans.status === 'KO' || ans.status === 'NA' || !!ans.comment)) {
-      return true;
+    if (ans) {
+      if (ans.status === 'KO') return true;
+      if (ans.status === 'NA' && this.requireNaReason()) return true;
+      if (!!ans.comment) return true;
     }
     return false;
   }

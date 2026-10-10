@@ -104,7 +104,11 @@
           @if (answer()?.status === 'KO') {
             Justification requise (KO) :
           } @else if (answer()?.status === 'NA') {
-            Motif N/A :
+            @if (requireNaReason()) {
+              Justification requise (N/A) :
+            } @else {
+              Motif N/A (optionnel) :
+            }
           } @else {
             Observation :
           }
@@ -112,9 +116,9 @@
         <input 
           type="text"
           [value]="answer()?.comment || ''"
-          [placeholder]="answer()?.status === 'KO' ? 'Expliquer la cause du blocage ou la dérogation accordée...' : 'Préciser une note de preuve ou d\'audit...'"
+          [placeholder]="answer()?.status === 'KO' ? 'Expliquer la cause du blocage ou la dérogation accordée...' : (answer()?.status === 'NA' && requireNaReason() ? 'Préciser le motif obligatoire de non-applicabilité...' : 'Préciser une note ou une observation...')"
           (input)="onCommentChange($event)"
-          [class.error-required]="answer()?.status === 'KO' && !answer()?.comment"
+          [class.error-required]="(answer()?.status === 'KO' && !answer()?.comment) || (answer()?.status === 'NA' && requireNaReason() && !answer()?.comment)"
           class="comment-input">
       </div>
     </div>

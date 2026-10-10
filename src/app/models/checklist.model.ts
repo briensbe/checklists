@@ -24,6 +24,7 @@ export interface ChecklistItemTemplate {
   help?: string;
   mode?: 'all' | 'patch'; // Applicable context condition
   extraField?: ExtraFieldSchema;
+  requireNaReason?: boolean; // Option de template : exige un motif obligatoire si N/A
 }
 
 export interface ChecklistSectionTemplate {
