@@ -31,10 +31,20 @@ export class ThemeService {
     const theme = isDark ? 'dark' : 'light';
     localStorage.setItem(this.THEME_STORAGE_KEY, theme);
 
+    const doc = document.documentElement;
+    doc.classList.add('no-theme-transition');
+
     if (isDark) {
-      document.documentElement.setAttribute('data-theme', 'dark');
+      doc.setAttribute('data-theme', 'dark');
     } else {
-      document.documentElement.removeAttribute('data-theme');
+      doc.removeAttribute('data-theme');
     }
+
+    // Force le recalcul immédiat sans transition
+    window.getComputedStyle(doc).opacity;
+
+    requestAnimationFrame(() => {
+      doc.classList.remove('no-theme-transition');
+    });
   }
 }
