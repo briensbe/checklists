@@ -1,0 +1,267 @@
+{
+  "id": "delivery-audit-standard",
+  "name": "Audit & Contrôle Permanent de Livraison",
+  "description": "Validation & Piste d'audit de mise en production",
+  "version": "1.0.0",
+  "contextSchema": [
+    {
+      "id": "version",
+      "label": "Numéro de livraison",
+      "type": "text",
+      "required": true,
+      "defaultValue": "2026.4.0",
+      "placeholder": "ex: 2026.4.0"
+    },
+    {
+      "id": "mode",
+      "label": "Type de livraison",
+      "type": "select",
+      "required": true,
+      "defaultValue": "full",
+      "options": [
+        { "label": "Livraison complète", "value": "full" },
+        { "label": "Patch", "value": "patch" }
+      ]
+    },
+    {
+      "id": "responsible",
+      "label": "Responsable de livraison",
+      "type": "text",
+      "required": true,
+      "placeholder": "Prénom NOM"
+    },
+    {
+      "id": "date",
+      "label": "Date du contrôle",
+      "type": "date",
+      "required": true
+    }
+  ],
+  "sections": [
+    {
+      "id": "jiras",
+      "title": "JIRAs & Gestion des Tickets",
+      "icon": "ticket",
+      "items": [
+        {
+          "id": "jira_status",
+          "label": "Status des JIRAs à 'fixed' ou 'to validate'",
+          "help": "Tous les tickets embarqués dans la livraison doivent être validés ou fixés.",
+          "mode": "all"
+        },
+        {
+          "id": "jira_test_notes",
+          "label": "Vérification Test Note pour les tickets à 'to validate'",
+          "help": "Chaque ticket en attente de validation doit comporter une note de test explicite.",
+          "mode": "all"
+        },
+        {
+          "id": "jira_config_notes",
+          "label": "Vérification Configuration Note (patch seulement)",
+          "help": "Présence des notes de paramétrage nécessaires pour le déploiement du patch.",
+          "mode": "patch"
+        },
+        {
+          "id": "jira_warnings",
+          "label": "Vérification Warning (patch seulement)",
+          "help": "Vérifier l'absence d'effets de bord ou avertissements bloquants sur le patch.",
+          "mode": "patch"
+        }
+      ]
+    },
+    {
+      "id": "castor",
+      "title": "Castor (Composants)",
+      "icon": "cube",
+      "items": [
+        {
+          "id": "castor_release",
+          "label": "Passage des castor en version release (uniquement si changement)",
+          "help": "S'assurer qu'aucune version snapshot ne subsiste si un composant castor est modifié.",
+          "mode": "all"
+        },
+        {
+          "id": "castor_pom",
+          "label": "Modification du pom.xml pour utiliser la nouvelle version release des castor",
+          "help": "Mise à jour des tags de dépendance Maven.",
+          "mode": "all"
+        },
+        {
+          "id": "castor_tag",
+          "label": "Vérification tag et release castor utilisés",
+          "help": "Contrôler la correspondance entre le tag du dépôt et la version déclarée.",
+          "mode": "all"
+        }
+      ]
+    },
+    {
+      "id": "copy_cobol",
+      "title": "Copy-Cobol",
+      "icon": "code",
+      "items": [
+        {
+          "id": "cobol_release",
+          "label": "Passage des copy-cobol en version release (uniquement si changement)",
+          "help": "Validation de la version définitive livrée pour l'interfaçage mainframe.",
+          "mode": "all"
+        },
+        {
+          "id": "cobol_pom",
+          "label": "Modification du pom.xml pour utiliser la nouvelle version release des copy-cobol",
+          "help": "Vérifier la bonne référence dans le descripteur de build.",
+          "mode": "all"
+        },
+        {
+          "id": "cobol_tag",
+          "label": "Vérification tag et release copy-cobol utilisés",
+          "help": "Contrôler la traçabilité des sources Cobol.",
+          "mode": "all"
+        }
+      ]
+    },
+    {
+      "id": "jenkins_quality",
+      "title": "Jenkins & Qualité Logicielle",
+      "icon": "shield-check",
+      "items": [
+        {
+          "id": "jenkins_ci",
+          "label": "Vérification chaîne d'intégration",
+          "help": "Règle stricte : Une tâche KO non expliquée entraîne le blocage de la livraison.",
+          "mode": "all"
+        },
+        {
+          "id": "jenkins_image",
+          "label": "Image de Jenkins fournie avec la livraison",
+          "help": "Capture d'écran du pipeline d'intégration verte archivée comme preuve.",
+          "mode": "all"
+        },
+        {
+          "id": "sonar_gate",
+          "label": "Indicateur Sonar (Quality Gate)",
+          "help": "Respect des seuils de dette technique, duplication et couverture de tests.",
+          "mode": "all"
+        },
+        {
+          "id": "code_review",
+          "label": "Validation / Revue de code",
+          "help": "Revue par un pair effectuée et validée (mentionner le relecteur dans le commentaire).",
+          "extraField": { "id": "reviewer", "label": "Nom du reviewer (ex: J. Dupont)", "placeholder": "Nom du reviewer (ex: J. Dupont)" },
+          "mode": "all"
+        },
+        {
+          "id": "jdbc_autocommit",
+          "label": "Vérification des connexions JDBC en autocommit false",
+          "help": "S'assurer que la gestion transactionnelle est explicitement contrôlée.",
+          "mode": "all"
+        },
+        {
+          "id": "sync_blocks",
+          "label": "Vérification des blocs synchronized",
+          "help": "Contrôler la thread-safety et l'absence de verrous potentiellement bloquants.",
+          "mode": "all"
+        }
+      ]
+    },
+    {
+      "id": "git_scm",
+      "title": "Gestion des Sources (Git)",
+      "icon": "git-branch",
+      "items": [
+        {
+          "id": "git_merge",
+          "label": "Vérifier le merge des branches",
+          "help": "Toutes les branches de fonctionnalités sont correctement intégrées dans la branche de release.",
+          "mode": "all"
+        },
+        {
+          "id": "git_uncommitted",
+          "label": "Vérifier qu'une branche n'a pas été oubliée pour un commit",
+          "help": "Aucun travail orphelin sur des dépôts satellites.",
+          "mode": "all"
+        },
+        {
+          "id": "git_tag",
+          "label": "Tag sous Git de la version livrée",
+          "help": "Le tag Git correspond exactement au numéro de release officiel.",
+          "mode": "all"
+        },
+        {
+          "id": "git_branch",
+          "label": "Branche Git de la version livrée",
+          "help": "Création et protection de la branche de maintenance/release associée.",
+          "mode": "all"
+        }
+      ]
+    },
+    {
+      "id": "app_logs",
+      "title": "Logs Applicatifs",
+      "icon": "document-text",
+      "items": [
+        {
+          "id": "log_ebo",
+          "label": "Vérification des logs applicatifs eBO",
+          "help": "Absence de WARNING, ERROR ou StackTraces anormales au démarrage.",
+          "mode": "all"
+        },
+        {
+          "id": "log_quote",
+          "label": "Vérification des logs applicatifs quote",
+          "help": "Contrôle de santé du moteur de tarification/cotation.",
+          "mode": "all"
+        },
+        {
+          "id": "log_caisse",
+          "label": "Vérification des logs applicatifs internet-caisse",
+          "help": "Aucune exception d'interconnexion ou de persistance.",
+          "mode": "all"
+        }
+      ]
+    },
+    {
+      "id": "binaries",
+      "title": "Binaires, Livrables & Checksums",
+      "icon": "archive-box",
+      "items": [
+        {
+          "id": "bin_documents",
+          "label": "Présence des documents attendus dans le répertoire de livraison",
+          "help": "Dossier de mise en production, fiches de recette, release notes.",
+          "mode": "all"
+        },
+        {
+          "id": "bin_date",
+          "label": "Vérification cohérence de la date",
+          "help": "Horodatage conforme sur l'ensemble des paquets construits.",
+          "mode": "all"
+        },
+        {
+          "id": "bin_version",
+          "label": "Vérification cohérence du numéro de version",
+          "help": "Concordance stricte entre livrables, manifests et tickets.",
+          "mode": "all"
+        },
+        {
+          "id": "bin_checksum",
+          "label": "Fournir checksum pour chaque archive (SHA-256 / MD5)",
+          "help": "Fichiers de hachage disponibles pour garantir l'intégrité du transfert.",
+          "mode": "all"
+        }
+      ]
+    },
+    {
+      "id": "database",
+      "title": "Scripts Base de Données",
+      "icon": "circle-stack",
+      "items": [
+        {
+          "id": "db_scripts",
+          "label": "Récupération des scripts de migration BDD",
+          "help": "Scripts DDL/DML ordonnés, testés à blanc et documentés (avec script de rollback).",
+          "mode": "all"
+        }
+      ]
+    }
+  ]
+}
