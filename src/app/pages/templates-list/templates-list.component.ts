@@ -2,7 +2,9 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TemplateService } from '../../services/template.service';
 import { ChecklistSessionService } from '../../services/checklist-session.service';
-import { ChecklistTemplate } from '../../models/checklist.model';
+import { ChecklistTemplate, ImportConflictMode } from '../../models/checklist.model';
+import { downloadBlob } from '../../services/download';
+import { askImportConflict } from '../../services/import-conflict';
 
 @Component({
   selector: 'app-templates-list',
@@ -42,14 +44,8 @@ export class TemplatesListComponent implements OnInit {
   }
 
   exportTemplateJson(template: ChecklistTemplate): void {
-    const jsonStr = JSON.stringify(template, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `template-${template.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+    downloadBlob(blob, `template-${template.id}.json`);
   }
 
   async onFileSelected(event: Event): Promise<void> {
@@ -60,9 +56,18 @@ export class TemplatesListComponent implements OnInit {
     this.importError.set(null);
 
     try {
-      const text = await file.text();
-      await this.templateService.importTemplate(text);
+      // Analyse complète d'abord : un fichier invalide est refusé sans dialogue.
+      const template = this.templateService.parseTemplateFile(await file.text());
       input.value = '';
+
+      let mode: ImportConflictMode = 'new';
+      const existing = this.templateService.findTemplate(template.id);
+      if (existing) {
+        const choice = askImportConflict(`Un modèle « ${existing.name} »`, 'nouvel identifiant, nom suffixé « (import) »');
+        if (!choice) return;
+        mode = choice;
+      }
+      await this.templateService.importTemplate(template, mode);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erreur lors de l\'importation du template';
       this.importError.set(msg);

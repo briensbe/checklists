@@ -97,6 +97,9 @@ export interface ChecklistSession {
   updatedAt: string;
 }
 
+/** Taille maximale d'une preuve (50 Mo). */
+export const MAX_EVIDENCE_SIZE = 50 * 1024 * 1024;
+
 export interface EvidenceRecord {
   id: string;
   sessionId: string;
@@ -117,4 +120,38 @@ export interface MetricsSummary {
   naCount: number;
   pending: number;
   percent: number;
+}
+
+// --- Fichier d'échange de session (voir ADR 0004) ----------------------------
+
+/** Décision prise par l'utilisateur lors d'un import : pas de conflit, remplacer l'existant, ou importer comme copie. */
+export type ImportConflictMode = 'new' | 'replace' | 'copy';
+
+export const SESSION_EXCHANGE_FORMAT = 'checklist-session';
+export const SESSION_EXCHANGE_FORMAT_VERSION = 1;
+
+/** Preuve embarquée dans le fichier d'échange. L'identifiant n'est pas exporté : il est régénéré à l'import. */
+export interface ExchangeEvidence {
+  itemId: string;
+  name: string;
+  type: EvidenceRecord['type'];
+  mimeType: string;
+  size: number;
+  createdAt: string;
+  data: string; // base64 pur, sans préfixe data:
+}
+
+export interface SessionExchangeFile {
+  format: typeof SESSION_EXCHANGE_FORMAT;
+  formatVersion: number;
+  exportedAt: string;
+  session: ChecklistSession;
+  /** Synthèse lisible, recalculable : jamais relue à l'import. */
+  summary: {
+    templateName: string;
+    templateVersion: string;
+    metrics: MetricsSummary;
+  };
+  /** Absent = pièces jointes non incluses ; tableau vide = incluses, aucune. */
+  evidences?: ExchangeEvidence[];
 }

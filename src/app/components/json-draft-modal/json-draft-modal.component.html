@@ -9,7 +9,7 @@
           </svg>
         </div>
         <div>
-          <h3 id="json-modal-title" class="modal-title">Brouillon JSON de l'audit</h3>
+          <h3 id="json-modal-title" class="modal-title">Export JSON de la session</h3>
           <p class="modal-subtitle">Fichier : <code>{{ filename() }}</code></p>
         </div>
       </div>
@@ -35,9 +35,26 @@
           <span class="badge badge-meta">{{ formattedSize() }}</span>
         </div>
         <span class="info-tip">
-          Ce brouillon peut être partagé ou réimporté ultérieurement via le bouton Importer JSON.
+          Ce fichier peut être partagé puis réimporté depuis le tableau de bord (« Importer une session »).
         </span>
       </div>
+
+      <!-- Option pièces jointes -->
+      <label class="evidence-option" [class.disabled]="evidenceCount() === 0">
+        <input
+          type="checkbox"
+          [checked]="includeEvidence()"
+          [disabled]="evidenceCount() === 0"
+          (change)="onIncludeEvidenceChange($event)" />
+        <span>
+          Inclure les pièces jointes
+          @if (evidenceCount() === 0) {
+            <span class="evidence-meta">— Aucune pièce jointe</span>
+          } @else {
+            <span class="evidence-meta">— {{ evidenceCount() }} fichier(s), {{ evidenceSizeLabel() }} avant encodage (environ +33 % dans le fichier)</span>
+          }
+        </span>
+      </label>
 
       <!-- Zone de prévisualisation du code JSON -->
       <div class="code-container">
@@ -63,7 +80,8 @@
           (click)="copyToClipboard()" 
           class="btn-copy"
           [class.copied]="isCopied()"
-          [title]="isCopied() ? 'Copié dans le presse-papier' : 'Copier tout le JSON dans le presse-papier'">
+          [disabled]="includeEvidence()"
+          [title]="includeEvidence() ? 'Avec pièces jointes, le fichier ne peut être que téléchargé' : isCopied() ? 'Copié dans le presse-papier' : 'Copier tout le JSON dans le presse-papier'">
           @if (isCopied()) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon icon-success">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -82,11 +100,12 @@
           type="button" 
           (click)="onExportFile()" 
           class="btn-export-file"
-          title="Télécharger ce brouillon sous forme de fichier JSON">
+          [disabled]="exporting()"
+          title="Télécharger la session sous forme de fichier JSON">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
           </svg>
-          <span>Télécharger le fichier</span>
+          <span>{{ exporting() ? 'Préparation…' : 'Télécharger le fichier' }}</span>
         </button>
       </div>
     </div>

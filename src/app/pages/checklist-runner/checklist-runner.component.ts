@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { ChecklistSessionService, TemplateUpdatePreview } from '../../services/checklist-session.service';
@@ -41,6 +41,16 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
   isJsonDraftModalOpen = signal<boolean>(false);
   activeItemEvidences = signal<EvidenceRecord[]>([]);
   templateUpdatePreview = signal<TemplateUpdatePreview | null>(null);
+
+  // Fenêtre d'export JSON
+  includeEvidence = signal<boolean>(false);
+  sessionEvidences = signal<EvidenceRecord[]>([]);
+  isExporting = signal<boolean>(false);
+  readonly evidenceTotalSize = computed(() => this.sessionEvidences().reduce((sum, e) => sum + e.size, 0));
+  /** Recalculé quand la session, ses métriques ou la case « pièces jointes » changent. */
+  readonly exchangePreview = computed(() =>
+    this.exportService.getExchangePreview(this.includeEvidence() ? this.sessionEvidences() : undefined)
+  );
 
   async ngOnInit(): Promise<void> {
     await this.templateService.initTemplates();
@@ -158,6 +168,35 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
         el.focus({ preventScroll: true });
       }
     });
+  }
+
+  // --- Exports -------------------------------------------------------------
+
+  async openJsonModal(): Promise<void> {
+    const sessionId = this.sessionId;
+    if (!sessionId) return;
+    this.sessionEvidences.set(await this.evidenceService.getSessionEvidences(sessionId));
+    this.includeEvidence.set(false);
+    this.isJsonDraftModalOpen.set(true);
+  }
+
+  async onExportJson(includeEvidence: boolean): Promise<void> {
+    this.isExporting.set(true);
+    try {
+      await this.exportService.exportSessionFile(includeEvidence);
+    } catch (err) {
+      alert(`Export impossible : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      this.isExporting.set(false);
+    }
+  }
+
+  async onExportPdf(): Promise<void> {
+    try {
+      await this.exportService.exportPdf();
+    } catch (err) {
+      alert(`Export PDF impossible : ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   // --- Mise à jour du modèle ----------------------------------------------

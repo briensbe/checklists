@@ -1,11 +1,15 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AppDatabaseService } from './app-database.service';
-import { EvidenceRecord } from '../models/checklist.model';
+import { EvidenceRecord, MAX_EVIDENCE_SIZE } from '../models/checklist.model';
 
-/** Taille maximale d'une preuve (50 Mo). */
-export const MAX_EVIDENCE_SIZE = 50 * 1024 * 1024;
+export { MAX_EVIDENCE_SIZE };
 
 export type EvidenceType = EvidenceRecord['type'];
+
+/** Identifiant unique d'une preuve (aussi utilisé pour régénérer les identifiants à l'import). */
+export function newEvidenceId(itemId: string): string {
+  return `${itemId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+}
 
 export function evidenceTypeOf(file: File): EvidenceType {
   if (file.type.startsWith('image/')) return 'image';
@@ -38,6 +42,11 @@ export class EvidenceService {
       .toArray();
   }
 
+  /** Toutes les preuves d'une session (export du fichier d'échange, annexe PDF). */
+  async getSessionEvidences(sessionId: string): Promise<EvidenceRecord[]> {
+    return this.db.evidences.where('sessionId').equals(sessionId).toArray();
+  }
+
   async addEvidence(
     sessionId: string,
     itemId: string,
@@ -51,7 +60,7 @@ export class EvidenceService {
     await this.assertEditable(sessionId);
 
     const record: EvidenceRecord = {
-      id: `${itemId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: newEvidenceId(itemId),
       sessionId,
       itemId,
       name: filename,

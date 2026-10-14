@@ -4,13 +4,29 @@
       <h1 class="page-title">Mes Checklists</h1>
       <p class="page-subtitle">Suivez, reprenez ou lancez plusieurs checklists en parallèle en toute autonomie.</p>
     </div>
-    <button class="btn btn-primary" (click)="openNewModal()">
-      <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-      </svg>
-      Nouvelle checklist
-    </button>
+    <div class="header-actions">
+      <label class="btn btn-secondary file-upload-label" [class.disabled]="isImporting()" title="Importer un fichier de session exporté (.json)">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+        </svg>
+        {{ isImporting() ? 'Import en cours…' : 'Importer une session' }}
+        <input type="file" accept=".json,application/json" (change)="onImportFile($event)" [disabled]="isImporting()" hidden />
+      </label>
+      <button class="btn btn-primary" (click)="openNewModal()">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+        </svg>
+        Nouvelle checklist
+      </button>
+    </div>
   </div>
+
+  @if (importMessage(); as message) {
+    <div class="import-alert" [class.import-alert-error]="message.kind === 'error'" role="status">
+      <span>{{ message.text }}</span>
+      <button type="button" class="btn-close-alert" aria-label="Fermer le message" (click)="importMessage.set(null)">✕</button>
+    </div>
+  }
 
   @if (sessionService.allSessions().length === 0) {
     <div class="empty-state">

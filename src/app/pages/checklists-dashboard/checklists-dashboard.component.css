@@ -334,3 +334,46 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+/* Import de session */
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.file-upload-label {
+  cursor: pointer;
+}
+
+.file-upload-label.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.import-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md, 8px);
+  background: var(--chip-ok-bg);
+  border: 1px solid var(--chip-ok-border);
+  color: var(--chip-ok-text);
+}
+
+.import-alert-error {
+  background: var(--chip-ko-bg);
+  border-color: var(--chip-ko-border);
+  color: var(--chip-ko-text);
+}
+
+.btn-close-alert {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: inherit;
+  cursor: pointer;
+}

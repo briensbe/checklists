@@ -1,5 +1,14 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { ChecklistSession, ControlStatus, ChecklistTemplate, ItemAnswer } from '../models/checklist.model';
+import {
+  ChecklistSession,
+  ControlStatus,
+  ChecklistTemplate,
+  EvidenceRecord,
+  ImportConflictMode,
+  ItemAnswer
+} from '../models/checklist.model';
+import { asImportedCopy, ParsedSessionImport } from '../domain/session-exchange';
+import { newEvidenceId } from './evidence.service';
 import { AppDatabaseService } from './app-database.service';
 import { TemplateService } from './template.service';
 import {
@@ -276,6 +285,50 @@ export class ChecklistSessionService {
     });
     this.currentSession.set(rebased);
     this.upsertInList(rebased);
+  }
+
+  // --- Import d'un fichier d'échange ---------------------------------------
+
+  /**
+   * Enregistre une session importée selon le mode décidé par l'interface, en une transaction
+   * (session + preuves : tout ou rien). Renvoie la session telle qu'enregistrée.
+   * - `new` / `copy` : insertion (la copie reçoit un nouvel UUID et un titre suffixé) ;
+   * - `replace` avec pièces jointes : les preuves existantes sont remplacées par celles du fichier ;
+   * - `replace` sans pièces jointes : les preuves existantes sont conservées, sauf celles
+   *   d'items absents de la copie figée importée.
+   */
+  async importSession(parsed: ParsedSessionImport, mode: ImportConflictMode): Promise<ChecklistSession> {
+    await this.flushPendingSave();
+    const now = new Date().toISOString();
+    const base = mode === 'copy' ? asImportedCopy(parsed.session, crypto.randomUUID()) : parsed.session;
+    // updatedAt = maintenant : la session importée apparaît en tête du tableau de bord.
+    const session: ChecklistSession = { ...base, updatedAt: now };
+
+    const evidences: EvidenceRecord[] = (parsed.evidences ?? []).map(e => ({
+      ...e,
+      id: newEvidenceId(e.itemId),
+      sessionId: session.id
+    }));
+    const keptIds = new Set(session.templateSnapshot.sections.flatMap(s => s.items.map(i => i.id)));
+
+    await this.db.transaction('rw', this.db.sessions, this.db.evidences, async () => {
+      if (mode === 'replace') {
+        const existing = this.db.evidences.where('sessionId').equals(session.id);
+        await (parsed.evidences ? existing.delete() : existing.filter(e => !keptIds.has(e.itemId)).delete());
+      }
+      await this.db.sessions.put(session);
+      await this.db.evidences.bulkAdd(evidences);
+    });
+
+    this.upsertInList(session);
+    if (this.currentSession()?.id === session.id) {
+      this.currentSession.set(session);
+    }
+    return session;
+  }
+
+  async getStoredSession(sessionId: string): Promise<ChecklistSession | undefined> {
+    return this.db.sessions.get(sessionId);
   }
 
   // --- Affichage -----------------------------------------------------------

@@ -2,11 +2,18 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ChecklistSessionService } from '../../services/checklist-session.service';
 import { TemplateService } from '../../services/template.service';
-import { ChecklistSession, MetricsSummary, SessionStatus } from '../../models/checklist.model';
+import { DatePipe } from '@angular/common';
+import { ChecklistSession, ImportConflictMode, MetricsSummary, SessionStatus } from '../../models/checklist.model';
 import { computeMetrics } from '../../domain/session-rules';
+import { parseExchangeFile } from '../../domain/session-exchange';
+import { askImportConflict, readJsonFile } from '../../services/import-conflict';
 
 export type StatusFilter = 'all' | SessionStatus;
-import { DatePipe } from '@angular/common';
+
+export interface ImportMessage {
+  kind: 'success' | 'error';
+  text: string;
+}
 
 @Component({
   selector: 'app-checklists-dashboard',
@@ -24,6 +31,8 @@ export class ChecklistsDashboardComponent implements OnInit {
   selectedTemplateId = signal<string>('');
   newChecklistTitle = signal<string>('');
   statusFilter = signal<StatusFilter>('all');
+  importMessage = signal<ImportMessage | null>(null);
+  isImporting = signal<boolean>(false);
 
   readonly filteredSessions = computed(() => {
     const filter = this.statusFilter();
@@ -82,6 +91,50 @@ export class ChecklistsDashboardComponent implements OnInit {
     event.stopPropagation();
     if (confirm('Voulez-vous vraiment supprimer cette checklist et ses preuves ?')) {
       await this.sessionService.deleteSession(sessionId);
+    }
+  }
+
+  /**
+   * Import d'un fichier de session : analyse complète avant toute question (un fichier
+   * invalide est refusé sans dialogue), puis résolution d'un éventuel conflit d'UUID.
+   */
+  async onImportFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // permet de réimporter le même fichier
+    if (!file) return;
+
+    this.importMessage.set(null);
+    this.isImporting.set(true);
+    try {
+      const templatesById = new Map(this.templateService.availableTemplates().map(t => [t.id, t]));
+      const parsed = parseExchangeFile(await readJsonFile(file), templatesById);
+
+      let mode: ImportConflictMode = 'new';
+      const existing = await this.sessionService.getStoredSession(parsed.session.id);
+      if (existing) {
+        const choice = askImportConflict(
+          `Une session « ${existing.title} »`,
+          'nouvel identifiant, titre suffixé « (import) »'
+        );
+        if (!choice) return;
+        mode = choice;
+      }
+
+      const session = await this.sessionService.importSession(parsed, mode);
+      let text = `Session « ${session.title} » importée`;
+      if (parsed.evidences?.length) text += ` avec ${parsed.evidences.length} pièce(s) jointe(s)`;
+      text += '.';
+      if (parsed.droppedEvidenceCount > 0) {
+        text += ` ${parsed.droppedEvidenceCount} pièce(s) jointe(s) ignorée(s) : rattachée(s) à des items absents du modèle.`;
+      }
+      this.statusFilter.set('all');
+      this.importMessage.set({ kind: 'success', text });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.importMessage.set({ kind: 'error', text: `Import impossible : ${reason}` });
+    } finally {
+      this.isImporting.set(false);
     }
   }
 
