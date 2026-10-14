@@ -14,12 +14,6 @@
 - Typages stricts obligatoires (`strict: true`, aucun `any` non justifié).
 - Toujours utiliser la structure séparée en 3 fichiers : `.html`, `.css` et `.ts`.
 
-## Supabase / PostgreSQL & Pagination
-- **Plafond PostgREST 1000 :** Toujours paginer via `.range()` avec `paginateQuery` pour les requêtes dépassant 1000 enregistrements.
-- **Tri déterministe (Tie-Breaker) :** Ajouter obligatoirement `.order('id', { ascending: true })` AVANT tout `.range()`.
-- **Zéro secret en dur :** Importer exclusivement les configurations depuis `src/environments/environment.ts` ou `.env`.
-
-
 ## Documentation & Liens Markdown
 - Ne JAMAIS insérer de chemins de fichiers absolus (ex: `file:///c:/...` ou `C:\...`) dans les fichiers Markdown.
 - Utiliser systématiquement des chemins relatifs par rapport à la racine du projet ou au fichier courant.
@@ -29,7 +23,7 @@
 - **Structure OpenSpec :** Conserver les mots-clés et titres de sections structurels requis par le validateur OpenSpec (`## Why`, `## What Changes`, `## Capabilities`, `## Impact`, `## ADDED Requirements`, `### Requirement: ...`, `#### Scenario: ...`, `- **WHEN**`, `- **THEN**`, `- **GIVEN**`, `## Context`, `## Goals / Non-Goals`, `## Decisions`, `## Risks / Trade-offs`, `## Tasks`) tout en rédigeant l'intégralité du contenu, des explications, des critères et des tâches en langue française.
 
 ## Gestion du Versioning (.gitignore)
-- **Règle :** Ne jamais commiter de fichiers de logs (`*.log`), de dossiers de compilation (`dist/`, `.angular/`), de fichiers de configuration de secrets (`.env*`, `environment.ts`) ou de caches temporaires Supabase (`supabase/.temp/`).
+- **Règle :** Ne jamais commiter de fichiers de logs (`*.log`), de dossiers de compilation (`dist/`, `.angular/`), de fichiers de configuration de secrets (`.env*`, `environment.ts`).
 - **Action :** Initialiser systématiquement le projet avec le `.gitignore` standard incluant la protection des environnements et l'isolation des caches d'agents IA (`.claude/cache/`, `.bolt`, etc.).
 
 ### Règles de recherche et d'exploration de fichiers

@@ -1,5 +1,8 @@
 # Spécifications : Moteur d'Exécution de Checklist
 
+## Purpose
+Permettre l'évaluation des points de contrôle d'une session (OK / KO / N/A), leur conditionnement par le contexte, les actions groupées et le filtrage.
+
 ## Requirements
 
 ### Requirement: Évaluation interactive d'un contrôle
@@ -18,15 +21,23 @@ Le système DOIT permettre d'affecter un statut d'évaluation parmi `OK`, `KO` o
 - **THEN** le statut repasse à l'état non renseigné / à traiter
 
 ### Requirement: Conditionnement contextuel des contrôles
-Le système DOIT masquer ou afficher dynamiquement les points de contrôle en fonction des paramètres de contexte de la livraison (ex: mode `patch` vs `full`).
+Le système DOIT masquer ou afficher dynamiquement les points de contrôle en fonction des valeurs de contexte de la session. Un item peut porter une condition `visibleIf: { fieldId, equals[] }` : il est applicable si et seulement si la valeur du champ de contexte `fieldId` figure dans `equals`. Un item sans condition est toujours applicable. Les items non applicables sont exclus de la vue, des métriques et de la validation de clôture ; leurs réponses éventuelles sont conservées.
 
 #### Scenario: Bascule vers le mode patch
-- **WHEN** le contexte passe au mode `patch`
-- **THEN** les contrôles spécifiques aux patches deviennent visibles, intégrés au calcul de complétude et évaluables
+- **WHEN** un item porte `visibleIf: { fieldId: 'mode', equals: ['patch'] }` et que le contexte `mode` passe à `patch`
+- **THEN** l'item est visible, intégré au calcul de complétude et évaluable
 
 #### Scenario: Bascule vers le mode complet
-- **WHEN** le contexte est en mode `full`
-- **THEN** les contrôles réservés au mode `patch` sont exclus de la vue et des métriques
+- **WHEN** pour ce même item, le contexte `mode` vaut `full` ou est vide
+- **THEN** l'item est exclu de la vue et des métriques
+
+#### Scenario: Condition à valeurs multiples
+- **WHEN** un item porte `visibleIf: { fieldId: 'type', equals: ['majeure', 'mineure'] }` et que le contexte `type` vaut `mineure`
+- **THEN** l'item est applicable
+
+#### Scenario: Réponse conservée sur un item masqué
+- **WHEN** l'utilisateur répond à un item puis modifie le contexte de sorte qu'il devienne non applicable, puis rétablit le contexte initial
+- **THEN** l'item réapparaît avec sa réponse précédente
 
 ### Requirement: Action de passage groupé à OK
 Le système DOIT fournir une action permettant de passer en une seule fois tous les contrôles restants à l'état `OK`.

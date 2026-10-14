@@ -1,34 +1,32 @@
 import { TestBed } from '@angular/core/testing';
 import { ExportService } from './export.service';
 import { ChecklistSessionService } from './checklist-session.service';
-import { TemplateService } from './template.service';
 import { EvidenceService } from './evidence.service';
 
 describe('ExportService', () => {
   let service: ExportService;
   let sessionService: ChecklistSessionService;
-  let templateService: TemplateService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [ExportService, ChecklistSessionService, TemplateService, EvidenceService]
+      providers: [ExportService, ChecklistSessionService, EvidenceService]
     });
     service = TestBed.inject(ExportService);
     sessionService = TestBed.inject(ChecklistSessionService);
-    templateService = TestBed.inject(TemplateService);
   });
 
   it('devrait être initialisé', () => {
     expect(service).toBeTruthy();
   });
 
-  it('devrait exporter un draft JSON avec les détails complets des réponses', () => {
-    // Mock template
-    templateService.activeTemplate.set({
+  it('devrait produire l’aperçu du fichier d’échange ré-importable', () => {
+    // Mock template (copie figée portée par la session)
+    const template = {
       id: 'test-template',
       name: 'Test Template Name',
       description: 'Description',
       version: '1.0.0',
+      updatedAt: '2026-10-10T00:00:00Z',
       contextSchema: [],
       sections: [
         {
@@ -43,13 +41,16 @@ describe('ExportService', () => {
           ]
         }
       ]
-    });
+    };
 
     // Mock session answers
     sessionService.currentSession.set({
       id: 'current',
       title: 'Audit Test Qualité',
       templateId: 'test-template',
+      templateSnapshot: template,
+      status: 'in_progress',
+      closures: [],
       contextValues: { version: '2026.4.0' },
       answers: {
         'item-1': {
@@ -62,30 +63,18 @@ describe('ExportService', () => {
       updatedAt: '2026-10-10T01:00:00Z'
     });
 
-    const jsonStr = service.getJsonDraft();
-    const parsed = JSON.parse(jsonStr);
+    const parsed = JSON.parse(service.getExchangePreview());
 
-    expect(parsed.templateName).toBe('Test Template Name');
-    expect(parsed.contextValues.version).toBe('2026.4.0');
-    expect(parsed.metrics).toBeDefined();
-
-    // Vérification des détails des réponses
-    expect(Array.isArray(parsed.details)).toBe(true);
-    expect(parsed.details.length).toBe(1);
-
-    const detailItem = parsed.details[0];
-    expect(detailItem.sectionId).toBe('sec-1');
-    expect(detailItem.sectionTitle).toBe('Section Qualité');
-    expect(detailItem.itemId).toBe('item-1');
-    expect(detailItem.label).toBe('Vérification SonarQube');
-    expect(detailItem.help).toBe('Dette technique < 5%');
-    expect(detailItem.status).toBe('KO');
-    expect(detailItem.comment).toBe('Dette à 7%');
-    expect(detailItem.extra).toEqual({ score: '7%' });
-
-    // Vérification de la compatibilité answers
-    expect(parsed.answers['item-1'].status).toBe('KO');
-    expect(parsed.answers['item-1'].label).toBe('Vérification SonarQube');
-    expect(parsed.answers['item-1'].sectionTitle).toBe('Section Qualité');
+    // Enveloppe versionnée, session complète (copie figée comprise), synthèse lisible
+    expect(parsed.format).toBe('checklist-session');
+    expect(parsed.formatVersion).toBe(1);
+    expect(parsed.session.templateSnapshot).toEqual(template);
+    expect(parsed.session.status).toBe('in_progress');
+    expect(parsed.session.contextValues.version).toBe('2026.4.0');
+    expect(parsed.session.answers['item-1']).toEqual({ status: 'KO', comment: 'Dette à 7%', extra: { score: '7%' } });
+    expect(parsed.summary.templateName).toBe('Test Template Name');
+    expect(parsed.summary.metrics.koCount).toBe(1);
+    // Pièces jointes non demandées : pas de bloc de preuves
+    expect('evidences' in parsed).toBe(false);
   });
 });

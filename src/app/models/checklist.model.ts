@@ -20,11 +20,22 @@ export interface ExtraFieldSchema {
 
 export type ItemControlType = 'status' | 'checkbox' | 'choice';
 
+/** Palette fixe de tons, liée aux variables CSS --tone-* (thèmes clair et sombre). */
+export type ChoiceTone = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
+
+export const CHOICE_TONES: readonly ChoiceTone[] = ['success', 'danger', 'warning', 'info', 'neutral'];
+
 export interface CustomChoiceOption {
   id: string;
   label: string;
-  color?: string; // CSS color or badge tone (ex: green, red, amber, blue, slate)
+  tone: ChoiceTone;
   isBlocking?: boolean;
+}
+
+/** L'item est applicable si la valeur du champ de contexte `fieldId` figure dans `equals`. */
+export interface VisibilityCondition {
+  fieldId: string;
+  equals: string[];
 }
 
 export interface ChecklistItemTemplate {
@@ -34,7 +45,7 @@ export interface ChecklistItemTemplate {
   controlType?: ItemControlType; // Par défaut 'status' si non spécifié
   withTimestamp?: boolean; // Pour type 'checkbox': active l'horodatage automatique au clic
   customChoices?: CustomChoiceOption[]; // Pour type 'choice'
-  mode?: 'all' | 'patch'; // Applicable context condition
+  visibleIf?: VisibilityCondition; // Absent = toujours applicable
   extraField?: ExtraFieldSchema;
   requireNaReason?: boolean; // Option de template : exige un motif obligatoire si N/A
 }
@@ -51,6 +62,7 @@ export interface ChecklistTemplate {
   name: string;
   description: string;
   version: string;
+  updatedAt: string; // ISO, mis à jour à chaque enregistrement
   contextSchema: ContextFieldSchema[];
   sections: ChecklistSectionTemplate[];
 }
@@ -64,15 +76,29 @@ export interface ItemAnswer {
   extra?: Record<string, string>;
 }
 
+export type SessionStatus = 'in_progress' | 'completed';
+
+export interface SessionClosure {
+  closedAt: string;
+  reopenedAt?: string;
+}
+
 export interface ChecklistSession {
   id: string; // UUID
   title: string; // Nom explicite de la session/audit
-  templateId: string;
+  templateId: string; // Référence d'origine, sert uniquement à détecter une nouvelle version
+  templateSnapshot: ChecklistTemplate; // Copie figée : seule source de structure pour la session
+  structureUnavailable?: boolean; // Template d'origine absent lors de la migration v3
+  status: SessionStatus;
+  closures: SessionClosure[];
   contextValues: Record<string, string>;
   answers: Record<string, ItemAnswer>;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Taille maximale d'une preuve (50 Mo). */
+export const MAX_EVIDENCE_SIZE = 50 * 1024 * 1024;
 
 export interface EvidenceRecord {
   id: string;
@@ -94,4 +120,38 @@ export interface MetricsSummary {
   naCount: number;
   pending: number;
   percent: number;
+}
+
+// --- Fichier d'échange de session (voir ADR 0004) ----------------------------
+
+/** Décision prise par l'utilisateur lors d'un import : pas de conflit, remplacer l'existant, ou importer comme copie. */
+export type ImportConflictMode = 'new' | 'replace' | 'copy';
+
+export const SESSION_EXCHANGE_FORMAT = 'checklist-session';
+export const SESSION_EXCHANGE_FORMAT_VERSION = 1;
+
+/** Preuve embarquée dans le fichier d'échange. L'identifiant n'est pas exporté : il est régénéré à l'import. */
+export interface ExchangeEvidence {
+  itemId: string;
+  name: string;
+  type: EvidenceRecord['type'];
+  mimeType: string;
+  size: number;
+  createdAt: string;
+  data: string; // base64 pur, sans préfixe data:
+}
+
+export interface SessionExchangeFile {
+  format: typeof SESSION_EXCHANGE_FORMAT;
+  formatVersion: number;
+  exportedAt: string;
+  session: ChecklistSession;
+  /** Synthèse lisible, recalculable : jamais relue à l'import. */
+  summary: {
+    templateName: string;
+    templateVersion: string;
+    metrics: MetricsSummary;
+  };
+  /** Absent = pièces jointes non incluses ; tableau vide = incluses, aucune. */
+  evidences?: ExchangeEvidence[];
 }

@@ -1,5 +1,7 @@
 <div 
   class="item-row"
+  [id]="'item-' + item().id"
+  tabindex="-1"
   [class.status-ko]="answer()?.status === 'KO'"
   [class.status-ok]="answer()?.status === 'OK' || answer()?.checked"
   [class.status-na]="answer()?.status === 'NA'">
@@ -13,6 +15,7 @@
               type="checkbox" 
               class="item-checkbox-input"
               [checked]="!!answer()?.checked" 
+              [disabled]="readonly()"
               (change)="onCheckboxToggle($event)" />
             <span class="item-label" [class.item-checked]="answer()?.checked">{{ item().label }}</span>
           </label>
@@ -20,8 +23,8 @@
           <span class="item-label">{{ item().label }}</span>
         }
 
-        @if (item().mode === 'patch') {
-          <span class="badge-patch">Patch</span>
+        @if (item().visibleIf; as cond) {
+          <span class="badge-patch" [title]="'Affiché si ' + cond.fieldId + ' = ' + cond.equals.join(' ou ')">Conditionnel</span>
         }
 
         @if (item().controlType === 'checkbox' && item().withTimestamp && answer()?.checked && answer()?.checkedAt) {
@@ -45,6 +48,7 @@
             type="text"
             [value]="(answer()?.extra && answer()?.extra![extra.id]) || ''"
             [placeholder]="extra.placeholder || ''"
+            [disabled]="readonly()"
             (input)="onExtraChange(extra.id, $event)"
             class="extra-input">
         </div>
@@ -59,11 +63,12 @@
           @for (c of item().customChoices; track c.id) {
             <button
               type="button"
-              class="btn-choice"
+              [class]="'btn-choice tone-' + c.tone"
               [class.active]="answer()?.selectedChoice === c.id"
               [class.blocking]="c.isBlocking"
+              [disabled]="readonly()"
               (click)="choiceChange.emit(c.id)">
-              <span class="choice-dot" [style.background-color]="c.color || '#3b82f6'"></span>
+              <span class="choice-dot"></span>
               {{ c.label }}
             </button>
           }
@@ -72,6 +77,7 @@
         <!-- Mode Statut classique OK / KO / NA -->
         <button 
           type="button"
+          [disabled]="readonly()"
           (click)="statusChange.emit('OK')"
           [class.active-ok]="answer()?.status === 'OK'"
           class="btn-status">
@@ -81,6 +87,7 @@
 
         <button 
           type="button"
+          [disabled]="readonly()"
           (click)="statusChange.emit('KO')"
           [class.active-ko]="answer()?.status === 'KO'"
           class="btn-status">
@@ -90,6 +97,7 @@
 
         <button 
           type="button"
+          [disabled]="readonly()"
           (click)="statusChange.emit('NA')"
           [class.active-na]="answer()?.status === 'NA'"
           class="btn-status">
@@ -154,6 +162,7 @@
           type="text"
           [value]="answer()?.comment || ''"
           [placeholder]="answer()?.status === 'KO' ? 'Expliquer la cause du blocage ou la dérogation accordée...' : (answer()?.status === 'NA' && requireNaReason() ? 'Préciser le motif obligatoire de non-applicabilité...' : 'Préciser une note ou une observation...')"
+          [disabled]="readonly()"
           (input)="onCommentChange($event)"
           [class.error-required]="(answer()?.status === 'KO' && !answer()?.comment) || (answer()?.status === 'NA' && requireNaReason() && !answer()?.comment)"
           class="comment-input">

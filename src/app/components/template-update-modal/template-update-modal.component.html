@@ -1,0 +1,62 @@
+<div class="modal-backdrop" (click)="onBackdropClick($event)" role="dialog" aria-modal="true" aria-labelledby="update-modal-title">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div>
+        <h3 id="update-modal-title" class="modal-title">Appliquer la nouvelle version du modèle</h3>
+        <p class="modal-subtitle">
+          {{ preview().template.name }} :
+          v{{ currentVersion() || '?' }} → v{{ preview().template.version || '?' }}
+        </p>
+      </div>
+      <button type="button" class="btn-close" aria-label="Fermer la fenêtre" (click)="close.emit()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <p class="intro">
+        Les réponses des contrôles conservés restent intactes. Les nouveaux champs de contexte reçoivent leur valeur par défaut.
+      </p>
+
+      <h4 class="list-title">Contrôles ajoutés ({{ preview().diff.added.length }})</h4>
+      @if (preview().diff.added.length === 0) {
+        <p class="empty">Aucun.</p>
+      } @else {
+        <ul class="diff-list">
+          @for (item of preview().diff.added; track item.id) {
+            <li class="diff-added"><span class="diff-section">{{ item.sectionTitle }}</span> {{ item.label }}</li>
+          }
+        </ul>
+      }
+
+      <h4 class="list-title">Contrôles supprimés ({{ preview().diff.removed.length }})</h4>
+      @if (preview().diff.removed.length === 0) {
+        <p class="empty">Aucun.</p>
+      } @else {
+        <ul class="diff-list">
+          @for (item of preview().diff.removed; track item.id) {
+            <li class="diff-removed" [class.has-data]="removedWithDataIds().has(item.id)">
+              <span class="diff-section">{{ item.sectionTitle }}</span> {{ item.label }}
+              @if (removedWithDataIds().has(item.id)) {
+                <span class="data-warning">réponse ou preuves perdues</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+
+      @if (preview().diff.removedWithData.length > 0) {
+        <p class="warning" role="alert">
+          {{ preview().diff.removedWithData.length }} contrôle(s) supprimé(s) portent des données : leurs réponses et preuves seront définitivement effacées.
+        </p>
+      }
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" (click)="close.emit()">Annuler</button>
+      <button type="button" class="btn-primary" (click)="confirm.emit()">Appliquer la mise à jour</button>
+    </div>
+  </div>
+</div>

@@ -141,6 +141,23 @@
   --track-bg: var(--color-slate-200);
   --badge-bg: var(--color-brand-50);
   --badge-border: var(--color-brand-200);
+
+  /* Tons des choix d'évaluation (palette fixe : success, danger, warning, info, neutral) */
+  --tone-success-bg: #ecfdf5;
+  --tone-success-fg: #047857;
+  --tone-success-border: #10b981;
+  --tone-danger-bg: #fff1f2;
+  --tone-danger-fg: #be123c;
+  --tone-danger-border: #f43f5e;
+  --tone-warning-bg: #fffbeb;
+  --tone-warning-fg: #b45309;
+  --tone-warning-border: #f59e0b;
+  --tone-info-bg: #f0f7ff;
+  --tone-info-fg: #075985;
+  --tone-info-border: #0284c7;
+  --tone-neutral-bg: #f1f5f9;
+  --tone-neutral-fg: #334155;
+  --tone-neutral-border: #94a3b8;
 }
 
 /* Variables pour le Dark Mode */
@@ -239,7 +256,31 @@
   --track-bg: var(--color-slate-200);
   --badge-bg: var(--color-brand-50);
   --badge-border: var(--color-brand-200);
+
+  /* Tons des choix d'évaluation en Dark Mode */
+  --tone-success-bg: rgba(16, 185, 129, 0.15);
+  --tone-success-fg: #6ee7b7;
+  --tone-success-border: #10b981;
+  --tone-danger-bg: rgba(244, 63, 94, 0.15);
+  --tone-danger-fg: #fda4af;
+  --tone-danger-border: #f43f5e;
+  --tone-warning-bg: rgba(245, 158, 11, 0.15);
+  --tone-warning-fg: #fcd34d;
+  --tone-warning-border: #f59e0b;
+  --tone-info-bg: rgba(56, 189, 248, 0.15);
+  --tone-info-fg: #7dd3fc;
+  --tone-info-border: #38bdf8;
+  --tone-neutral-bg: rgba(148, 163, 184, 0.15);
+  --tone-neutral-fg: #cbd5e1;
+  --tone-neutral-border: #64748b;
 }
+
+/* Classes de ton : chaque composant consomme --tone-bg / --tone-fg / --tone-border */
+.tone-success { --tone-bg: var(--tone-success-bg); --tone-fg: var(--tone-success-fg); --tone-border: var(--tone-success-border); }
+.tone-danger { --tone-bg: var(--tone-danger-bg); --tone-fg: var(--tone-danger-fg); --tone-border: var(--tone-danger-border); }
+.tone-warning { --tone-bg: var(--tone-warning-bg); --tone-fg: var(--tone-warning-fg); --tone-border: var(--tone-warning-border); }
+.tone-info { --tone-bg: var(--tone-info-bg); --tone-fg: var(--tone-info-fg); --tone-border: var(--tone-info-border); }
+.tone-neutral { --tone-bg: var(--tone-neutral-bg); --tone-fg: var(--tone-neutral-fg); --tone-border: var(--tone-neutral-border); }
 
 *, *::before, *::after {
   box-sizing: border-box;

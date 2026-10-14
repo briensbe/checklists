@@ -4,13 +4,29 @@
       <h1 class="page-title">Mes Checklists</h1>
       <p class="page-subtitle">Suivez, reprenez ou lancez plusieurs checklists en parallèle en toute autonomie.</p>
     </div>
-    <button class="btn btn-primary" (click)="openNewModal()">
-      <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-      </svg>
-      Nouvelle checklist
-    </button>
+    <div class="header-actions">
+      <label class="btn btn-secondary file-upload-label" [class.disabled]="isImporting()" title="Importer un fichier de session exporté (.json)">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+        </svg>
+        {{ isImporting() ? 'Import en cours…' : 'Importer une session' }}
+        <input type="file" accept=".json,application/json" (change)="onImportFile($event)" [disabled]="isImporting()" hidden />
+      </label>
+      <button class="btn btn-primary" (click)="openNewModal()">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+        </svg>
+        Nouvelle checklist
+      </button>
+    </div>
   </div>
+
+  @if (importMessage(); as message) {
+    <div class="import-alert" [class.import-alert-error]="message.kind === 'error'" role="status">
+      <span>{{ message.text }}</span>
+      <button type="button" class="btn-close-alert" aria-label="Fermer le message" (click)="importMessage.set(null)">✕</button>
+    </div>
+  }
 
   @if (sessionService.allSessions().length === 0) {
     <div class="empty-state">
@@ -24,12 +40,29 @@
       <button class="btn btn-primary mt-4" (click)="openNewModal()">Démarrer une checklist</button>
     </div>
   } @else {
+    <div class="status-filters" role="group" aria-label="Filtrer par statut">
+      <button type="button" class="btn-filter" [class.active]="statusFilter() === 'all'" (click)="statusFilter.set('all')">Toutes ({{ statusCounts().all }})</button>
+      <button type="button" class="btn-filter" [class.active]="statusFilter() === 'in_progress'" (click)="statusFilter.set('in_progress')">En cours ({{ statusCounts().in_progress }})</button>
+      <button type="button" class="btn-filter" [class.active]="statusFilter() === 'completed'" (click)="statusFilter.set('completed')">Terminées ({{ statusCounts().completed }})</button>
+    </div>
+
+    @if (filteredSessions().length === 0) {
+      <p class="empty-filter">Aucune checklist pour ce filtre.</p>
+    }
+
     <div class="sessions-grid">
-      @for (sess of sessionService.allSessions(); track sess.id) {
-        @let stats = calculateStats(sess);
+      @for (sess of filteredSessions(); track sess.id) {
+        @let stats = metricsOf(sess);
         <div class="session-card" [routerLink]="['/checklists', sess.id]">
           <div class="session-card-header">
-            <span class="template-badge">{{ getTemplateName(sess.templateId) }}</span>
+            <div class="card-badges">
+              <span class="template-badge">{{ sess.templateSnapshot.name }}</span>
+              @if (sess.status === 'completed') {
+                <span class="status-badge status-completed">Terminée</span>
+              } @else {
+                <span class="status-badge status-in-progress">En cours</span>
+              }
+            </div>
             <button class="btn-delete" title="Supprimer la checklist" (click)="deleteSession($event, sess.id)">
               <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
                 <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
@@ -39,19 +72,26 @@
 
           <h3 class="session-title">{{ sess.title }}</h3>
 
+          @if (sessionService.hasTemplateUpdate(sess)) {
+            <div class="update-badge">
+              <span>Modèle mis à jour</span>
+              <button type="button" class="btn-apply" (click)="onApplyUpdate($event, sess.id)">Appliquer</button>
+            </div>
+          }
+
           <div class="progress-bar-container">
             <div class="progress-bar-track">
               <div class="progress-bar-fill" [style.width.%]="stats.percent"></div>
             </div>
             <div class="progress-text">
-              <span>{{ stats.answered }} / {{ stats.total }} complété(s)</span>
+              <span>{{ stats.answered }} / {{ stats.total }} répondu(s)</span>
               <span class="progress-percentage">{{ stats.percent }}%</span>
             </div>
           </div>
 
           <div class="session-card-footer">
             <span class="session-date">Modifié le {{ sess.updatedAt | date:'dd/MM/yyyy HH:mm' }}</span>
-            <span class="session-open-link">Reprendre →</span>
+            <span class="session-open-link">{{ sess.status === 'completed' ? 'Consulter →' : 'Reprendre →' }}</span>
           </div>
         </div>
       }

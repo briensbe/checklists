@@ -2,6 +2,7 @@ import { Component, input, output, computed } from '@angular/core';
 import { ChecklistSectionTemplate, ChecklistItemTemplate, ItemAnswer, ControlStatus } from '../../models/checklist.model';
 import { ChecklistItemComponent } from '../checklist-item/checklist-item.component';
 import { FilterType } from '../../services/checklist-session.service';
+import { isAnswered, isKo } from '../../domain/session-rules';
 
 @Component({
   selector: 'app-checklist-section',
@@ -17,6 +18,7 @@ export class ChecklistSectionComponent {
   readonly evidenceCounts = input<Record<string, number>>({});
   readonly isCollapsed = input<boolean>(false);
   readonly filter = input<FilterType>('all');
+  readonly readonly = input<boolean>(false);
 
   readonly toggleCollapse = output<void>();
   readonly statusChange = output<{ itemId: string; status: ControlStatus }>();
@@ -27,16 +29,8 @@ export class ChecklistSectionComponent {
   readonly openEvidence = output<string>();
 
   readonly answeredCount = computed(() => {
-    const itms = this.items();
     const ans = this.answers();
-    return itms.filter(i => {
-      const a = ans[i.id];
-      if (!a) return false;
-      const type = i.controlType || 'status';
-      if (type === 'checkbox') return !!a.checked;
-      if (type === 'choice') return !!a.selectedChoice;
-      return !!a.status;
-    }).length;
+    return this.items().filter(i => isAnswered(i, ans[i.id])).length;
   });
 
   readonly filteredItems = computed(() => {
@@ -45,26 +39,10 @@ export class ChecklistSectionComponent {
     const f = this.filter();
 
     if (f === 'pending') {
-      return itms.filter(i => {
-        const a = ans[i.id];
-        if (!a) return true;
-        const type = i.controlType || 'status';
-        if (type === 'checkbox') return !a.checked;
-        if (type === 'choice') return !a.selectedChoice;
-        return !a.status;
-      });
+      return itms.filter(i => !isAnswered(i, ans[i.id]));
     }
     if (f === 'ko') {
-      return itms.filter(i => {
-        const a = ans[i.id];
-        if (!a) return false;
-        const type = i.controlType || 'status';
-        if (type === 'choice') {
-          const opt = i.customChoices?.find(c => c.id === a.selectedChoice);
-          return !!opt?.isBlocking;
-        }
-        return a.status === 'KO';
-      });
+      return itms.filter(i => isKo(i, ans[i.id]));
     }
     return itms;
   });

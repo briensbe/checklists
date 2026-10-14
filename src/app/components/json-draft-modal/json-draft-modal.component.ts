@@ -1,4 +1,5 @@
-import { Component, HostListener, computed, input, output, signal } from '@angular/core';
+import { Component, HostListener, computed, input, model, output, signal } from '@angular/core';
+import { formatBytes } from '../../domain/session-exchange';
 
 @Component({
   selector: 'app-json-draft-modal',
@@ -9,10 +10,17 @@ import { Component, HostListener, computed, input, output, signal } from '@angul
 })
 export class JsonDraftModalComponent {
   readonly jsonContent = input.required<string>();
-  readonly filename = input<string>('brouillon.json');
+  readonly filename = input<string>('session.json');
+  readonly evidenceCount = input<number>(0);
+  readonly evidenceTotalSize = input<number>(0);
+  /** Liaison bidirectionnelle : le parent recalcule l'aperçu quand la case change. */
+  readonly includeEvidence = model<boolean>(false);
+  readonly exporting = input<boolean>(false);
 
   readonly close = output<void>();
-  readonly exportFile = output<void>();
+  readonly exportFile = output<{ includeEvidence: boolean }>();
+
+  readonly evidenceSizeLabel = computed<string>(() => formatBytes(this.evidenceTotalSize()));
 
   readonly isCopied = signal<boolean>(false);
 
@@ -24,10 +32,7 @@ export class JsonDraftModalComponent {
 
   readonly formattedSize = computed<string>(() => {
     const content = this.jsonContent();
-    const bytes = new Blob([content]).size;
-    if (bytes < 1024) return `${bytes} o`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+    return formatBytes(new Blob([content]).size);
   });
 
   @HostListener('window:keydown.escape')
@@ -80,8 +85,12 @@ export class JsonDraftModalComponent {
     }
   }
 
+  onIncludeEvidenceChange(event: Event): void {
+    this.includeEvidence.set((event.target as HTMLInputElement).checked);
+  }
+
   onExportFile(): void {
-    this.exportFile.emit();
+    this.exportFile.emit({ includeEvidence: this.includeEvidence() });
   }
 
   onClose(): void {

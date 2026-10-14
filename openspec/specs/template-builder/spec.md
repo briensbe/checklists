@@ -13,15 +13,27 @@ Le système DOIT proposer un catalogue des templates disponibles permettant de v
 - **THEN** le système affiche l'ensemble des sections ordonnées et le détail des items avec leur type de contrôle et options associées.
 
 ### Requirement: Importation et exportation de templates JSON
-Le système DOIT permettre d'exporter tout template au format JSON structuré et d'importer un fichier JSON externe après validation de sa structure.
+Le système DOIT permettre d'exporter tout template au format JSON structuré et d'importer un fichier JSON externe après normalisation et validation de sa structure. L'import d'un template dont l'identifiant existe déjà dans la bibliothèque NE DOIT PAS écraser silencieusement le template existant : l'utilisateur DOIT choisir entre « Remplacer l'existant » et « Importer comme copie », ou annuler.
 
 #### Scenario: Exportation d'un template en JSON
 - **WHEN** l'utilisateur clique sur "Exporter JSON" sur la carte d'un template
 - **THEN** le système télécharge un fichier `.json` contenant la définition complète du modèle (sans données de session).
 
 #### Scenario: Importation d'un template JSON valide
-- **WHEN** l'utilisateur importe un fichier JSON respectant le schéma de template
+- **WHEN** l'utilisateur importe un fichier JSON respectant le schéma de template et dont l'identifiant n'existe pas dans la bibliothèque
 - **THEN** le template est sauvegardé dans Dexie, ajouté à la bibliothèque et sélectionnable immédiatement.
+
+#### Scenario: Conflit d'identifiant – remplacement
+- **WHEN** l'utilisateur importe un template dont l'identifiant existe déjà et choisit « Remplacer l'existant »
+- **THEN** le template existant est remplacé, son horodatage `updatedAt` est mis à jour et les sessions en cours qui en sont issues affichent le badge « Modèle mis à jour ».
+
+#### Scenario: Conflit d'identifiant – copie
+- **WHEN** l'utilisateur importe un template dont l'identifiant existe déjà et choisit « Importer comme copie »
+- **THEN** le template est ajouté sous un nouvel identifiant avec le nom suffixé de « (import) » ; le template existant et les sessions qui en sont issues sont inchangés.
+
+#### Scenario: Conflit d'identifiant – annulation
+- **WHEN** l'utilisateur annule le choix
+- **THEN** la bibliothèque est inchangée.
 
 #### Scenario: Rejet d'un template JSON invalide
 - **WHEN** l'utilisateur tente d'importer un JSON malformé ou dépourvu de champs obligatoires
@@ -36,4 +48,8 @@ Le système DOIT fournir une interface visuelle dédiée permettant de créer un
 
 #### Scenario: Configuration d'un item avec choix d'évaluation personnalisables
 - **WHEN** le concepteur configure un item avec le type "Choix d'évaluation"
-- **THEN** l'interface lui permet d'ajouter des options personnalisées définies par un libellé (ex: Vert, Rouge, Jaune, Bleu), une couleur ou un badge, et un indicateur bloquant optionnel.
+- **THEN** l'interface lui permet d'ajouter des options personnalisées définies par un libellé, un ton choisi dans la palette fixe (`success`, `danger`, `warning`, `info`, `neutral`) et un indicateur bloquant optionnel ; aucune couleur libre ne peut être saisie.
+
+#### Scenario: Valeurs par défaut d'un nouveau choix
+- **WHEN** le concepteur ajoute un nouveau choix d'évaluation
+- **THEN** le choix est créé avec un ton de la palette (par défaut `neutral`).
