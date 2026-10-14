@@ -1,8 +1,14 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { ChecklistTemplate } from '../models/checklist.model';
 import { AppDatabaseService } from './app-database.service';
+import { normalizeTemplate } from '../data/migrations';
 
+/**
+ * Bibliothèque de templates (liste, constructeur, import/export).
+ * Les sessions n'en dépendent plus pour leur structure : elles lisent leur copie figée.
+ */
 @Injectable({
   providedIn: 'root'
 })
@@ -11,64 +17,53 @@ export class TemplateService {
   private db = inject(AppDatabaseService);
 
   readonly availableTemplates = signal<ChecklistTemplate[]>([]);
-  readonly activeTemplate = signal<ChecklistTemplate | null>(null);
 
   async initTemplates(): Promise<void> {
     // 1. Charger depuis la BDD IndexedDB
     let dbTemplates = await this.db.templates.toArray();
 
-    // 2. Si la BDD est vide, importer le modèle par défaut
+    // 2. Si la BDD est vide, importer le modèle par défaut (normalisé au cas où il serait à l'ancien format)
     if (dbTemplates.length === 0) {
       try {
-        const defaultTemplate = await this.http.get<ChecklistTemplate>('assets/templates/delivery-audit.json').toPromise();
-        if (defaultTemplate) {
-          await this.db.templates.put(defaultTemplate);
-          dbTemplates = [defaultTemplate];
-        }
+        const raw = await firstValueFrom(this.http.get<unknown>('assets/templates/delivery-audit.json'));
+        const defaultTemplate = normalizeTemplate(raw);
+        await this.db.templates.put(defaultTemplate);
+        dbTemplates = [defaultTemplate];
       } catch (err) {
-        console.warn('Impossible de charger assets/templates/delivery-audit.json, utilisation du fallback interne.', err);
+        console.warn('Impossible de charger assets/templates/delivery-audit.json.', err);
       }
     }
 
     this.availableTemplates.set(dbTemplates);
-    if (dbTemplates.length > 0 && !this.activeTemplate()) {
-      this.activeTemplate.set(dbTemplates[0]);
-    }
   }
 
-  selectTemplate(templateId: string): void {
-    const found = this.availableTemplates().find(t => t.id === templateId);
-    if (found) {
-      this.activeTemplate.set(found);
-    }
+  findTemplate(templateId: string): ChecklistTemplate | undefined {
+    return this.availableTemplates().find(t => t.id === templateId);
   }
 
   async importTemplate(jsonContent: string): Promise<ChecklistTemplate> {
-    const parsed = JSON.parse(jsonContent) as ChecklistTemplate;
-    this.validateTemplate(parsed);
+    const parsed: unknown = JSON.parse(jsonContent);
+    // L'import marque toujours le template comme modifié maintenant : les sessions
+    // qui en sont issues verront ainsi le badge « Modèle mis à jour ».
+    const template = { ...normalizeTemplate(parsed), updatedAt: new Date().toISOString() };
+    this.validateTemplate(template);
 
-    await this.db.templates.put(parsed);
-    const updated = await this.db.templates.toArray();
-    this.availableTemplates.set(updated);
-    this.activeTemplate.set(parsed);
-    return parsed;
+    await this.db.templates.put(template);
+    await this.refresh();
+    return template;
   }
 
-  async saveTemplate(template: ChecklistTemplate): Promise<void> {
-    this.validateTemplate(template);
-    await this.db.templates.put(template);
-    const updated = await this.db.templates.toArray();
-    this.availableTemplates.set(updated);
-    this.activeTemplate.set(template);
+  async saveTemplate(template: ChecklistTemplate): Promise<ChecklistTemplate> {
+    const toSave: ChecklistTemplate = { ...template, updatedAt: new Date().toISOString() };
+    this.validateTemplate(toSave);
+    await this.db.templates.put(toSave);
+    await this.refresh();
+    return toSave;
   }
 
   async deleteTemplate(templateId: string): Promise<void> {
     await this.db.templates.delete(templateId);
-    const updated = await this.db.templates.toArray();
-    this.availableTemplates.set(updated);
-    if (this.activeTemplate()?.id === templateId) {
-      this.activeTemplate.set(updated.length > 0 ? updated[0] : null);
-    }
+    await this.refresh();
   }
 
   validateTemplate(template: ChecklistTemplate): void {
@@ -85,5 +80,9 @@ export class TemplateService {
         }
       }
     }
+  }
+
+  private async refresh(): Promise<void> {
+    this.availableTemplates.set(await this.db.templates.toArray());
   }
 }

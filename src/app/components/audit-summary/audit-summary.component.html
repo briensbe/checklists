@@ -43,10 +43,11 @@
           <select 
             [id]="'ctx_' + field.id"
             [value]="contextValues()[field.id] || field.defaultValue || ''"
+            [disabled]="readonly()"
             (change)="onContextChange(field.id, $event)"
             class="field-select">
             @for (opt of field.options; track opt.value) {
-              <option [value]="opt.value">{{ opt.label }}</option>
+              <option [value]="opt.value" [selected]="opt.value === (contextValues()[field.id] || field.defaultValue)">{{ opt.label }}</option>
             }
           </select>
         } @else if (field.type === 'date') {
@@ -54,6 +55,7 @@
             type="date"
             [id]="'ctx_' + field.id"
             [value]="contextValues()[field.id] || ''"
+            [disabled]="readonly()"
             (input)="onContextChange(field.id, $event)"
             class="field-input">
         } @else {
@@ -62,6 +64,7 @@
             [id]="'ctx_' + field.id"
             [value]="contextValues()[field.id] || ''"
             [placeholder]="field.placeholder || ''"
+            [disabled]="readonly()"
             (input)="onContextChange(field.id, $event)"
             class="field-input">
         }
@@ -94,12 +97,14 @@
       <span class="chip chip-na">{{ metrics().naCount }} N/A</span>
       <span class="chip chip-pending">{{ metrics().pending }} Restants</span>
 
-      <button 
-        type="button"
-        (click)="markAllOk.emit()"
-        class="btn-batch-ok">
-        ✓ Passer le reste à OK
-      </button>
+      @if (!readonly()) {
+        <button 
+          type="button"
+          (click)="markAllOk.emit()"
+          class="btn-batch-ok">
+          ✓ Passer le reste à OK
+        </button>
+      }
     </div>
   </div>
 </section>

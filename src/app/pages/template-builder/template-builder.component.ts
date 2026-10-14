@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TemplateService } from '../../services/template.service';
-import { ChecklistTemplate, ChecklistSectionTemplate, ChecklistItemTemplate, CustomChoiceOption, ItemControlType } from '../../models/checklist.model';
+import { ChecklistTemplate, ChecklistSectionTemplate, ChecklistItemTemplate, ChoiceTone, ItemControlType } from '../../models/checklist.model';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -22,11 +22,20 @@ export class TemplateBuilderComponent implements OnInit {
     name: 'Nouveau modèle de checklist',
     description: '',
     version: '1.0.0',
+    updatedAt: '',
     contextSchema: [],
     sections: []
   });
 
   previewMode = signal<boolean>(false);
+
+  readonly tones: { value: ChoiceTone; label: string }[] = [
+    { value: 'success', label: 'Vert (succès)' },
+    { value: 'danger', label: 'Rouge (anomalie)' },
+    { value: 'warning', label: 'Orange (alerte)' },
+    { value: 'info', label: 'Bleu (information)' },
+    { value: 'neutral', label: 'Gris (neutre)' }
+  ];
 
   async ngOnInit(): Promise<void> {
     await this.templateService.initTemplates();
@@ -48,6 +57,7 @@ export class TemplateBuilderComponent implements OnInit {
       name: 'Nouveau modèle',
       description: 'Description du modèle',
       version: '1.0.0',
+    updatedAt: '',
       contextSchema: [],
       sections: [
         {
@@ -114,8 +124,8 @@ export class TemplateBuilderComponent implements OnInit {
     item.controlType = type;
     if (type === 'choice' && (!item.customChoices || item.customChoices.length === 0)) {
       item.customChoices = [
-        { id: 'opt-1', label: 'Option 1', color: 'blue' },
-        { id: 'opt-2', label: 'Option 2', color: 'green' }
+        { id: 'opt-1', label: 'Option 1', tone: 'success' },
+        { id: 'opt-2', label: 'Option 2', tone: 'danger', isBlocking: true }
       ];
     }
   }
@@ -125,7 +135,7 @@ export class TemplateBuilderComponent implements OnInit {
     item.customChoices.push({
       id: `opt-${Date.now()}`,
       label: `Option ${item.customChoices.length + 1}`,
-      color: 'slate',
+      tone: 'neutral',
       isBlocking: false
     });
   }

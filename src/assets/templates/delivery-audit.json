@@ -3,6 +3,7 @@
   "name": "Audit & Contrôle Permanent de Livraison",
   "description": "Validation & Piste d'audit de mise en production",
   "version": "1.0.0",
+  "updatedAt": "2026-10-14T00:00:00.000Z",
   "contextSchema": [
     {
       "id": "version",
@@ -19,8 +20,14 @@
       "required": true,
       "defaultValue": "full",
       "options": [
-        { "label": "Livraison complète", "value": "full" },
-        { "label": "Patch", "value": "patch" }
+        {
+          "label": "Livraison complète",
+          "value": "full"
+        },
+        {
+          "label": "Patch",
+          "value": "patch"
+        }
       ]
     },
     {
@@ -46,26 +53,34 @@
         {
           "id": "jira_status",
           "label": "Status des JIRAs à 'fixed' ou 'to validate'",
-          "help": "Tous les tickets embarqués dans la livraison doivent être validés ou fixés.",
-          "mode": "all"
+          "help": "Tous les tickets embarqués dans la livraison doivent être validés ou fixés."
         },
         {
           "id": "jira_test_notes",
           "label": "Vérification Test Note pour les tickets à 'to validate'",
-          "help": "Chaque ticket en attente de validation doit comporter une note de test explicite.",
-          "mode": "all"
+          "help": "Chaque ticket en attente de validation doit comporter une note de test explicite."
         },
         {
           "id": "jira_config_notes",
           "label": "Vérification Configuration Note (patch seulement)",
           "help": "Présence des notes de paramétrage nécessaires pour le déploiement du patch.",
-          "mode": "patch"
+          "visibleIf": {
+            "fieldId": "mode",
+            "equals": [
+              "patch"
+            ]
+          }
         },
         {
           "id": "jira_warnings",
           "label": "Vérification Warning (patch seulement)",
           "help": "Vérifier l'absence d'effets de bord ou avertissements bloquants sur le patch.",
-          "mode": "patch"
+          "visibleIf": {
+            "fieldId": "mode",
+            "equals": [
+              "patch"
+            ]
+          }
         }
       ]
     },
@@ -77,20 +92,17 @@
         {
           "id": "castor_release",
           "label": "Passage des castor en version release (uniquement si changement)",
-          "help": "S'assurer qu'aucune version snapshot ne subsiste si un composant castor est modifié.",
-          "mode": "all"
+          "help": "S'assurer qu'aucune version snapshot ne subsiste si un composant castor est modifié."
         },
         {
           "id": "castor_pom",
           "label": "Modification du pom.xml pour utiliser la nouvelle version release des castor",
-          "help": "Mise à jour des tags de dépendance Maven.",
-          "mode": "all"
+          "help": "Mise à jour des tags de dépendance Maven."
         },
         {
           "id": "castor_tag",
           "label": "Vérification tag et release castor utilisés",
-          "help": "Contrôler la correspondance entre le tag du dépôt et la version déclarée.",
-          "mode": "all"
+          "help": "Contrôler la correspondance entre le tag du dépôt et la version déclarée."
         }
       ]
     },
@@ -102,20 +114,17 @@
         {
           "id": "cobol_release",
           "label": "Passage des copy-cobol en version release (uniquement si changement)",
-          "help": "Validation de la version définitive livrée pour l'interfaçage mainframe.",
-          "mode": "all"
+          "help": "Validation de la version définitive livrée pour l'interfaçage mainframe."
         },
         {
           "id": "cobol_pom",
           "label": "Modification du pom.xml pour utiliser la nouvelle version release des copy-cobol",
-          "help": "Vérifier la bonne référence dans le descripteur de build.",
-          "mode": "all"
+          "help": "Vérifier la bonne référence dans le descripteur de build."
         },
         {
           "id": "cobol_tag",
           "label": "Vérification tag et release copy-cobol utilisés",
-          "help": "Contrôler la traçabilité des sources Cobol.",
-          "mode": "all"
+          "help": "Contrôler la traçabilité des sources Cobol."
         }
       ]
     },
@@ -127,39 +136,37 @@
         {
           "id": "jenkins_ci",
           "label": "Vérification chaîne d'intégration",
-          "help": "Règle stricte : Une tâche KO non expliquée entraîne le blocage de la livraison.",
-          "mode": "all"
+          "help": "Règle stricte : Une tâche KO non expliquée entraîne le blocage de la livraison."
         },
         {
           "id": "jenkins_image",
           "label": "Image de Jenkins fournie avec la livraison",
-          "help": "Capture d'écran du pipeline d'intégration verte archivée comme preuve.",
-          "mode": "all"
+          "help": "Capture d'écran du pipeline d'intégration verte archivée comme preuve."
         },
         {
           "id": "sonar_gate",
           "label": "Indicateur Sonar (Quality Gate)",
-          "help": "Respect des seuils de dette technique, duplication et couverture de tests.",
-          "mode": "all"
+          "help": "Respect des seuils de dette technique, duplication et couverture de tests."
         },
         {
           "id": "code_review",
           "label": "Validation / Revue de code",
           "help": "Revue par un pair effectuée et validée (mentionner le relecteur dans le commentaire).",
-          "extraField": { "id": "reviewer", "label": "Nom du reviewer (ex: J. Dupont)", "placeholder": "Nom du reviewer (ex: J. Dupont)" },
-          "mode": "all"
+          "extraField": {
+            "id": "reviewer",
+            "label": "Nom du reviewer (ex: J. Dupont)",
+            "placeholder": "Nom du reviewer (ex: J. Dupont)"
+          }
         },
         {
           "id": "jdbc_autocommit",
           "label": "Vérification des connexions JDBC en autocommit false",
-          "help": "S'assurer que la gestion transactionnelle est explicitement contrôlée.",
-          "mode": "all"
+          "help": "S'assurer que la gestion transactionnelle est explicitement contrôlée."
         },
         {
           "id": "sync_blocks",
           "label": "Vérification des blocs synchronized",
-          "help": "Contrôler la thread-safety et l'absence de verrous potentiellement bloquants.",
-          "mode": "all"
+          "help": "Contrôler la thread-safety et l'absence de verrous potentiellement bloquants."
         }
       ]
     },
@@ -171,26 +178,22 @@
         {
           "id": "git_merge",
           "label": "Vérifier le merge des branches",
-          "help": "Toutes les branches de fonctionnalités sont correctement intégrées dans la branche de release.",
-          "mode": "all"
+          "help": "Toutes les branches de fonctionnalités sont correctement intégrées dans la branche de release."
         },
         {
           "id": "git_uncommitted",
           "label": "Vérifier qu'une branche n'a pas été oubliée pour un commit",
-          "help": "Aucun travail orphelin sur des dépôts satellites.",
-          "mode": "all"
+          "help": "Aucun travail orphelin sur des dépôts satellites."
         },
         {
           "id": "git_tag",
           "label": "Tag sous Git de la version livrée",
-          "help": "Le tag Git correspond exactement au numéro de release officiel.",
-          "mode": "all"
+          "help": "Le tag Git correspond exactement au numéro de release officiel."
         },
         {
           "id": "git_branch",
           "label": "Branche Git de la version livrée",
-          "help": "Création et protection de la branche de maintenance/release associée.",
-          "mode": "all"
+          "help": "Création et protection de la branche de maintenance/release associée."
         }
       ]
     },
@@ -202,20 +205,17 @@
         {
           "id": "log_ebo",
           "label": "Vérification des logs applicatifs eBO",
-          "help": "Absence de WARNING, ERROR ou StackTraces anormales au démarrage.",
-          "mode": "all"
+          "help": "Absence de WARNING, ERROR ou StackTraces anormales au démarrage."
         },
         {
           "id": "log_quote",
           "label": "Vérification des logs applicatifs quote",
-          "help": "Contrôle de santé du moteur de tarification/cotation.",
-          "mode": "all"
+          "help": "Contrôle de santé du moteur de tarification/cotation."
         },
         {
           "id": "log_caisse",
           "label": "Vérification des logs applicatifs internet-caisse",
-          "help": "Aucune exception d'interconnexion ou de persistance.",
-          "mode": "all"
+          "help": "Aucune exception d'interconnexion ou de persistance."
         }
       ]
     },
@@ -227,26 +227,22 @@
         {
           "id": "bin_documents",
           "label": "Présence des documents attendus dans le répertoire de livraison",
-          "help": "Dossier de mise en production, fiches de recette, release notes.",
-          "mode": "all"
+          "help": "Dossier de mise en production, fiches de recette, release notes."
         },
         {
           "id": "bin_date",
           "label": "Vérification cohérence de la date",
-          "help": "Horodatage conforme sur l'ensemble des paquets construits.",
-          "mode": "all"
+          "help": "Horodatage conforme sur l'ensemble des paquets construits."
         },
         {
           "id": "bin_version",
           "label": "Vérification cohérence du numéro de version",
-          "help": "Concordance stricte entre livrables, manifests et tickets.",
-          "mode": "all"
+          "help": "Concordance stricte entre livrables, manifests et tickets."
         },
         {
           "id": "bin_checksum",
           "label": "Fournir checksum pour chaque archive (SHA-256 / MD5)",
-          "help": "Fichiers de hachage disponibles pour garantir l'intégrité du transfert.",
-          "mode": "all"
+          "help": "Fichiers de hachage disponibles pour garantir l'intégrité du transfert."
         }
       ]
     },
@@ -258,8 +254,7 @@
         {
           "id": "db_scripts",
           "label": "Récupération des scripts de migration BDD",
-          "help": "Scripts DDL/DML ordonnés, testés à blanc et documentés (avec script de rollback).",
-          "mode": "all"
+          "help": "Scripts DDL/DML ordonnés, testés à blanc et documentés (avec script de rollback)."
         }
       ]
     }

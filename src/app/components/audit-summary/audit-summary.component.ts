@@ -13,6 +13,7 @@ export class AuditSummaryComponent {
   readonly contextValues = input<Record<string, string>>({});
   readonly metrics = input.required<MetricsSummary>();
   readonly filter = input<FilterType>('all');
+  readonly readonly = input<boolean>(false);
 
   readonly contextChange = output<{ key: string; value: string }>();
   readonly filterChange = output<FilterType>();

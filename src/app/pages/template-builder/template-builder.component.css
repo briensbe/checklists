@@ -296,6 +296,14 @@
   flex: 1;
 }
 
+.choice-tone-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  background-color: var(--tone-border);
+}
+
 .choice-color-select {
   padding: 0.35rem 0.6rem;
   border: 1px solid var(--input-border);
@@ -390,9 +398,9 @@
   padding: 0.3rem 0.6rem;
   border-radius: 4px;
   font-size: 0.8rem;
-  background: var(--card-bg);
-  color: var(--text-main);
-  border: 2px solid;
+  background: var(--tone-bg, var(--card-bg));
+  color: var(--tone-fg, var(--text-main));
+  border: 2px solid var(--tone-border, var(--border-color));
   cursor: default;
 }
 

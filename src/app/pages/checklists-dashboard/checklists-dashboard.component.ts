@@ -1,8 +1,11 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ChecklistSessionService } from '../../services/checklist-session.service';
 import { TemplateService } from '../../services/template.service';
-import { ChecklistSession, ChecklistTemplate } from '../../models/checklist.model';
+import { ChecklistSession, MetricsSummary, SessionStatus } from '../../models/checklist.model';
+import { computeMetrics } from '../../domain/session-rules';
+
+export type StatusFilter = 'all' | SessionStatus;
 import { DatePipe } from '@angular/common';
 
 @Component({
@@ -20,6 +23,19 @@ export class ChecklistsDashboardComponent implements OnInit {
   isNewModalOpen = signal<boolean>(false);
   selectedTemplateId = signal<string>('');
   newChecklistTitle = signal<string>('');
+  statusFilter = signal<StatusFilter>('all');
+
+  readonly filteredSessions = computed(() => {
+    const filter = this.statusFilter();
+    const sessions = this.sessionService.allSessions();
+    return filter === 'all' ? sessions : sessions.filter(s => s.status === filter);
+  });
+
+  readonly statusCounts = computed(() => {
+    const sessions = this.sessionService.allSessions();
+    const completed = sessions.filter(s => s.status === 'completed').length;
+    return { all: sessions.length, in_progress: sessions.length - completed, completed };
+  });
 
   async ngOnInit(): Promise<void> {
     await this.templateService.initTemplates();
@@ -31,9 +47,13 @@ export class ChecklistsDashboardComponent implements OnInit {
     }
   }
 
-  getTemplateName(templateId: string): string {
-    const t = this.templateService.availableTemplates().find(item => item.id === templateId);
-    return t ? t.name : 'Modèle personnalisé';
+  openSession(sessionId: string, applyUpdate = false): void {
+    this.router.navigate(['/checklists', sessionId], applyUpdate ? { queryParams: { applyUpdate: 1 } } : {});
+  }
+
+  onApplyUpdate(event: Event, sessionId: string): void {
+    event.stopPropagation();
+    this.openSession(sessionId, true);
   }
 
   openNewModal(): void {
@@ -65,21 +85,8 @@ export class ChecklistsDashboardComponent implements OnInit {
     }
   }
 
-  calculateStats(session: ChecklistSession): { total: number; answered: number; percent: number } {
-    const answers = Object.values(session.answers);
-    const answered = answers.filter(a => a.status !== null || a.checked || a.selectedChoice).length;
-    // Estimation basée sur les items de la session ou du template
-    const template = this.templateService.availableTemplates().find(t => t.id === session.templateId);
-    let total = 0;
-    if (template) {
-      for (const sec of template.sections) {
-        total += sec.items.length;
-      }
-    } else {
-      total = Math.max(answered, Object.keys(session.answers).length);
-    }
-
-    const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
-    return { total, answered, percent };
+  /** Même règle que le runner : seuls les items applicables au contexte de la session comptent. */
+  metricsOf(session: ChecklistSession): MetricsSummary {
+    return computeMetrics(session);
   }
 }

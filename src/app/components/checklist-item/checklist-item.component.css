@@ -120,23 +120,22 @@
 }
 
 .btn-choice.active {
-  background-color: var(--badge-bg);
-  border-color: var(--primary);
-  color: var(--primary);
+  background-color: var(--tone-bg);
+  border-color: var(--tone-border);
+  color: var(--tone-fg);
   font-weight: 700;
   box-shadow: var(--shadow-xs);
 }
 
-.btn-choice.active.blocking {
-  background-color: var(--chip-ko-bg);
-  border-color: var(--chip-ko-border);
-  color: var(--chip-ko-text);
+.btn-choice:disabled {
+  cursor: default;
 }
 
 .choice-dot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 9999px;
+  background-color: var(--tone-border);
 }
 
 .badge-patch {
@@ -329,4 +328,18 @@
 .comment-input.error-required {
   border-color: #f43f5e;
   box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.2);
+}
+
+/* Cible de navigation depuis le panneau d'anomalies */
+.item-row:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn-status:disabled,
+.item-checkbox-input:disabled,
+.comment-input:disabled,
+.extra-input:disabled {
+  cursor: default;
+  opacity: 0.85;
 }

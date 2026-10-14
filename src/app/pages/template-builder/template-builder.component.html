@@ -59,7 +59,7 @@
                   } @else if (it.controlType === 'choice') {
                     <div class="preview-choices">
                       @for (c of it.customChoices; track c.id) {
-                        <button class="btn-choice-preview" [style.border-color]="c.color">{{ c.label }}</button>
+                        <button class="btn-choice-preview" [class]="'btn-choice-preview tone-' + c.tone">{{ c.label }}</button>
                       }
                     </div>
                   } @else {
@@ -168,13 +168,11 @@
                         @for (opt of it.customChoices; track opt.id; let optIdx = $index) {
                           <div class="choice-option-pill">
                             <input type="text" class="choice-label-input" [(ngModel)]="opt.label" placeholder="Nom du choix (ex: Jaune)" />
-                            <select class="choice-color-select" [(ngModel)]="opt.color">
-                              <option value="blue">Bleu</option>
-                              <option value="green">Vert</option>
-                              <option value="yellow">Jaune</option>
-                              <option value="red">Rouge</option>
-                              <option value="slate">Gris</option>
-                              <option value="purple">Violet</option>
+                            <span class="choice-tone-dot" [class]="'choice-tone-dot tone-' + opt.tone"></span>
+                            <select class="choice-color-select" [(ngModel)]="opt.tone" aria-label="Ton du choix">
+                              @for (tone of tones; track tone.value) {
+                                <option [value]="tone.value">{{ tone.label }}</option>
+                              }
                             </select>
                             <label class="choice-blocking" title="Compte comme non conforme si sélectionné">
                               <input type="checkbox" [(ngModel)]="opt.isBlocking" />

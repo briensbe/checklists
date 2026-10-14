@@ -1,21 +1,18 @@
 import { TestBed } from '@angular/core/testing';
 import { ExportService } from './export.service';
 import { ChecklistSessionService } from './checklist-session.service';
-import { TemplateService } from './template.service';
 import { EvidenceService } from './evidence.service';
 
 describe('ExportService', () => {
   let service: ExportService;
   let sessionService: ChecklistSessionService;
-  let templateService: TemplateService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [ExportService, ChecklistSessionService, TemplateService, EvidenceService]
+      providers: [ExportService, ChecklistSessionService, EvidenceService]
     });
     service = TestBed.inject(ExportService);
     sessionService = TestBed.inject(ChecklistSessionService);
-    templateService = TestBed.inject(TemplateService);
   });
 
   it('devrait être initialisé', () => {
@@ -23,12 +20,13 @@ describe('ExportService', () => {
   });
 
   it('devrait exporter un draft JSON avec les détails complets des réponses', () => {
-    // Mock template
-    templateService.activeTemplate.set({
+    // Mock template (copie figée portée par la session)
+    const template = {
       id: 'test-template',
       name: 'Test Template Name',
       description: 'Description',
       version: '1.0.0',
+      updatedAt: '2026-10-10T00:00:00Z',
       contextSchema: [],
       sections: [
         {
@@ -43,13 +41,16 @@ describe('ExportService', () => {
           ]
         }
       ]
-    });
+    };
 
     // Mock session answers
     sessionService.currentSession.set({
       id: 'current',
       title: 'Audit Test Qualité',
       templateId: 'test-template',
+      templateSnapshot: template,
+      status: 'in_progress',
+      closures: [],
       contextValues: { version: '2026.4.0' },
       answers: {
         'item-1': {

@@ -10,6 +10,13 @@
       </a>
       <div class="session-info">
         <span class="session-active-title">{{ session.title }}</span>
+        @if (session.status === 'completed') {
+          <span class="status-badge status-completed">
+            Terminée le {{ session.closures[session.closures.length - 1]?.closedAt | date:'dd/MM/yyyy HH:mm' }}
+          </span>
+        } @else {
+          <span class="status-badge status-in-progress">En cours</span>
+        }
         @if (sessionService.isSaving()) {
           <span class="save-indicator">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
@@ -27,49 +34,104 @@
           </svg>
           Exporter le rapport
         </button>
-        <button class="btn btn-sm btn-outline-danger" (click)="onResetSession()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-          Réinitialiser
-        </button>
+        @if (session.status === 'completed') {
+          <button class="btn btn-sm btn-outline" (click)="onReopen()">Rouvrir</button>
+        } @else if (!session.structureUnavailable) {
+          <button class="btn btn-sm btn-outline-danger" (click)="onResetSession()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            Réinitialiser
+          </button>
+          <button class="btn btn-sm btn-complete" (click)="onComplete()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            Terminer
+          </button>
+        }
       </div>
     </div>
 
-    <!-- Résumé, Contexte & Métriques -->
-    <app-audit-summary
-      [template]="templateService.activeTemplate()"
-      [contextValues]="session.contextValues"
-      [metrics]="sessionService.metrics()"
-      [filter]="sessionService.activeFilter()"
-      (contextChange)="onContextChanged($event.key, $event.value)"
-      (filterChange)="sessionService.setFilter($event)"
-      (markAllOk)="onMarkAllOk()"
-      (exportExcel)="exportService.exportExcel()"
-      (exportPdf)="exportService.exportPdf()"
-      (collapseAll)="sessionService.collapseAll($event)">
-    </app-audit-summary>
-
-    <!-- Sections dynamiques -->
-    <div class="sections-container">
-      @for (section of templateService.activeTemplate()?.sections; track section.id) {
-        <app-checklist-section
-          [section]="section"
-          [items]="getItemsForSection(section.id)"
-          [answers]="session.answers"
-          [evidenceCounts]="evidenceService.evidenceCounts()"
-          [isCollapsed]="!!sessionService.collapsedSections()[section.id]"
-          [filter]="sessionService.activeFilter()"
-          (toggleCollapse)="sessionService.toggleSection(section.id)"
-          (statusChange)="sessionService.updateAnswerStatus($event.itemId, $event.status)"
-          (checkboxChange)="sessionService.updateAnswerCheckbox($event.itemId, $event.checked, $event.withTimestamp)"
-          (choiceChange)="sessionService.updateAnswerChoice($event.itemId, $event.choiceId)"
-          (commentChange)="sessionService.updateAnswerComment($event.itemId, $event.comment)"
-          (extraChange)="sessionService.updateAnswerExtra($event.itemId, $event.key, $event.value)"
-          (openEvidence)="onOpenEvidence($event)">
-        </app-checklist-section>
+    @if (session.structureUnavailable) {
+      <div class="notice notice-danger" role="alert">
+        <strong>Structure du modèle indisponible.</strong>
+        Le modèle d'origine avait été supprimé avant la mise à jour de l'application : les contrôles ne peuvent plus être affichés.
+        Les réponses enregistrées sont conservées et restent accessibles via l'export JSON. Vous pouvez aussi supprimer cette checklist depuis le tableau de bord.
+      </div>
+    } @else {
+      @if (sessionService.currentHasTemplateUpdate()) {
+        <div class="notice notice-info">
+          <span><strong>Modèle mis à jour.</strong> Une version plus récente de « {{ session.templateSnapshot.name }} » est disponible.</span>
+          <button type="button" class="btn btn-sm btn-outline" (click)="openTemplateUpdate()">Appliquer</button>
+        </div>
       }
-    </div>
+
+      @if (sessionService.issuesPanelOpen() && session.status === 'in_progress') {
+        <section class="issues-panel" aria-labelledby="issues-title">
+          <div class="issues-header">
+            <h3 id="issues-title">
+              @if (sessionService.completionIssues().length > 0) {
+                Impossible de terminer : {{ sessionService.completionIssues().length }} anomalie(s)
+              } @else {
+                Toutes les anomalies sont corrigées : vous pouvez terminer la checklist.
+              }
+            </h3>
+            <button type="button" class="btn-link" (click)="sessionService.issuesPanelOpen.set(false)">Masquer</button>
+          </div>
+          <ul class="issues-list">
+            @for (issue of sessionService.completionIssues(); track (issue.itemId ?? issue.fieldId) + issue.kind) {
+              <li>
+                <button type="button" class="issue-link" (click)="onIssueClick(issue)">
+                  <span class="issue-kind">{{ issueLabels[issue.kind] }}</span>
+                  <span class="issue-label">{{ issue.label }}</span>
+                  @if (issue.sectionTitle) {
+                    <span class="issue-section">{{ issue.sectionTitle }}</span>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
+      <!-- Résumé, Contexte & Métriques -->
+      <app-audit-summary
+        [template]="sessionService.currentTemplate()"
+        [contextValues]="session.contextValues"
+        [metrics]="sessionService.metrics()"
+        [filter]="sessionService.activeFilter()"
+        [readonly]="sessionService.isReadonly()"
+        (contextChange)="onContextChanged($event.key, $event.value)"
+        (filterChange)="sessionService.setFilter($event)"
+        (markAllOk)="onMarkAllOk()"
+        (exportExcel)="exportService.exportExcel()"
+        (exportPdf)="exportService.exportPdf()"
+        (collapseAll)="sessionService.collapseAll($event)">
+      </app-audit-summary>
+
+      <!-- Sections dynamiques (issues de la copie figée du modèle) -->
+      <div class="sections-container">
+        @for (section of sessionService.currentTemplate()?.sections; track section.id) {
+          <app-checklist-section
+            [section]="section"
+            [items]="getItemsForSection(section.id)"
+            [answers]="session.answers"
+            [evidenceCounts]="evidenceService.evidenceCounts()"
+            [isCollapsed]="!!sessionService.collapsedSections()[section.id]"
+            [filter]="sessionService.activeFilter()"
+            [readonly]="sessionService.isReadonly()"
+            (toggleCollapse)="sessionService.toggleSection(section.id)"
+            (statusChange)="sessionService.updateAnswerStatus($event.itemId, $event.status)"
+            (checkboxChange)="sessionService.updateAnswerCheckbox($event.itemId, $event.checked, $event.withTimestamp)"
+            (choiceChange)="sessionService.updateAnswerChoice($event.itemId, $event.choiceId)"
+            (commentChange)="sessionService.updateAnswerComment($event.itemId, $event.comment)"
+            (extraChange)="sessionService.updateAnswerExtra($event.itemId, $event.key, $event.value)"
+            (openEvidence)="onOpenEvidence($event)">
+          </app-checklist-section>
+        }
+      </div>
+    }
 
     <!-- Modale Preuves -->
     @if (activeEvidenceItemId(); as itemId) {
@@ -77,10 +139,21 @@
         [itemId]="itemId"
         [itemLabel]="getActiveItemLabel(itemId)"
         [evidences]="activeItemEvidences()"
+        [readonly]="sessionService.isReadonly()"
         (close)="activeEvidenceItemId.set(null)"
         (fileAdded)="onEvidenceFileAdded(itemId, $event)"
         (deleteEvidence)="onEvidenceDeleted($event)">
       </app-evidence-attachment>
+    }
+
+    <!-- Récapitulatif de mise à jour du modèle -->
+    @if (templateUpdatePreview(); as preview) {
+      <app-template-update-modal
+        [preview]="preview"
+        [currentVersion]="session.templateSnapshot.version"
+        (close)="templateUpdatePreview.set(null)"
+        (confirm)="onConfirmTemplateUpdate()">
+      </app-template-update-modal>
     }
 
     <!-- Fenêtre brouillon JSON -->
@@ -92,6 +165,12 @@
         (exportFile)="exportService.exportJson()">
       </app-json-draft-modal>
     }
+  } @else if (sessionService.loadState() === 'not-found') {
+    <div class="loading-state not-found">
+      <h2>Session introuvable</h2>
+      <p>Cette checklist n'existe pas ou a été supprimée.</p>
+      <a routerLink="/checklists">Retour à la liste des checklists</a>
+    </div>
   } @else {
     <div class="loading-state">
       <p>Chargement de la checklist...</p>

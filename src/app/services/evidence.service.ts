@@ -2,6 +2,16 @@ import { Injectable, inject, signal } from '@angular/core';
 import { AppDatabaseService } from './app-database.service';
 import { EvidenceRecord } from '../models/checklist.model';
 
+/** Taille maximale d'une preuve (50 Mo). */
+export const MAX_EVIDENCE_SIZE = 50 * 1024 * 1024;
+
+export type EvidenceType = EvidenceRecord['type'];
+
+export function evidenceTypeOf(file: File): EvidenceType {
+  if (file.type.startsWith('image/')) return 'image';
+  return file.name.endsWith('.log') ? 'log' : 'file';
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -11,7 +21,7 @@ export class EvidenceService {
   // Cache des compteurs de preuves par itemId
   readonly evidenceCounts = signal<Record<string, number>>({});
 
-  async loadEvidenceCounts(sessionId = 'current'): Promise<void> {
+  async loadEvidenceCounts(sessionId: string): Promise<void> {
     const list = await this.db.evidences.where('sessionId').equals(sessionId).toArray();
     const counts: Record<string, number> = {};
     for (const ev of list) {
@@ -20,7 +30,7 @@ export class EvidenceService {
     this.evidenceCounts.set(counts);
   }
 
-  async getEvidencesForItem(itemId: string, sessionId = 'current'): Promise<EvidenceRecord[]> {
+  async getEvidencesForItem(itemId: string, sessionId: string): Promise<EvidenceRecord[]> {
     return this.db.evidences
       .where('sessionId')
       .equals(sessionId)
@@ -29,12 +39,17 @@ export class EvidenceService {
   }
 
   async addEvidence(
+    sessionId: string,
     itemId: string,
     file: File | Blob,
     filename: string,
-    type: 'image' | 'file' | 'log' = 'file',
-    sessionId = 'current'
+    type: EvidenceType = 'file'
   ): Promise<EvidenceRecord> {
+    if (file.size > MAX_EVIDENCE_SIZE) {
+      throw new Error(`Le fichier « ${filename} » dépasse la limite de 50 Mo.`);
+    }
+    await this.assertEditable(sessionId);
+
     const record: EvidenceRecord = {
       id: `${itemId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       sessionId,
@@ -52,16 +67,20 @@ export class EvidenceService {
     return record;
   }
 
-  async deleteEvidence(id: string, sessionId = 'current'): Promise<void> {
+  async deleteEvidence(sessionId: string, id: string): Promise<void> {
+    await this.assertEditable(sessionId);
     await this.db.evidences.delete(id);
     await this.loadEvidenceCounts(sessionId);
   }
 
-  createBlobUrl(blob: Blob): string {
-    return URL.createObjectURL(blob);
-  }
-
-  revokeBlobUrl(url: string): void {
-    URL.revokeObjectURL(url);
+  /** Une session terminée est en lecture seule : ses preuves ne peuvent plus changer. */
+  private async assertEditable(sessionId: string): Promise<void> {
+    const session = await this.db.sessions.get(sessionId);
+    if (!session) {
+      throw new Error('Session introuvable.');
+    }
+    if (session.status === 'completed') {
+      throw new Error('Session terminée : les preuves ne peuvent plus être modifiées.');
+    }
   }
 }

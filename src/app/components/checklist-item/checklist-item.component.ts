@@ -13,6 +13,7 @@ export class ChecklistItemComponent {
   readonly item = input.required<ChecklistItemTemplate>();
   readonly answer = input<ItemAnswer | undefined>();
   readonly evidenceCount = input<number>(0);
+  readonly readonly = input<boolean>(false);
 
   readonly requireNaReason = computed<boolean>(() => !!this.item().requireNaReason);
 

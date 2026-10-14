@@ -3,20 +3,21 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ChecklistSessionService } from './checklist-session.service';
-import { TemplateService } from './template.service';
 import { EvidenceService } from './evidence.service';
+import { ItemAnswer } from '../models/checklist.model';
+
+type EnrichedAnswer = ItemAnswer & { label?: string; sectionTitle?: string; evidenceCount?: number };
 
 @Injectable({
   providedIn: 'root'
 })
 export class ExportService {
   private sessionService = inject(ChecklistSessionService);
-  private templateService = inject(TemplateService);
   private evidenceService = inject(EvidenceService);
 
   getJsonDraft(): string {
     const session = this.sessionService.currentSession();
-    const template = this.templateService.activeTemplate();
+    const template = this.sessionService.currentTemplate();
     const metrics = this.sessionService.metrics();
     const applicableItems = this.sessionService.applicableItems();
     const evidenceCounts = this.evidenceService.evidenceCounts();
@@ -42,7 +43,7 @@ export class ExportService {
       };
     });
 
-    const enrichedAnswers: Record<string, any> = {};
+    const enrichedAnswers: Record<string, EnrichedAnswer> = {};
     for (const item of applicableItems) {
       const ans = session.answers[item.id] || { status: null, comment: '', extra: {} };
       enrichedAnswers[item.id] = {
@@ -277,7 +278,7 @@ export class ExportService {
       },
       margin: { top: 15, left: 14, right: 14, bottom: 20 },
       didDrawPage: () => {
-        const pageCount = (doc as any).internal.getNumberOfPages();
+        const pageCount = doc.getNumberOfPages();
         doc.setFontSize(8);
         doc.setTextColor(148, 163, 184);
         doc.text(`Page ${pageCount}`, 196, 290, { align: 'right' });
