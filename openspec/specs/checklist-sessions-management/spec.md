@@ -21,8 +21,12 @@ Le système DOIT permettre de créer et gérer plusieurs sessions de checklists 
 - **THEN** le système affiche un état « Session introuvable » avec un lien de retour vers le tableau de bord, au lieu d'un chargement infini.
 
 #### Scenario: Suppression d'une session de checklist
-- **WHEN** l'utilisateur demande la suppression d'une checklist avec confirmation
-- **THEN** la session et ses preuves associées sont définitivement purgées de la base IndexedDB et la liste est mise à jour.
+- **WHEN** l'utilisateur clique sur la suppression d'une session depuis le tableau de bord
+- **THEN** la session est immédiatement masquée de la liste affichée, un toast d'annulation s'affiche pendant 6 secondes avec le bouton « Annuler », et la suppression réelle (session et preuves) en base Dexie n'a lieu qu'à l'expiration du délai ou immédiatement lors du déchargement de la page.
+
+#### Scenario: Annulation de la suppression d'une session
+- **WHEN** l'utilisateur clique sur « Annuler » dans le toast de suppression avant l'expiration du délai
+- **THEN** la session réapparaît immédiatement dans la liste du tableau de bord et aucune opération de suppression n'est exécutée en base.
 
 ### Requirement: Tableau de bord des checklists en cours
 Le système DOIT présenter un tableau de bord listant toutes les checklists existantes avec leur titre, le nom du template issu de leur copie figée, leur statut, la date de modification et les métriques d'avancement. Les métriques DOIVENT être calculées par la même règle que dans le runner, en ne comptant que les items applicables au contexte de la session.
@@ -38,3 +42,10 @@ Le système DOIT présenter un tableau de bord listant toutes les checklists exi
 #### Scenario: Filtre par statut
 - **WHEN** l'utilisateur sélectionne le filtre « En cours » ou « Terminées »
 - **THEN** seules les sessions du statut choisi sont affichées ; le filtre « Toutes » rétablit la liste complète.
+
+### Requirement: Lancement d'une checklist avec présélection de template
+Le système DOIT permettre de déclencher la création d'une nouvelle checklist depuis la liste des modèles en ouvrant la modale dédiée du tableau de bord avec le modèle présélectionné, sans recourir à un dialogue natif `prompt()`.
+
+#### Scenario: Lancement depuis la liste des modèles
+- **WHEN** l'utilisateur clique sur « Nouvelle checklist » sur la carte d'un modèle dans la bibliothèque de modèles
+- **THEN** le système navigue vers `/checklists?new=<templateId>` et ouvre directement la modale de création avec le modèle sélectionné et le titre par défaut suggéré.

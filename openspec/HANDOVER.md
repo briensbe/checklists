@@ -6,7 +6,7 @@
 |---|--------|------|
 | 1 | `session-integrity` | Livré, archivé (`openspec/changes/archive/2026-10-14-session-integrity/`), PR #1 fusionnée |
 | 2 | `session-exchange` | Livré, archivé (`openspec/changes/archive/2026-10-14-session-exchange/`), fusionné |
-| 3 | `ui-dialogs-and-undo` | **À faire** : section 1 ci-dessous |
+| 3 | `ui-dialogs-and-undo` | Livré, archivé (`openspec/changes/archive/2026-10-16-ui-dialogs-and-undo/`), fusionné sur `main` |
 | 4 | `template-builder-v2` | **À faire** : section 2 (dépend du 3) |
 | 5 | `runner-and-dashboard-productivity` | **À faire** : section 3 (dépend du 3) |
 | — | Backlog | Reporté, voir [BACKLOG.md](BACKLOG.md) |

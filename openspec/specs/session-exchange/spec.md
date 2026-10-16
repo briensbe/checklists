@@ -71,24 +71,24 @@ Le système DOIT permettre d'importer un fichier de session depuis le tableau de
 - **THEN** aucun template n'est ajouté à la bibliothèque ; la session s'exécute à partir de sa copie figée
 
 ### Requirement: Résolution des conflits d'identifiant à l'import de session
-Lorsque l'identifiant de la session importée existe déjà en base, le système DOIT demander à l'utilisateur de choisir entre « Remplacer l'existante » et « Importer comme copie », ou d'annuler.
+Lorsque l'identifiant de la session importée existe déjà en base, le système DOIT présenter une boîte de dialogue modale unique à trois choix explicites (« Remplacer l'existante », « Importer comme copie », « Annuler »), sans recourir à des boîtes de confirmation natives enchaînées.
 
 #### Scenario: Remplacement de la session existante
-- **WHEN** l'utilisateur choisit « Remplacer l'existante »
-- **THEN** la session en base est remplacée par celle du fichier, avec le même identifiant
+- **WHEN** l'utilisateur sélectionne l'option « Remplacer l'existante » dans la boîte de dialogue de conflit
+- **THEN** la boîte se ferme, la session en base est remplacée par celle du fichier avec le même identifiant, et un toast confirme le remplacement.
 
 #### Scenario: Remplacement avec pièces jointes incluses
 - **WHEN** l'utilisateur remplace une session et que le fichier contient un bloc de preuves
-- **THEN** toutes les preuves existantes de la session sont supprimées et remplacées par celles du fichier
+- **THEN** toutes les preuves existantes de la session sont supprimées et remplacées par celles du fichier.
 
 #### Scenario: Remplacement sans pièces jointes incluses
 - **WHEN** l'utilisateur remplace une session et que le fichier ne contient pas de bloc de preuves
-- **THEN** les preuves existantes de la session sont conservées, sauf celles rattachées à des items absents de la copie figée importée, qui sont supprimées
+- **THEN** les preuves existantes de la session sont conservées, sauf celles rattachées à des items absents de la copie figée importée, qui sont supprimées.
 
 #### Scenario: Import comme copie
-- **WHEN** l'utilisateur choisit « Importer comme copie »
-- **THEN** une nouvelle session est créée avec un nouvel UUID et le titre suffixé de « (import) », ses preuves éventuelles y étant rattachées ; la session existante est inchangée
+- **WHEN** l'utilisateur sélectionne l'option « Importer comme copie » dans la boîte de dialogue de conflit
+- **THEN** la boîte se ferme, une nouvelle session est créée avec un nouvel UUID et le titre suffixé de « (import) », ses preuves éventuelles y étant rattachées ; la session existante est inchangée.
 
 #### Scenario: Annulation
-- **WHEN** l'utilisateur annule le choix
-- **THEN** aucune donnée n'est écrite
+- **WHEN** l'utilisateur clique sur « Annuler », clique sur l'arrière-plan ou appuie sur `Échap`
+- **THEN** la boîte se ferme et aucune donnée n'est modifiée ou importée.
