@@ -139,6 +139,11 @@ export class ChecklistSessionService {
 
   // --- Saisies -------------------------------------------------------------
 
+  updateTitle(title: string): Promise<void> {
+    if (!title.trim()) return Promise.resolve();
+    return this.mutate(s => (s.title === title ? null : { ...s, title }), { debounce: true });
+  }
+
   updateContextValue(key: string, value: string): Promise<void> {
     return this.mutate(s => ({ ...s, contextValues: { ...s.contextValues, [key]: value } }), { debounce: true });
   }

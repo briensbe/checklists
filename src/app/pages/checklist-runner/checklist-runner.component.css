@@ -44,6 +44,53 @@
   color: var(--text-heading);
 }
 
+.session-title-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  position: relative;
+}
+
+.session-title-input {
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--text-heading);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  padding: 0.25rem 0.5rem;
+  min-width: 16rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.session-title-input:hover {
+  border-color: var(--border-color);
+  background: var(--input-bg);
+}
+
+.session-title-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--input-bg);
+  box-shadow: 0 0 0 2px var(--badge-bg);
+}
+
+.session-title-edit-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--text-muted);
+  opacity: 0.65;
+  pointer-events: none;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.session-title-edit:hover .session-title-edit-icon,
+.session-title-edit:focus-within .session-title-edit-icon {
+  opacity: 1;
+  color: var(--primary);
+}
+
 .save-indicator {
   display: inline-flex;
   align-items: center;

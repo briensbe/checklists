@@ -127,6 +127,27 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
 
   // --- Saisies globales ----------------------------------------------------
 
+  onTitleInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    void this.sessionService.updateTitle(value);
+  }
+
+  onTitleBlur(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const trimmed = input.value.trim();
+    const currentTitle = this.sessionService.currentSession()?.title ?? '';
+    if (!trimmed) {
+      input.value = currentTitle;
+      return;
+    }
+    if (trimmed !== input.value) {
+      input.value = trimmed;
+    }
+    if (trimmed !== currentTitle) {
+      void this.sessionService.updateTitle(trimmed);
+    }
+  }
+
   onContextChanged(key: string, value: string): void {
     void this.sessionService.updateContextValue(key, value);
   }

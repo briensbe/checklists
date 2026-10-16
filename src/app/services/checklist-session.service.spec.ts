@@ -118,6 +118,17 @@ describe('ChecklistSessionService', () => {
     expect((await db.sessions.get(s.id))?.contextValues['owner']).toBe('Alice');
   });
 
+  it('modifie le titre de la session en cours et ignore un titre vide', async () => {
+    const s = await service.createSession('tpl', 'Titre initial');
+    await service.updateTitle('   ');
+    expect(service.currentSession()?.title).toBe('Titre initial');
+
+    await service.updateTitle('Nouveau titre');
+    expect(service.currentSession()?.title).toBe('Nouveau titre');
+    await service.flushPendingSave();
+    expect((await db.sessions.get(s.id))?.title).toBe('Nouveau titre');
+  });
+
   it('met à jour la liste en mémoire sans relire la table', async () => {
     const first = await service.createSession('tpl', 'Première');
     await service.createSession('tpl', 'Seconde');
