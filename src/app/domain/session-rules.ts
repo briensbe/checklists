@@ -16,10 +16,46 @@ import {
 
 export type ApplicableItem = ChecklistItemTemplate & { sectionId: string; sectionTitle: string };
 
+/**
+ * Normalise une chaîne de valeur (notamment les dates) afin que les comparaisons
+ * de conditions d'affichage (`visibleIf`) soient tolérantes au format (ex: '15/10/2026' vs '2026-10-15').
+ */
+export function normalizeDateOrValue(val: string | undefined | null): string {
+  if (!val) return '';
+  const trimmed = val.trim();
+
+  // Format JJ/MM/AAAA ou JJ-MM-AAAA (ex: 15/10/2026 ou 05-04-2026)
+  const dmyMatch = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(trimmed);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // Format AAAA/MM/JJ (ex: 2026/10/15)
+  const ymdSlashMatch = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(trimmed);
+  if (ymdSlashMatch) {
+    const year = ymdSlashMatch[1];
+    const month = ymdSlashMatch[2].padStart(2, '0');
+    const day = ymdSlashMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return trimmed;
+}
+
 /** Un item sans condition est toujours applicable ; sinon la valeur du champ doit figurer dans `equals`. */
 export function isApplicable(item: ChecklistItemTemplate, contextValues: Record<string, string>): boolean {
   if (!item.visibleIf) return true;
-  return item.visibleIf.equals.includes(contextValues[item.visibleIf.fieldId] ?? '');
+  const currentVal = contextValues[item.visibleIf.fieldId] ?? '';
+  const normalizedCurrent = normalizeDateOrValue(currentVal);
+
+  return item.visibleIf.equals.some(eq => {
+    if (eq === currentVal) return true;
+    if (normalizeDateOrValue(eq) === normalizedCurrent) return true;
+    return false;
+  });
 }
 
 export function applicableItems(

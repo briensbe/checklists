@@ -3,7 +3,7 @@
     <div>
       <div class="breadcrumb">
         <a routerLink="/templates">
-          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
             <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
           </svg>
           Retour aux modèles
@@ -14,13 +14,13 @@
     <div class="header-actions">
       <button class="btn btn-secondary" (click)="previewMode.set(!previewMode())">
         @if (previewMode()) {
-          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
             <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
             <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
           </svg>
           Mode Édition
         } @else {
-          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
             <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
             <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
           </svg>
@@ -28,7 +28,7 @@
         }
       </button>
       <button class="btn btn-primary" (click)="save()">
-        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
           <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
           <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
         </svg>
@@ -42,6 +42,19 @@
     <div class="preview-box">
       <h2>{{ template().name }} (v{{ template().version }})</h2>
       <p class="preview-desc">{{ template().description }}</p>
+
+      @if (template().contextSchema && template().contextSchema.length > 0) {
+        <div class="preview-context-schema">
+          <h4>Variables de contexte configurées ({{ template().contextSchema.length }}) :</h4>
+          <div class="preview-context-tags">
+            @for (field of template().contextSchema; track field.id) {
+              <span class="preview-context-tag">
+                <strong>{{ field.label }}</strong> ({{ field.type }}{{ field.required ? ', obligatoire' : '' }})
+              </span>
+            }
+          </div>
+        </div>
+      }
       
       <div class="preview-sections">
         @for (sec of template().sections; track sec.id) {
@@ -49,7 +62,18 @@
             <h3>{{ sec.title }}</h3>
             @for (it of sec.items; track it.id) {
               <div class="preview-item">
-                <span class="preview-item-label">{{ it.label }}</span>
+                <div class="preview-item-info">
+                  <span class="preview-item-label">{{ it.label }}</span>
+                  @if (it.visibleIf) {
+                    <span class="preview-badge-condition">Conditionné par {{ getContextFieldLabel(it.visibleIf.fieldId) }} : {{ formatVisibleIfValues(it) }}</span>
+                  }
+                  @if (it.requireNaReason) {
+                    <span class="preview-badge-na">Motif N/A requis</span>
+                  }
+                  @if (it.extraField) {
+                    <span class="preview-badge-extra">+ {{ it.extraField.label }}</span>
+                  }
+                </div>
                 <div class="preview-item-control">
                   @if (it.controlType === 'checkbox') {
                     <label class="preview-checkbox">
@@ -59,14 +83,14 @@
                   } @else if (it.controlType === 'choice') {
                     <div class="preview-choices">
                       @for (c of it.customChoices; track c.id) {
-                        <button class="btn-choice-preview" [class]="'btn-choice-preview tone-' + c.tone">{{ c.label }}</button>
+                        <button type="button" class="btn-choice-preview" [class]="'btn-choice-preview tone-' + c.tone">{{ c.label }}</button>
                       }
                     </div>
                   } @else {
                     <div class="preview-status-buttons">
-                      <button class="btn-status-preview ok">OK</button>
-                      <button class="btn-status-preview ko">KO</button>
-                      <button class="btn-status-preview na">N/A</button>
+                      <button type="button" class="btn-status-preview ok">OK</button>
+                      <button type="button" class="btn-status-preview ko">KO</button>
+                      <button type="button" class="btn-status-preview na">N/A</button>
                     </div>
                   }
                 </div>
@@ -84,32 +108,141 @@
         <h3 class="card-title">Informations Générales</h3>
         <div class="form-grid">
           <div class="form-group">
-            <label>Nom du modèle *</label>
-            <input type="text" class="form-input" [(ngModel)]="template().name" placeholder="Ex: Déploiement Vendredi Soir" />
+            <label for="template-name">Nom du modèle *</label>
+            <input id="template-name" type="text" class="form-input" [(ngModel)]="template().name" placeholder="Ex: Déploiement Vendredi Soir" />
           </div>
           <div class="form-group">
-            <label>Version</label>
-            <input type="text" class="form-input" [(ngModel)]="template().version" placeholder="1.0.0" />
+            <label for="template-version">Version</label>
+            <input id="template-version" type="text" class="form-input" [(ngModel)]="template().version" placeholder="1.0.0" />
           </div>
           <div class="form-group full-width">
-            <label>Description</label>
-            <textarea class="form-textarea" rows="2" [(ngModel)]="template().description" placeholder="À quoi sert cette checklist..."></textarea>
+            <label for="template-desc">Description</label>
+            <textarea id="template-desc" class="form-textarea" rows="2" [(ngModel)]="template().description" placeholder="À quoi sert cette checklist..."></textarea>
           </div>
         </div>
       </div>
 
-      <!-- Sections & Items -->
-      <div class="sections-builder">
+      <!-- Schéma de contexte (Variables) -->
+      <div class="card context-card">
+        <div class="context-card-header">
+          <div>
+            <h3 class="card-title">Variables de Contexte</h3>
+            <p class="card-subtitle">Définissez les champs renseignés au lancement de chaque session (ex: environnement, version) et utilisables pour conditionner l'affichage des contrôles.</p>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="addContextField()">
+            + Ajouter une variable
+          </button>
+        </div>
+
+        @if (!template().contextSchema || template().contextSchema.length === 0) {
+          <div class="context-empty-state">
+            <p>Aucune variable de contexte définie. Le modèle sera exécuté avec un contexte vide.</p>
+          </div>
+        } @else {
+          <div class="context-fields-list">
+            @for (field of template().contextSchema; track field.id; let fIdx = $index) {
+              <div class="context-field-row">
+                <div class="context-field-main">
+                  <div class="form-group">
+                    <label>Nom de la variable *</label>
+                    <input type="text" class="form-input" [(ngModel)]="field.label" placeholder="Ex: Environnement" />
+                  </div>
+                  <div class="form-group">
+                    <label>Type de variable</label>
+                    <select class="form-select" [ngModel]="field.type" (ngModelChange)="onContextFieldTypeChange(field, $event)">
+                      @for (t of contextTypes; track t.value) {
+                        <option [value]="t.value">{{ t.label }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Placeholder / Exemple</label>
+                    <input type="text" class="form-input" [(ngModel)]="field.placeholder" placeholder="Ex: v1.4.2" />
+                  </div>
+                  <div class="form-group">
+                    <label>Valeur par défaut</label>
+                    <input type="text" class="form-input" [(ngModel)]="field.defaultValue" placeholder="Optionnel" />
+                  </div>
+                  <div class="form-group context-required-group">
+                    <label class="checkbox-label">
+                      <input type="checkbox" [(ngModel)]="field.required" />
+                      <span>Obligatoire</span>
+                    </label>
+                  </div>
+                  <div class="context-field-actions">
+                    <button
+                      type="button"
+                      class="btn-icon btn-danger"
+                      (click)="removeContextField(fIdx)"
+                      aria-label="Supprimer cette variable"
+                      title="Supprimer la variable">
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Éditeur d'options pour les listes de choix (select) -->
+                @if (field.type === 'select') {
+                  <div class="context-options-editor">
+                    <span class="context-options-title">Options de la liste déroulante :</span>
+                    <div class="context-options-grid">
+                      @for (opt of field.options; track $index; let optIdx = $index) {
+                        <div class="context-option-pill">
+                          <input
+                            type="text"
+                            class="form-input form-input-sm"
+                            [ngModel]="opt.label"
+                            (ngModelChange)="onContextOptionLabelChange(opt, $event)"
+                            placeholder="Nom de l'option..." />
+                          <button
+                            type="button"
+                            class="btn-remove-choice"
+                            (click)="removeContextFieldOption(field, optIdx)"
+                            aria-label="Supprimer cette option"
+                            title="Supprimer cette option">
+                            <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
+                              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                            </svg>
+                          </button>
+                        </div>
+                      }
+                      <button type="button" class="btn-add-choice" (click)="addContextFieldOption(field)">+ Ajouter une option</button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Sections & Items avec Drag & Drop CDK -->
+      <div
+        class="sections-builder"
+        cdkDropListGroup
+        cdkDropList
+        [cdkDropListData]="template().sections"
+        (cdkDropListDropped)="onSectionDrop($event)">
         @for (sec of template().sections; track sec.id; let sIdx = $index) {
-          <div class="card section-card">
+          <div class="card section-card" cdkDrag>
             <div class="section-card-header">
-              <div class="section-title-inputs">
-                <input type="text" class="icon-input" [(ngModel)]="sec.icon" placeholder="Titre abrégé" title="Identifiant court ou tag" />
-                <input type="text" class="section-title-input" [(ngModel)]="sec.title" placeholder="Titre de la section" />
+              <div class="section-header-left">
+                <span class="drag-handle" cdkDragHandle title="Glisser pour réordonner la section" aria-label="Glisser pour déplacer la section">
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
+                    <path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-12a2 2 0 10.001 4.001A2 2 0 0013 2zm0 6a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z" />
+                  </svg>
+                </span>
+                <div class="section-title-inputs">
+                  <input type="text" class="icon-input" [(ngModel)]="sec.icon" placeholder="Abrégé" title="Identifiant court ou tag" />
+                  <input type="text" class="section-title-input" [(ngModel)]="sec.title" placeholder="Titre de la section" />
+                </div>
               </div>
 
               <div class="section-actions">
                 <button
+                  type="button"
                   class="btn-icon"
                   (click)="moveSection(sIdx, 'up')"
                   [disabled]="sIdx === 0"
@@ -120,6 +253,7 @@
                   </svg>
                 </button>
                 <button
+                  type="button"
                   class="btn-icon"
                   (click)="moveSection(sIdx, 'down')"
                   [disabled]="sIdx === template().sections.length - 1"
@@ -130,6 +264,18 @@
                   </svg>
                 </button>
                 <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="duplicateSection(sIdx)"
+                  aria-label="Dupliquer la section"
+                  title="Dupliquer la section">
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
+                    <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12a1.5 1.5 0 01.439 1.061V14.5A1.5 1.5 0 0115.5 16h-7A1.5 1.5 0 017 14.5v-11z" />
+                    <path d="M5 6.5A1.5 1.5 0 003.5 8v8A1.5 1.5 0 005 17.5h7A1.5 1.5 0 0013.5 16v-1H5V6.5z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
                   class="btn-icon btn-danger"
                   (click)="removeSection(sIdx)"
                   aria-label="Supprimer la section"
@@ -141,12 +287,24 @@
               </div>
             </div>
 
-            <!-- Liste des items de la section -->
-            <div class="items-list">
+            <!-- Liste des items de la section avec Drop List CDK connectée -->
+            <div
+              class="items-list"
+              cdkDropList
+              [id]="'items-list-' + sec.id"
+              [cdkDropListData]="sec.items"
+              [cdkDropListConnectedTo]="connectedDropLists()"
+              (cdkDropListDropped)="onItemDrop($event, sec)">
               @for (it of sec.items; track it.id; let itIdx = $index) {
-                <div class="item-builder-row">
+                <div class="item-builder-row" cdkDrag>
                   <div class="item-main-inputs">
-                    <input type="text" class="form-input item-label-input" [(ngModel)]="it.label" placeholder="Libellé de la tâche / contrôle" />
+                    <span class="drag-handle item-drag-handle" cdkDragHandle title="Glisser pour déplacer ce contrôle" aria-label="Glisser pour déplacer le contrôle">
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
+                        <path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-12a2 2 0 10.001 4.001A2 2 0 0013 2zm0 6a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z" />
+                      </svg>
+                    </span>
+
+                    <input type="text" class="form-input item-label-input" [(ngModel)]="it.label" placeholder="Libellé de la tâche / contrôle *" />
                     
                     <select class="form-select control-type-select" [ngModel]="it.controlType || 'status'" (ngModelChange)="onControlTypeChange(it, $event)">
                       <option value="checkbox">Case à cocher</option>
@@ -154,15 +312,51 @@
                       <option value="status">Statut (OK/KO/NA)</option>
                     </select>
 
-                    <button
-                      class="btn-icon btn-danger"
-                      (click)="removeItem(sec, itIdx)"
-                      aria-label="Supprimer le contrôle"
-                      title="Supprimer l'item">
-                      <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-                        <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                      </svg>
-                    </button>
+                    <div class="item-row-actions">
+                      <button
+                        type="button"
+                        class="btn-icon"
+                        (click)="moveItem(sec, itIdx, 'up')"
+                        [disabled]="itIdx === 0"
+                        aria-label="Monter ce contrôle"
+                        title="Monter le contrôle">
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-icon"
+                        (click)="moveItem(sec, itIdx, 'down')"
+                        [disabled]="itIdx === sec.items.length - 1"
+                        aria-label="Descendre ce contrôle"
+                        title="Descendre le contrôle">
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-icon"
+                        (click)="duplicateItem(sec, itIdx)"
+                        aria-label="Dupliquer ce contrôle"
+                        title="Dupliquer le contrôle">
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
+                          <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12a1.5 1.5 0 01.439 1.061V14.5A1.5 1.5 0 0115.5 16h-7A1.5 1.5 0 017 14.5v-11z" />
+                          <path d="M5 6.5A1.5 1.5 0 003.5 8v8A1.5 1.5 0 005 17.5h7A1.5 1.5 0 0013.5 16v-1H5V6.5z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-icon btn-danger"
+                        (click)="removeItem(sec, itIdx)"
+                        aria-label="Supprimer le contrôle"
+                        title="Supprimer le contrôle">
+                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
+                          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
                   <!-- Options spécifiques selon le type -->
@@ -172,7 +366,7 @@
                     @if (it.controlType === 'checkbox') {
                       <label class="checkbox-option-toggle">
                         <input type="checkbox" [(ngModel)]="it.withTimestamp" />
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4" aria-hidden="true">
                           <circle cx="12" cy="12" r="10" />
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
@@ -197,6 +391,7 @@
                               <span>Bloquant</span>
                             </label>
                             <button
+                              type="button"
                               class="btn-remove-choice"
                               (click)="removeChoiceOption(it, optIdx)"
                               aria-label="Supprimer cette option"
@@ -207,21 +402,143 @@
                             </button>
                           </div>
                         }
-                        <button class="btn-add-choice" (click)="addChoiceOption(it)">+ Ajouter une option de choix</button>
+                        <button type="button" class="btn-add-choice" (click)="addChoiceOption(it)">+ Ajouter une option de choix</button>
                       </div>
                     }
+
+                    <!-- Bascule des Options Avancées -->
+                    <div class="advanced-section">
+                      <button
+                        type="button"
+                        class="btn-toggle-advanced"
+                        (click)="toggleAdvanced(it.id)"
+                        [attr.aria-expanded]="isAdvancedOpen(it.id)">
+                        <svg
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          class="w-4 h-4 chevron-icon"
+                          [class.rotated]="isAdvancedOpen(it.id)"
+                          aria-hidden="true">
+                          <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                        </svg>
+                        <span>Options avancées</span>
+                        @if (it.visibleIf || it.requireNaReason || it.extraField) {
+                          <span class="badge-active-options">• actives</span>
+                        }
+                      </button>
+
+                      @if (isAdvancedOpen(it.id)) {
+                        <div class="advanced-panel">
+                          <!-- 1. Motif N/A obligatoire -->
+                          <div class="advanced-group">
+                            <label class="checkbox-option-toggle">
+                              <input type="checkbox" [(ngModel)]="it.requireNaReason" />
+                              <span>Exiger un motif de justification obligatoire si le contrôle est évalué à N/A</span>
+                            </label>
+                          </div>
+
+                          <!-- 2. Champ additionnel (extraField) -->
+                          <div class="advanced-group">
+                            <label class="checkbox-option-toggle">
+                              <input
+                                type="checkbox"
+                                [ngModel]="!!it.extraField"
+                                (ngModelChange)="toggleExtraField(it, $event)" />
+                              <span>Activer un champ textuel additionnel pour ce contrôle</span>
+                            </label>
+
+                            @if (it.extraField) {
+                              <div class="extra-field-config">
+                                <div class="form-group">
+                                  <label>Libellé du champ additionnel</label>
+                                  <input type="text" class="form-input" [(ngModel)]="it.extraField.label" placeholder="Ex: Version constatée" />
+                                </div>
+                                <div class="form-group">
+                                  <label>Texte indicatif (placeholder)</label>
+                                  <input type="text" class="form-input" [(ngModel)]="it.extraField.placeholder" placeholder="Ex: 1.0.4-rc2" />
+                                </div>
+                              </div>
+                            }
+                          </div>
+
+                          <!-- 3. Condition d'affichage contextuelle (visibleIf) -->
+                          <div class="advanced-group">
+                            <label class="checkbox-option-toggle">
+                              <input
+                                type="checkbox"
+                                [ngModel]="!!it.visibleIf"
+                                (ngModelChange)="toggleVisibleIf(it, $event)" />
+                              <span>Conditionner l'affichage à une variable de contexte (visibleIf)</span>
+                            </label>
+
+                            @if (it.visibleIf) {
+                              <div class="visible-if-config">
+                                @if (!template().contextSchema || template().contextSchema.length === 0) {
+                                  <p class="text-warning-sm">
+                                    ⚠️ Aucune variable de contexte n'est encore définie. Veuillez d'abord ajouter une variable dans le volet « Variables de Contexte » ci-dessus.
+                                  </p>
+                                } @else {
+                                  <div class="form-group">
+                                    <label>Variable de contexte ciblée</label>
+                                    <select
+                                      class="form-select"
+                                      [ngModel]="it.visibleIf.fieldId"
+                                      (ngModelChange)="onVisibleIfFieldChange(it, $event)">
+                                      @for (f of template().contextSchema; track f.id) {
+                                        <option [value]="f.id">{{ f.label }}</option>
+                                      }
+                                    </select>
+                                  </div>
+
+                                  <div class="form-group">
+                                    <label>Valeurs déclenchant la visibilité du contrôle</label>
+                                    @if (getFieldType(it.visibleIf.fieldId) === 'select') {
+                                      <div class="visible-options-checkboxes">
+                                        @for (opt of getFieldOptions(it.visibleIf.fieldId); track opt.value) {
+                                          <label class="checkbox-pill">
+                                            <input
+                                              type="checkbox"
+                                              [checked]="isOptionSelectedInVisibleIf(it, opt.value)"
+                                              (change)="toggleVisibleIfOption(it, opt.value)" />
+                                            <span>{{ opt.label }}</span>
+                                          </label>
+                                        }
+                                      </div>
+                                    } @else {
+                                      <input
+                                        type="text"
+                                        class="form-input"
+                                        [ngModel]="it.visibleIf.equals.join(', ')"
+                                        (ngModelChange)="onVisibleIfTextChange(it, $event)"
+                                        [placeholder]="getFieldType(it.visibleIf.fieldId) === 'date' ? 'Ex: 15/10/2026 ou 2026-10-15' : 'Valeurs séparées par des virgules (ex: patch, mineure)'" />
+                                      <span class="input-hint">
+                                        @if (getFieldType(it.visibleIf.fieldId) === 'date') {
+                                          Saisissez une ou plusieurs dates séparées par des virgules (formats acceptés : JJ/MM/AAAA ou AAAA-MM-JJ).
+                                        } @else {
+                                          L'item sera visible si la valeur saisie dans le contexte correspond à l'une de ces valeurs.
+                                        }
+                                      </span>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
                   </div>
                 </div>
               }
 
-              <button class="btn btn-outline btn-add-item" (click)="addItem(sec)">
+              <button type="button" class="btn btn-outline btn-add-item" (click)="addItem(sec)">
                 + Ajouter une tâche / item à cette section
               </button>
             </div>
           </div>
         }
 
-        <button class="btn btn-secondary btn-add-section" (click)="addSection()">
+        <button type="button" class="btn btn-secondary btn-add-section" (click)="addSection()">
           + Ajouter une nouvelle section
         </button>
       </div>

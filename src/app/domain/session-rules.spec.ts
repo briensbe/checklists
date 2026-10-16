@@ -90,6 +90,18 @@ describe('applicableItems (conditionnement contextuel)', () => {
     expect(item?.sectionId).toBe('s2');
     expect(item?.sectionTitle).toBe('Section 2');
   });
+
+  it('gère la tolérance de format de date (DD/MM/YYYY vs YYYY-MM-DD)', () => {
+    const t = template();
+    t.sections[0].items[1].visibleIf = { fieldId: 'date_audit', equals: ['15/10/2026'] };
+
+    // Input HTML5 date renvoie "2026-10-15"
+    expect(applicableItems(t, { date_audit: '2026-10-15' }).map(i => i.id)).toContain('patch');
+    // Saisie texte identique "15/10/2026"
+    expect(applicableItems(t, { date_audit: '15/10/2026' }).map(i => i.id)).toContain('patch');
+    // Autre date non correspondante
+    expect(applicableItems(t, { date_audit: '2026-10-16' }).map(i => i.id)).not.toContain('patch');
+  });
 });
 
 describe('isAnswered', () => {
