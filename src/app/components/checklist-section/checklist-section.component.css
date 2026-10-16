@@ -10,6 +10,11 @@
 }
 
 .section-header {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
   padding: 1rem;
   background-color: var(--bg-card-subtle);
   border-bottom: 1px solid var(--border-color-subtle);
@@ -19,6 +24,11 @@
   cursor: pointer;
   user-select: none;
   transition: background-color 0.15s ease-in-out;
+}
+
+.section-header:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: -2px;
 }
 
 @media (min-width: 640px) {

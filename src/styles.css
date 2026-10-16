@@ -297,6 +297,12 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Indicateur global de focus accessible */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .no-theme-transition,
 .no-theme-transition *,
 .no-theme-transition *::before,

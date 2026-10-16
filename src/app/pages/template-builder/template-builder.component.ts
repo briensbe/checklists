@@ -1,6 +1,7 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TemplateService } from '../../services/template.service';
+import { ToastService } from '../../services/toast.service';
 import { ChecklistTemplate, ChecklistSectionTemplate, ChecklistItemTemplate, ChoiceTone, ItemControlType } from '../../models/checklist.model';
 import { FormsModule } from '@angular/forms';
 
@@ -11,8 +12,9 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './template-builder.component.html',
   styleUrl: './template-builder.component.css'
 })
-export class TemplateBuilderComponent implements OnInit {
+export class TemplateBuilderComponent implements OnInit, OnDestroy {
   private templateService = inject(TemplateService);
+  private toastService = inject(ToastService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -57,7 +59,7 @@ export class TemplateBuilderComponent implements OnInit {
       name: 'Nouveau modèle',
       description: 'Description du modèle',
       version: '1.0.0',
-    updatedAt: '',
+      updatedAt: '',
       contextSchema: [],
       sections: [
         {
@@ -77,6 +79,10 @@ export class TemplateBuilderComponent implements OnInit {
     });
   }
 
+  ngOnDestroy(): void {
+    this.toastService.flushPending();
+  }
+
   // Gestion des sections
   addSection(): void {
     const t = { ...this.template() };
@@ -90,11 +96,21 @@ export class TemplateBuilderComponent implements OnInit {
   }
 
   removeSection(index: number): void {
-    if (confirm('Voulez-vous supprimer cette section et tous ses items ?')) {
-      const t = { ...this.template() };
-      t.sections.splice(index, 1);
-      this.template.set(t);
-    }
+    const t = { ...this.template() };
+    const [removed] = t.sections.splice(index, 1);
+    this.template.set(t);
+
+    this.toastService.showDeferred({
+      message: `Section « ${removed.title} » supprimée`,
+      durationMs: 6000,
+      undoLabel: 'Annuler',
+      onCommit: () => {},
+      onUndo: () => {
+        const cur = { ...this.template() };
+        cur.sections.splice(index, 0, removed);
+        this.template.set(cur);
+      }
+    });
   }
 
   moveSection(index: number, direction: 'up' | 'down'): void {
@@ -117,7 +133,17 @@ export class TemplateBuilderComponent implements OnInit {
   }
 
   removeItem(section: ChecklistSectionTemplate, itemIndex: number): void {
-    section.items.splice(itemIndex, 1);
+    const [removed] = section.items.splice(itemIndex, 1);
+    this.toastService.showDeferred({
+      message: `Contrôle « ${removed.label} » supprimé`,
+      durationMs: 6000,
+      undoLabel: 'Annuler',
+      onCommit: () => {},
+      onUndo: () => {
+        section.items.splice(itemIndex, 0, removed);
+        this.template.set({ ...this.template() });
+      }
+    });
   }
 
   onControlTypeChange(item: ChecklistItemTemplate, type: ItemControlType): void {
@@ -148,15 +174,16 @@ export class TemplateBuilderComponent implements OnInit {
   async save(): Promise<void> {
     const t = this.template();
     if (!t.name.trim()) {
-      alert('Veuillez renseigner un nom pour le modèle.');
+      this.toastService.warning('Veuillez renseigner un nom pour le modèle.');
       return;
     }
     if (t.sections.length === 0) {
-      alert('Veuillez ajouter au moins une section.');
+      this.toastService.warning('Veuillez ajouter au moins une section.');
       return;
     }
 
     await this.templateService.saveTemplate(t);
+    this.toastService.success('Modèle enregistré avec succès.');
     this.router.navigate(['/templates']);
   }
 }

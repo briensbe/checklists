@@ -1,5 +1,5 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ChecklistSessionService } from '../../services/checklist-session.service';
 import { TemplateService } from '../../services/template.service';
 import { DatePipe } from '@angular/common';
@@ -7,6 +7,8 @@ import { ChecklistSession, ImportConflictMode, MetricsSummary, SessionStatus } f
 import { computeMetrics } from '../../domain/session-rules';
 import { parseExchangeFile } from '../../domain/session-exchange';
 import { askImportConflict, readJsonFile } from '../../services/import-conflict';
+import { DialogService } from '../../services/dialog.service';
+import { ToastService } from '../../services/toast.service';
 
 export type StatusFilter = 'all' | SessionStatus;
 
@@ -22,10 +24,13 @@ export interface ImportMessage {
   templateUrl: './checklists-dashboard.component.html',
   styleUrl: './checklists-dashboard.component.css'
 })
-export class ChecklistsDashboardComponent implements OnInit {
+export class ChecklistsDashboardComponent implements OnInit, OnDestroy {
   protected sessionService = inject(ChecklistSessionService);
   protected templateService = inject(TemplateService);
+  private dialogService = inject(DialogService);
+  private toastService = inject(ToastService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   isNewModalOpen = signal<boolean>(false);
   selectedTemplateId = signal<string>('');
@@ -54,6 +59,23 @@ export class ChecklistsDashboardComponent implements OnInit {
     if (templates.length > 0 && !this.selectedTemplateId()) {
       this.selectedTemplateId.set(templates[0].id);
     }
+
+    // Gestion du query param ?new=<templateId> pour présélectionner et ouvrir la modale
+    const newTemplateId = this.route.snapshot.queryParamMap.get('new');
+    if (newTemplateId) {
+      const targetTpl = templates.find(t => t.id === newTemplateId);
+      if (targetTpl) {
+        this.selectedTemplateId.set(targetTpl.id);
+        this.newChecklistTitle.set(`${targetTpl.name} - ${new Date().toLocaleDateString('fr-FR')}`);
+        this.isNewModalOpen.set(true);
+        this.router.navigate([], { queryParams: {}, replaceUrl: true });
+      }
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Purge garantie des suppressions différées à la destruction du composant
+    this.toastService.flushPending();
   }
 
   openSession(sessionId: string, applyUpdate = false): void {
@@ -87,11 +109,28 @@ export class ChecklistsDashboardComponent implements OnInit {
     this.router.navigate(['/checklists', newSess.id]);
   }
 
-  async deleteSession(event: Event, sessionId: string): Promise<void> {
+  deleteSession(event: Event, sessionId: string): void {
     event.stopPropagation();
-    if (confirm('Voulez-vous vraiment supprimer cette checklist et ses preuves ?')) {
-      await this.sessionService.deleteSession(sessionId);
-    }
+    const session = this.sessionService.allSessions().find(s => s.id === sessionId);
+    if (!session) return;
+
+    // Retrait immédiat de l'affichage réactif (optimiste)
+    this.sessionService.allSessions.update(list => list.filter(s => s.id !== sessionId));
+
+    this.toastService.showDeferred({
+      message: `Checklist « ${session.title} » supprimée`,
+      durationMs: 6000,
+      undoLabel: 'Annuler',
+      onCommit: async () => {
+        await this.sessionService.deleteSession(sessionId);
+      },
+      onUndo: () => {
+        this.sessionService.allSessions.update(list => {
+          if (list.some(s => s.id === session.id)) return list;
+          return [session, ...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        });
+      }
+    });
   }
 
   /**
@@ -113,7 +152,8 @@ export class ChecklistsDashboardComponent implements OnInit {
       let mode: ImportConflictMode = 'new';
       const existing = await this.sessionService.getStoredSession(parsed.session.id);
       if (existing) {
-        const choice = askImportConflict(
+        const choice = await askImportConflict(
+          this.dialogService,
           `Une session « ${existing.title} »`,
           'nouvel identifiant, titre suffixé « (import) »'
         );
@@ -130,9 +170,11 @@ export class ChecklistsDashboardComponent implements OnInit {
       }
       this.statusFilter.set('all');
       this.importMessage.set({ kind: 'success', text });
+      this.toastService.success(text);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       this.importMessage.set({ kind: 'error', text: `Import impossible : ${reason}` });
+      this.toastService.danger(`Import impossible : ${reason}`);
     } finally {
       this.isImporting.set(false);
     }

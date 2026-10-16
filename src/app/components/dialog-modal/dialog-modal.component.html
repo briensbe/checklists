@@ -1,0 +1,79 @@
+@if (dialog(); as d) {
+  <div
+    class="dialog-backdrop"
+    (click)="onBackdropClick($event)"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="dialog-modal-title"
+    aria-describedby="dialog-modal-message">
+    <div #modalDialog class="dialog-card">
+      <div class="dialog-header">
+        <div class="dialog-icon" [class]="'tone-' + (d.confirmTone ?? 'primary')">
+          @if (d.confirmTone === 'danger') {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          } @else if (d.confirmTone === 'warning') {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          } @else {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+        </div>
+        <div class="dialog-title-container">
+          <h2 id="dialog-modal-title" class="dialog-title">{{ d.title }}</h2>
+        </div>
+        <button
+          type="button"
+          class="btn-close"
+          (click)="onCancel()"
+          aria-label="Fermer la boîte de dialogue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="dialog-body">
+        <p id="dialog-modal-message" class="dialog-message">{{ d.message }}</p>
+      </div>
+
+      <div class="dialog-footer">
+        @if (d.type === 'confirm') {
+          <button
+            type="button"
+            class="btn-secondary"
+            (click)="onCancel()">
+            {{ d.cancelLabel }}
+          </button>
+          <button
+            type="button"
+            [class]="'btn ' + getButtonToneClass(d.confirmTone)"
+            (click)="onConfirm()">
+            {{ d.confirmLabel }}
+          </button>
+        } @else if (d.type === 'choice') {
+          <button
+            type="button"
+            class="btn-secondary"
+            (click)="onCancel()">
+            {{ d.cancelLabel }}
+          </button>
+          <div class="choices-group">
+            @for (c of d.choices; track c.id) {
+              <button
+                type="button"
+                [class]="'btn ' + getButtonToneClass(c.tone)"
+                (click)="onSelectChoice(c)">
+                {{ c.label }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

@@ -211,6 +211,10 @@ export class ChecklistSessionService {
     return this.mutate(s => ({ ...s, answers: {} }));
   }
 
+  restoreAnswers(answers: Record<string, ItemAnswer>): Promise<void> {
+    return this.mutate(s => ({ ...s, answers }));
+  }
+
   // --- Cycle de vie --------------------------------------------------------
 
   /**

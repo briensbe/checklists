@@ -1,7 +1,9 @@
 <div class="section-card">
-  <!-- En-tête de section pliable -->
-  <div 
+  <!-- En-tête de section pliable accessible -->
+  <button 
+    type="button"
     (click)="toggleCollapse.emit()"
+    [attr.aria-expanded]="!isCollapsed()"
     class="section-header">
     <div class="section-title-group">
       <div class="section-icon-box">
@@ -33,7 +35,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
       </svg>
     </div>
-  </div>
+  </button>
 
   <!-- Corps de la section -->
   @if (!isCollapsed()) {

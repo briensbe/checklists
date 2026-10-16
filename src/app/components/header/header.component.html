@@ -34,6 +34,7 @@
       <button 
         type="button"
         (click)="themeService.toggleTheme()"
+        [attr.aria-label]="themeService.isDarkMode() ? 'Passer en mode clair' : 'Passer en mode sombre'"
         [title]="themeService.isDarkMode() ? 'Passer en mode clair' : 'Passer en mode sombre'"
         class="btn-theme-toggle">
         @if (themeService.isDarkMode()) {

@@ -1,10 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TemplateService } from '../../services/template.service';
-import { ChecklistSessionService } from '../../services/checklist-session.service';
 import { ChecklistTemplate, ImportConflictMode } from '../../models/checklist.model';
 import { downloadBlob } from '../../services/download';
 import { askImportConflict } from '../../services/import-conflict';
+import { DialogService } from '../../services/dialog.service';
 
 @Component({
   selector: 'app-templates-list',
@@ -15,7 +15,7 @@ import { askImportConflict } from '../../services/import-conflict';
 })
 export class TemplatesListComponent implements OnInit {
   protected templateService = inject(TemplateService);
-  private sessionService = inject(ChecklistSessionService);
+  private dialogService = inject(DialogService);
   private router = inject(Router);
 
   expandedTemplates = signal<Record<string, boolean>>({});
@@ -35,12 +35,8 @@ export class TemplatesListComponent implements OnInit {
     return !!this.expandedTemplates()[templateId];
   }
 
-  async launchChecklist(template: ChecklistTemplate): Promise<void> {
-    const title = prompt(`Nom de la nouvelle checklist basée sur "${template.name}" :`, `${template.name} - ${new Date().toLocaleDateString('fr-FR')}`);
-    if (title === null) return; // Annulé
-
-    const newSess = await this.sessionService.createSession(template.id, title);
-    this.router.navigate(['/checklists', newSess.id]);
+  launchChecklist(template: ChecklistTemplate): void {
+    this.router.navigate(['/checklists'], { queryParams: { new: template.id } });
   }
 
   exportTemplateJson(template: ChecklistTemplate): void {
@@ -63,7 +59,7 @@ export class TemplatesListComponent implements OnInit {
       let mode: ImportConflictMode = 'new';
       const existing = this.templateService.findTemplate(template.id);
       if (existing) {
-        const choice = askImportConflict(`Un modèle « ${existing.name} »`, 'nouvel identifiant, nom suffixé « (import) »');
+        const choice = await askImportConflict(this.dialogService, `Un modèle « ${existing.name} »`, 'nouvel identifiant, nom suffixé « (import) »');
         if (!choice) return;
         mode = choice;
       }
@@ -76,7 +72,14 @@ export class TemplatesListComponent implements OnInit {
   }
 
   async deleteTemplate(templateId: string): Promise<void> {
-    if (confirm('Voulez-vous vraiment supprimer ce modèle de checklist ?')) {
+    const confirmed = await this.dialogService.confirm({
+      title: 'Supprimer le modèle',
+      message: 'Voulez-vous vraiment supprimer ce modèle de checklist ?',
+      confirmLabel: 'Supprimer',
+      cancelLabel: 'Annuler',
+      confirmTone: 'danger'
+    });
+    if (confirmed) {
       await this.templateService.deleteTemplate(templateId);
     }
   }

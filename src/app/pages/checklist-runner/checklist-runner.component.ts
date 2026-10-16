@@ -5,6 +5,8 @@ import { ChecklistSessionService, TemplateUpdatePreview } from '../../services/c
 import { TemplateService } from '../../services/template.service';
 import { ExportService } from '../../services/export.service';
 import { EvidenceService } from '../../services/evidence.service';
+import { DialogService } from '../../services/dialog.service';
+import { ToastService } from '../../services/toast.service';
 import { EvidenceRecord } from '../../models/checklist.model';
 import { ApplicableItem, COMPLETION_ISSUE_LABELS, CompletionIssue } from '../../domain/session-rules';
 import { AuditSummaryComponent } from '../../components/audit-summary/audit-summary.component';
@@ -33,6 +35,8 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
   protected templateService = inject(TemplateService);
   protected exportService = inject(ExportService);
   protected evidenceService = inject(EvidenceService);
+  private dialogService = inject(DialogService);
+  private toastService = inject(ToastService);
   private route = inject(ActivatedRoute);
 
   protected readonly issueLabels = COMPLETION_ISSUE_LABELS;
@@ -71,6 +75,7 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.toastService.flushPending();
     void this.sessionService.flushPendingSave();
   }
 
@@ -78,6 +83,7 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
   @HostListener('document:visibilitychange')
   onVisibilityChange(): void {
     if (document.visibilityState === 'hidden') {
+      this.toastService.flushPending();
       void this.sessionService.flushPendingSave();
     }
   }
@@ -110,7 +116,7 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
     try {
       await this.evidenceService.addEvidence(sessionId, itemId, data.file, data.filename, data.type);
     } catch (err) {
-      alert(err instanceof Error ? err.message : String(err));
+      this.toastService.danger(err instanceof Error ? err.message : String(err));
     }
     this.activeItemEvidences.set(await this.evidenceService.getEvidencesForItem(itemId, sessionId));
   }
@@ -153,12 +159,38 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
   }
 
   async onMarkAllOk(): Promise<void> {
-    await this.sessionService.markRemainingAsOk();
+    const current = this.sessionService.currentSession();
+    if (!current) return;
+    const previousAnswers = structuredClone(current.answers);
+
+    const count = await this.sessionService.markRemainingAsOk();
+    if (count > 0) {
+      this.toastService.showDeferred({
+        message: `${count} contrôle(s) passé(s) à OK`,
+        durationMs: 6000,
+        undoLabel: 'Annuler',
+        onCommit: () => {},
+        onUndo: async () => {
+          await this.sessionService.restoreAnswers(previousAnswers);
+        }
+      });
+    } else {
+      this.toastService.info('Aucun contrôle restant à passer à OK.');
+    }
   }
 
   async onResetSession(): Promise<void> {
-    if (confirm('Voulez-vous vraiment réinitialiser toutes les réponses de cette checklist ?')) {
+    const confirmed = await this.dialogService.confirm({
+      title: 'Réinitialiser la checklist',
+      message: 'Voulez-vous vraiment réinitialiser toutes les réponses de cette checklist ?',
+      confirmLabel: 'Réinitialiser',
+      cancelLabel: 'Annuler',
+      confirmTone: 'danger'
+    });
+
+    if (confirmed) {
       await this.sessionService.resetSession();
+      this.toastService.info('Toutes les réponses ont été réinitialisées.');
     }
   }
 
@@ -169,8 +201,17 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
   }
 
   async onReopen(): Promise<void> {
-    if (confirm('Rouvrir cette checklist terminée ? Elle redeviendra modifiable et la réouverture sera tracée.')) {
+    const confirmed = await this.dialogService.confirm({
+      title: 'Rouvrir la checklist',
+      message: 'Rouvrir cette checklist terminée ? Elle redeviendra modifiable et la réouverture sera tracée dans l’historique.',
+      confirmLabel: 'Rouvrir',
+      cancelLabel: 'Annuler',
+      confirmTone: 'primary'
+    });
+
+    if (confirmed) {
       await this.sessionService.reopenSession();
+      this.toastService.success('La checklist a été rouverte.');
     }
   }
 
@@ -206,7 +247,7 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
     try {
       await this.exportService.exportSessionFile(includeEvidence);
     } catch (err) {
-      alert(`Export impossible : ${err instanceof Error ? err.message : String(err)}`);
+      this.toastService.danger(`Export impossible : ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       this.isExporting.set(false);
     }
@@ -216,7 +257,7 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
     try {
       await this.exportService.exportPdf();
     } catch (err) {
-      alert(`Export PDF impossible : ${err instanceof Error ? err.message : String(err)}`);
+      this.toastService.danger(`Export PDF impossible : ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

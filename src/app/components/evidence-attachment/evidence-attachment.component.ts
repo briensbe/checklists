@@ -1,7 +1,8 @@
-import { Component, HostListener, OnDestroy, input, output } from '@angular/core';
+import { Component, HostListener, OnDestroy, inject, input, output } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { EvidenceRecord } from '../../models/checklist.model';
 import { EvidenceType, MAX_EVIDENCE_SIZE, evidenceTypeOf } from '../../services/evidence.service';
+import { ToastService } from '../../services/toast.service';
 
 export interface EvidenceFileEvent {
   file: File | Blob;
@@ -17,6 +18,8 @@ export interface EvidenceFileEvent {
   styleUrl: './evidence-attachment.component.css'
 })
 export class EvidenceAttachmentComponent implements OnDestroy {
+  private toastService = inject(ToastService);
+
   readonly itemId = input.required<string>();
   readonly itemLabel = input.required<string>();
   readonly evidences = input<EvidenceRecord[]>([]);
@@ -105,7 +108,7 @@ export class EvidenceAttachmentComponent implements OnDestroy {
     this.deleteEvidence.emit(evidence.id);
   }
 
-  /** Émet chaque fichier valide ; signale en une fois ceux qui dépassent 50 Mo. */
+  /** Émet chaque fichier valide ; signale en une fois ceux qui dépassent 50 Mo par un toast d'avertissement. */
   private emitFiles(files: File[]): void {
     const rejected: string[] = [];
     for (const file of files) {
@@ -116,7 +119,7 @@ export class EvidenceAttachmentComponent implements OnDestroy {
       this.fileAdded.emit({ file, filename: file.name, type: evidenceTypeOf(file) });
     }
     if (rejected.length > 0) {
-      alert(`Fichier(s) refusé(s), limite de 50 Mo dépassée :\n- ${rejected.join('\n- ')}`);
+      this.toastService.warning(`Fichier(s) refusé(s), limite de 50 Mo dépassée :\n- ${rejected.join('\n- ')}`);
     }
   }
 }
