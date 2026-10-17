@@ -17,6 +17,15 @@ export class TemplateUpdateModalComponent {
 
   readonly removedWithDataIds = computed(() => new Set(this.preview().diff.removedWithData.map(i => i.id)));
 
+  readonly contextChangesCount = computed(() => {
+    const ctx = this.preview().diff.context;
+    return ctx.added.length + ctx.modified.length + ctx.removed.length;
+  });
+
+  readonly incompatibleAnswersCount = computed(
+    () => this.preview().diff.modified.filter(m => m.answerIncompatible).length
+  );
+
   @HostListener('window:keydown.escape')
   onEscape(): void {
     this.close.emit();

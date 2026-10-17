@@ -225,4 +225,99 @@ describe('diffTemplates et rebaseSessionOnTemplate', () => {
     expect(rebased.contextValues).toEqual({ mode: 'patch', note: 'déjà saisi', owner: 'Benoît' });
     expect(hasTemplateUpdate(rebased, next)).toBe(false);
   });
+
+  it('détecte les modifications d’options sur les contrôles existants, le contexte et la structure', () => {
+    const s = session({
+      answers: {
+        always: { status: 'OK', comment: 'Constaté' },
+        choice: { status: null, selectedChoice: 'stop', comment: 'Bloqué' }
+      }
+    });
+
+    const next = template({
+      updatedAt: '2026-10-05T00:00:00.000Z',
+      description: 'Nouvelle description',
+      contextSchema: [
+        { id: 'mode', label: 'Environnement', type: 'select', required: false },
+        { id: 'env', label: 'Cible', type: 'text' }
+      ]
+    });
+
+    // Renommage de section et modification des options des contrôles
+    next.sections[0].title = 'Section 1 renommée';
+    next.sections[0].items[0] = {
+      id: 'always',
+      label: 'Toujours vérifié',
+      controlType: 'checkbox',
+      withTimestamp: true,
+      help: 'Nouvelle consigne',
+      extraField: { id: 'ext_1', label: 'Numéro de ticket' }
+    };
+    next.sections[0].items[1] = {
+      id: 'patch',
+      label: 'Patch seulement',
+      visibleIf: { fieldId: 'mode', equals: ['patch', 'hotfix'] },
+      requireNaReason: true
+    };
+    next.sections[1].items[1] = {
+      id: 'choice',
+      label: 'Choix',
+      controlType: 'choice',
+      customChoices: [{ id: 'go', label: 'Validé', tone: 'info' }]
+    };
+
+    const diff = diffTemplates(s.templateSnapshot, next, s, new Set());
+
+    // Contrôles modifiés
+    expect(diff.modified.map(m => m.item.id)).toEqual(['always', 'patch', 'choice']);
+
+    const alwaysDiff = diff.modified.find(m => m.item.id === 'always')!;
+    expect(alwaysDiff.answerIncompatible).toBe(true);
+    expect(alwaysDiff.changes).toEqual(
+      expect.arrayContaining([
+        'Libellé : « Toujours » → « Toujours vérifié »',
+        'Type de contrôle : Statut (OK/KO/NA) → Case à cocher',
+        'Consigne ajoutée : « Nouvelle consigne »',
+        'Horodatage automatique : activé',
+        'Champ additionnel activé : « Numéro de ticket »'
+      ])
+    );
+
+    const patchDiff = diff.modified.find(m => m.item.id === 'patch')!;
+    expect(patchDiff.answerIncompatible).toBe(false);
+    expect(patchDiff.changes).toEqual(
+      expect.arrayContaining([
+        'Motif N/A obligatoire : activé',
+        "Condition d'affichage modifiée : Mode ∈ [patch] → Environnement ∈ [patch, hotfix]"
+      ])
+    );
+
+    const choiceDiff = diff.modified.find(m => m.item.id === 'choice')!;
+    expect(choiceDiff.answerIncompatible).toBe(true);
+    expect(choiceDiff.changes).toEqual(
+      expect.arrayContaining([
+        'Option(s) supprimée(s) : « Stop »',
+        'Option « Validé » : libellé « Go » → « Validé », couleur Vert → Bleu'
+      ])
+    );
+
+    // Contexte
+    expect(diff.context.added.map(f => f.id)).toEqual(['env']);
+    expect(diff.context.removed.map(f => f.id)).toEqual(['note']);
+    expect(diff.context.modified).toHaveLength(1);
+    expect(diff.context.modified[0].field.id).toBe('mode');
+
+    // Structure
+    expect(diff.structureChanges).toEqual(
+      expect.arrayContaining([
+        'Description du modèle modifiée',
+        'Section renommée : « Section 1 » → « Section 1 renommée »'
+      ])
+    );
+
+    // Rebase : réinitialise le statut/choix incompatible tout en gardant les commentaires
+    const rebased = rebaseSessionOnTemplate(s, next, '2026-10-06T12:00:00.000Z');
+    expect(rebased.answers['always']).toEqual({ status: null, comment: 'Constaté' });
+    expect(rebased.answers['choice']).toEqual({ status: null, comment: 'Bloqué' });
+  });
 });

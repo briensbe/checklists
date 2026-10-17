@@ -31,6 +31,31 @@
         </ul>
       }
 
+      <h4 class="list-title">Contrôles modifiés ({{ preview().diff.modified.length }})</h4>
+      @if (preview().diff.modified.length === 0) {
+        <p class="empty">Aucun.</p>
+      } @else {
+        <ul class="diff-list">
+          @for (mod of preview().diff.modified; track mod.item.id) {
+            <li class="diff-modified" [class.has-data]="mod.answerIncompatible">
+              <div class="diff-item-header">
+                <div>
+                  <span class="diff-section">{{ mod.item.sectionTitle }}</span> {{ mod.item.label }}
+                </div>
+                @if (mod.answerIncompatible) {
+                  <span class="data-warning">réponse réinitialisée</span>
+                }
+              </div>
+              <ul class="diff-details">
+                @for (change of mod.changes; track change) {
+                  <li>{{ change }}</li>
+                }
+              </ul>
+            </li>
+          }
+        </ul>
+      }
+
       <h4 class="list-title">Contrôles supprimés ({{ preview().diff.removed.length }})</h4>
       @if (preview().diff.removed.length === 0) {
         <p class="empty">Aucun.</p>
@@ -47,9 +72,57 @@
         </ul>
       }
 
+      @if (contextChangesCount() > 0) {
+        <h4 class="list-title">Variables de contexte ({{ contextChangesCount() }})</h4>
+        <ul class="diff-list">
+          @for (field of preview().diff.context.added; track field.id) {
+            <li class="diff-added">
+              <span class="diff-badge">Ajoutée</span>
+              <strong>{{ field.label }}</strong> ({{ field.type }}{{ field.required ? ', obligatoire' : '' }})
+            </li>
+          }
+          @for (modField of preview().diff.context.modified; track modField.field.id) {
+            <li class="diff-modified">
+              <div class="diff-item-header">
+                <div>
+                  <span class="diff-badge">Modifiée</span>
+                  <strong>{{ modField.field.label }}</strong>
+                </div>
+              </div>
+              <ul class="diff-details">
+                @for (change of modField.changes; track change) {
+                  <li>{{ change }}</li>
+                }
+              </ul>
+            </li>
+          }
+          @for (field of preview().diff.context.removed; track field.id) {
+            <li class="diff-removed">
+              <span class="diff-badge">Supprimée</span>
+              <strong>{{ field.label }}</strong>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (preview().diff.structureChanges.length > 0) {
+        <h4 class="list-title">Structure et informations générales ({{ preview().diff.structureChanges.length }})</h4>
+        <ul class="diff-list">
+          @for (change of preview().diff.structureChanges; track change) {
+            <li class="diff-modified">{{ change }}</li>
+          }
+        </ul>
+      }
+
       @if (preview().diff.removedWithData.length > 0) {
         <p class="warning" role="alert">
           {{ preview().diff.removedWithData.length }} contrôle(s) supprimé(s) portent des données : leurs réponses et preuves seront définitivement effacées.
+        </p>
+      }
+
+      @if (incompatibleAnswersCount() > 0) {
+        <p class="warning" role="alert">
+          {{ incompatibleAnswersCount() }} contrôle(s) modifié(s) ont changé de type ou d'options : leur sélection sera réinitialisée (les commentaires et preuves sont conservés).
         </p>
       }
     </div>

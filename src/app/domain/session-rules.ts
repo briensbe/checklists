@@ -2,8 +2,13 @@ import {
   ChecklistItemTemplate,
   ChecklistSession,
   ChecklistTemplate,
+  ChoiceTone,
+  ContextFieldSchema,
+  ContextFieldType,
   ItemAnswer,
-  MetricsSummary
+  ItemControlType,
+  MetricsSummary,
+  VisibilityCondition
 } from '../models/checklist.model';
 
 /**
@@ -182,11 +187,279 @@ export function hasTemplateUpdate(session: ChecklistSession, current: ChecklistT
   return current.updatedAt > session.templateSnapshot.updatedAt;
 }
 
+export interface ModifiedItemDiff {
+  item: ApplicableItem;
+  before: ApplicableItem;
+  changes: string[];
+  /** Vrai si le changement de type ou la suppression d'une option de choix rend la réponse existante incompatible. */
+  answerIncompatible: boolean;
+}
+
+export interface ModifiedContextFieldDiff {
+  field: ContextFieldSchema;
+  before: ContextFieldSchema;
+  changes: string[];
+}
+
+export interface ContextFieldDiff {
+  added: ContextFieldSchema[];
+  removed: ContextFieldSchema[];
+  modified: ModifiedContextFieldDiff[];
+}
+
 export interface TemplateDiff {
   added: ApplicableItem[];
   removed: ApplicableItem[];
   /** Sous-ensemble de `removed` portant une réponse, un commentaire, un champ additionnel ou des preuves. */
   removedWithData: ApplicableItem[];
+  /** Contrôles conservés mais dont au moins une option ou propriété a évolué. */
+  modified: ModifiedItemDiff[];
+  /** Évolutions sur les variables de contexte. */
+  context: ContextFieldDiff;
+  /** Autres changements de structure ou de métadonnées (sections, ordre, nom/description). */
+  structureChanges: string[];
+}
+
+const CONTROL_TYPE_LABELS: Record<ItemControlType, string> = {
+  status: 'Statut (OK/KO/NA)',
+  checkbox: 'Case à cocher',
+  choice: 'Choix personnalisé'
+};
+
+const CONTEXT_TYPE_LABELS: Record<ContextFieldType, string> = {
+  text: 'Texte libre',
+  date: 'Date',
+  select: 'Liste déroulante'
+};
+
+const TONE_LABELS: Record<ChoiceTone, string> = {
+  success: 'Vert',
+  danger: 'Rouge',
+  warning: 'Ambre',
+  info: 'Bleu',
+  neutral: 'Gris'
+};
+
+function formatVisibilityCondition(cond: VisibilityCondition, template: ChecklistTemplate): string {
+  const field = (template.contextSchema ?? []).find(f => f.id === cond.fieldId);
+  const fieldName = field?.label || cond.fieldId;
+  const values = cond.equals.length > 0 ? cond.equals.join(', ') : 'aucune valeur';
+  return `${fieldName} ∈ [${values}]`;
+}
+
+function diffSingleItem(
+  before: ApplicableItem,
+  after: ApplicableItem,
+  snapshot: ChecklistTemplate,
+  current: ChecklistTemplate,
+  existingAnswer: ItemAnswer | undefined
+): ModifiedItemDiff | null {
+  const changes: string[] = [];
+  let answerIncompatible = false;
+
+  if (before.label !== after.label) {
+    changes.push(`Libellé : « ${before.label} » → « ${after.label} »`);
+  }
+
+  if (before.sectionId !== after.sectionId) {
+    changes.push(`Section : « ${before.sectionTitle} » → « ${after.sectionTitle} »`);
+  }
+
+  const bType: ItemControlType = before.controlType ?? 'status';
+  const aType: ItemControlType = after.controlType ?? 'status';
+  if (bType !== aType) {
+    changes.push(`Type de contrôle : ${CONTROL_TYPE_LABELS[bType]} → ${CONTROL_TYPE_LABELS[aType]}`);
+    if (isAnswered(before, existingAnswer)) {
+      answerIncompatible = true;
+    }
+  }
+
+  const bHelp = (before.help ?? '').trim();
+  const aHelp = (after.help ?? '').trim();
+  if (bHelp !== aHelp) {
+    if (!bHelp && aHelp) {
+      changes.push(`Consigne ajoutée : « ${aHelp} »`);
+    } else if (bHelp && !aHelp) {
+      changes.push('Consigne supprimée');
+    } else {
+      changes.push(`Consigne modifiée : « ${bHelp} » → « ${aHelp} »`);
+    }
+  }
+
+  if (aType === 'checkbox' && !!before.withTimestamp !== !!after.withTimestamp) {
+    changes.push(`Horodatage automatique : ${after.withTimestamp ? 'activé' : 'désactivé'}`);
+  }
+
+  if (aType === 'choice') {
+    const aChoices = after.customChoices ?? [];
+    if (bType !== 'choice') {
+      if (aChoices.length > 0) {
+        changes.push(`Options de choix : ${aChoices.map(c => `« ${c.label} »`).join(', ')}`);
+      }
+    } else {
+      const bChoices = before.customChoices ?? [];
+      const bMap = new Map(bChoices.map(c => [c.id, c]));
+      const aMap = new Map(aChoices.map(c => [c.id, c]));
+
+      const addedChoices = aChoices.filter(c => !bMap.has(c.id));
+      const removedChoices = bChoices.filter(c => !aMap.has(c.id));
+
+      if (addedChoices.length > 0) {
+        changes.push(`Option(s) ajoutée(s) : ${addedChoices.map(c => `« ${c.label} »`).join(', ')}`);
+      }
+      if (removedChoices.length > 0) {
+        changes.push(`Option(s) supprimée(s) : ${removedChoices.map(c => `« ${c.label} »`).join(', ')}`);
+        if (
+          existingAnswer?.selectedChoice &&
+          removedChoices.some(c => c.id === existingAnswer.selectedChoice || c.label === existingAnswer.selectedChoice)
+        ) {
+          answerIncompatible = true;
+        }
+      }
+
+      for (const ac of aChoices) {
+        const bc = bMap.get(ac.id);
+        if (!bc) continue;
+        const parts: string[] = [];
+        if (bc.label !== ac.label) parts.push(`libellé « ${bc.label} » → « ${ac.label} »`);
+        if (bc.tone !== ac.tone) parts.push(`couleur ${TONE_LABELS[bc.tone]} → ${TONE_LABELS[ac.tone]}`);
+        if (!!bc.isBlocking !== !!ac.isBlocking) parts.push(ac.isBlocking ? 'devenu bloquant' : 'non bloquant');
+        if (parts.length > 0) {
+          changes.push(`Option « ${ac.label} » : ${parts.join(', ')}`);
+        }
+      }
+    }
+  }
+
+  if (!!before.requireNaReason !== !!after.requireNaReason) {
+    changes.push(`Motif N/A obligatoire : ${after.requireNaReason ? 'activé' : 'désactivé'}`);
+  }
+
+  if (!before.extraField && after.extraField) {
+    changes.push(`Champ additionnel activé : « ${after.extraField.label} »`);
+  } else if (before.extraField && !after.extraField) {
+    changes.push(`Champ additionnel supprimé (« ${before.extraField.label} »)`);
+  } else if (before.extraField && after.extraField) {
+    if (before.extraField.label !== after.extraField.label) {
+      changes.push(`Champ additionnel renommé : « ${before.extraField.label} » → « ${after.extraField.label} »`);
+    } else if ((before.extraField.placeholder ?? '') !== (after.extraField.placeholder ?? '')) {
+      changes.push(`Placeholder du champ additionnel « ${after.extraField.label} » modifié`);
+    }
+  }
+
+  if (!before.visibleIf && after.visibleIf) {
+    changes.push(`Condition d'affichage ajoutée : ${formatVisibilityCondition(after.visibleIf, current)}`);
+  } else if (before.visibleIf && !after.visibleIf) {
+    changes.push("Condition d'affichage supprimée (toujours visible)");
+  } else if (before.visibleIf && after.visibleIf) {
+    const sameField = before.visibleIf.fieldId === after.visibleIf.fieldId;
+    const sameValues =
+      before.visibleIf.equals.length === after.visibleIf.equals.length &&
+      before.visibleIf.equals.every((v, idx) => v === after.visibleIf!.equals[idx]);
+    if (!sameField || !sameValues) {
+      changes.push(
+        `Condition d'affichage modifiée : ${formatVisibilityCondition(before.visibleIf, snapshot)} → ${formatVisibilityCondition(after.visibleIf, current)}`
+      );
+    }
+  }
+
+  if (changes.length === 0) return null;
+  return { item: after, before, changes, answerIncompatible };
+}
+
+function diffContextSchema(snapshot: ChecklistTemplate, current: ChecklistTemplate): ContextFieldDiff {
+  const bSchema = snapshot.contextSchema ?? [];
+  const aSchema = current.contextSchema ?? [];
+  const bMap = new Map(bSchema.map(f => [f.id, f]));
+  const aMap = new Map(aSchema.map(f => [f.id, f]));
+
+  const added = aSchema.filter(f => !bMap.has(f.id));
+  const removed = bSchema.filter(f => !aMap.has(f.id));
+  const modified: ModifiedContextFieldDiff[] = [];
+
+  for (const af of aSchema) {
+    const bf = bMap.get(af.id);
+    if (!bf) continue;
+    const changes: string[] = [];
+
+    if (bf.label !== af.label) {
+      changes.push(`Libellé : « ${bf.label} » → « ${af.label} »`);
+    }
+    if (bf.type !== af.type) {
+      changes.push(`Type : ${CONTEXT_TYPE_LABELS[bf.type]} → ${CONTEXT_TYPE_LABELS[af.type]}`);
+    }
+    if (!!bf.required !== !!af.required) {
+      changes.push(`Obligatoire : ${af.required ? 'oui' : 'non'}`);
+    }
+    if ((bf.defaultValue ?? '') !== (af.defaultValue ?? '')) {
+      changes.push(`Valeur par défaut : « ${bf.defaultValue || 'aucune'} » → « ${af.defaultValue || 'aucune'} »`);
+    }
+    if ((bf.placeholder ?? '') !== (af.placeholder ?? '')) {
+      changes.push(`Placeholder : « ${bf.placeholder || 'aucun'} » → « ${af.placeholder || 'aucun'} »`);
+    }
+    if (af.type === 'select') {
+      const bOpts = (bf.options ?? []).map(o => o.label);
+      const aOpts = (af.options ?? []).map(o => o.label);
+      if (bOpts.join('\0') !== aOpts.join('\0')) {
+        changes.push(`Options : [${bOpts.join(', ')}] → [${aOpts.join(', ')}]`);
+      }
+    }
+
+    if (changes.length > 0) {
+      modified.push({ field: af, before: bf, changes });
+    }
+  }
+
+  return { added, removed, modified };
+}
+
+function diffStructureAndMetadata(snapshot: ChecklistTemplate, current: ChecklistTemplate): string[] {
+  const changes: string[] = [];
+
+  if (snapshot.name !== current.name) {
+    changes.push(`Nom du modèle : « ${snapshot.name} » → « ${current.name} »`);
+  }
+  if ((snapshot.description ?? '').trim() !== (current.description ?? '').trim()) {
+    changes.push('Description du modèle modifiée');
+  }
+
+  const bSecMap = new Map(snapshot.sections.map(s => [s.id, s]));
+  const aSecMap = new Map(current.sections.map(s => [s.id, s]));
+
+  for (const s of current.sections) {
+    const bs = bSecMap.get(s.id);
+    if (!bs) {
+      changes.push(`Section ajoutée : « ${s.title} »`);
+    } else if (bs.title !== s.title) {
+      changes.push(`Section renommée : « ${bs.title} » → « ${s.title} »`);
+    }
+  }
+
+  for (const s of snapshot.sections) {
+    if (!aSecMap.has(s.id)) {
+      changes.push(`Section supprimée : « ${s.title} »`);
+    }
+  }
+
+  const commonBeforeSecs = snapshot.sections.filter(s => aSecMap.has(s.id)).map(s => s.id);
+  const commonAfterSecs = current.sections.filter(s => bSecMap.has(s.id)).map(s => s.id);
+  if (commonBeforeSecs.join('\0') !== commonAfterSecs.join('\0')) {
+    changes.push('Ordre des sections modifié');
+  }
+
+  for (const s of current.sections) {
+    const bs = bSecMap.get(s.id);
+    if (!bs) continue;
+    const aItemIds = new Set(s.items.map(i => i.id));
+    const bItemIds = new Set(bs.items.map(i => i.id));
+    const commonBeforeItems = bs.items.filter(i => aItemIds.has(i.id)).map(i => i.id);
+    const commonAfterItems = s.items.filter(i => bItemIds.has(i.id)).map(i => i.id);
+    if (commonBeforeItems.join('\0') !== commonAfterItems.join('\0')) {
+      changes.push(`Ordre des contrôles modifié dans « ${s.title} »`);
+    }
+  }
+
+  return changes;
 }
 
 function allItems(template: ChecklistTemplate): ApplicableItem[] {
@@ -212,29 +485,65 @@ export function diffTemplates(
 ): TemplateDiff {
   const before = allItems(snapshot);
   const after = allItems(current);
-  const beforeIds = new Set(before.map(i => i.id));
+  const beforeById = new Map(before.map(i => [i.id, i]));
   const afterIds = new Set(after.map(i => i.id));
 
-  const added = after.filter(i => !beforeIds.has(i.id));
+  const added = after.filter(i => !beforeById.has(i.id));
   const removed = before.filter(i => !afterIds.has(i.id));
   const removedWithData = removed.filter(i => answerHasData(session.answers[i.id]) || evidenceItemIds.has(i.id));
-  return { added, removed, removedWithData };
+
+  const modified: ModifiedItemDiff[] = [];
+  for (const afterItem of after) {
+    const beforeItem = beforeById.get(afterItem.id);
+    if (!beforeItem) continue;
+    const itemDiff = diffSingleItem(beforeItem, afterItem, snapshot, current, session.answers[afterItem.id]);
+    if (itemDiff) {
+      modified.push(itemDiff);
+    }
+  }
+
+  const context = diffContextSchema(snapshot, current);
+  const structureChanges = diffStructureAndMetadata(snapshot, current);
+
+  return { added, removed, removedWithData, modified, context, structureChanges };
 }
 
 /**
  * Remplace la copie figée par la version courante du template :
- * réponses conservées pour les items de même identifiant, purgées pour les autres,
- * valeurs par défaut posées pour les nouveaux champs de contexte (valeurs existantes intactes).
+ * réponses conservées pour les items de même identifiant (réinitialisées si le type de contrôle
+ * ou l'option de choix sélectionnée n'est plus compatible, en préservant commentaire et extra),
+ * purgées pour les items supprimés, valeurs par défaut posées pour les nouveaux champs de contexte.
  */
 export function rebaseSessionOnTemplate(
   session: ChecklistSession,
   current: ChecklistTemplate,
   now: string
 ): ChecklistSession {
-  const keptIds = new Set(allItems(current).map(i => i.id));
+  const afterById = new Map(allItems(current).map(i => [i.id, i]));
+  const beforeById = new Map(allItems(session.templateSnapshot).map(i => [i.id, i]));
   const answers: Record<string, ItemAnswer> = {};
   for (const [itemId, answer] of Object.entries(session.answers)) {
-    if (keptIds.has(itemId)) answers[itemId] = answer;
+    const nextItem = afterById.get(itemId);
+    if (!nextItem) continue;
+    const prevItem = beforeById.get(itemId);
+    const prevType = prevItem?.controlType ?? 'status';
+    const nextType = nextItem.controlType ?? 'status';
+    if (prevType !== nextType) {
+      answers[itemId] = {
+        status: null,
+        comment: answer.comment ?? '',
+        ...(answer.extra ? { extra: answer.extra } : {})
+      };
+    } else if (
+      nextType === 'choice' &&
+      answer.selectedChoice &&
+      !(nextItem.customChoices ?? []).some(c => c.id === answer.selectedChoice || c.label === answer.selectedChoice)
+    ) {
+      const { selectedChoice: _, ...rest } = answer;
+      answers[itemId] = rest;
+    } else {
+      answers[itemId] = answer;
+    }
   }
 
   return {
