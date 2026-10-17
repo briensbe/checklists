@@ -1,14 +1,18 @@
 # Notes de passation : améliorations restantes
 
-État au 16/10/2026. Feuille de route validée en cadrage (grilling) le 14/10/2026 : cinq changes OpenSpec, à livrer dans l'ordre.
+État au 17/10/2026. Feuille de route validée en cadrage (grilling) le 14/10/2026 : cinq changes OpenSpec, à livrer dans l'ordre. Complétée le 17/10/2026 par l'intégration de la vision UX de [checklist-ux.md](../docs/design/checklist-ux.md) (changes 6 à 9) : lire d'abord sa section « Écarts retenus », qui consigne les décisions prises.
 
 | # | Change | État |
 |---|--------|------|
 | 1 | `session-integrity` | Livré, archivé (`openspec/changes/archive/2026-10-14-session-integrity/`), PR #1 fusionnée |
 | 2 | `session-exchange` | Livré, archivé (`openspec/changes/archive/2026-10-14-session-exchange/`), fusionné |
 | 3 | `ui-dialogs-and-undo` | Livré, archivé (`openspec/changes/archive/2026-10-16-ui-dialogs-and-undo/`), fusionné sur `main` |
-| 4 | `template-builder-v2` | **À faire** : section 2 (dépend du 3) |
-| 5 | `runner-and-dashboard-productivity` | **À faire** : section 3 (dépend du 3) |
+| 4 | `template-builder-v2` | Livré, archivé (`openspec/changes/archive/2026-10-16-template-builder-v2/`) |
+| 5 | `dashboard-productivity` | **À faire** : section 3, indépendant des suivants. Son volet runner est passé dans `quick-check-and-drawer` |
+| 6 | `step-flow-model` | **À faire** : section 4 |
+| 7 | `quick-check-and-drawer` | **À faire** : section 5 (dépend de `step-flow-model`) |
+| 8 | `runner-path-view` | **À faire** : section 6 (dépend de `step-flow-model`, après `quick-check-and-drawer`) |
+| 9 | `builder-flow-editor` | **À faire** : section 7 (dépend de `runner-path-view`) |
 | — | Backlog | Reporté, voir [BACKLOG.md](BACKLOG.md) |
 
 Chaque section ci-dessous se suffit à elle-même : on peut la donner telle quelle à `/opsx:propose <nom-du-change>` dans une session neuve.
@@ -26,14 +30,13 @@ Chaque section ci-dessous se suffit à elle-même : on peut la donner telle quel
   - chaque session embarque une copie figée de son modèle (`templateSnapshot`, ADR 0003) ;
   - toute modification d'une session passe par `ChecklistSessionService.mutate()`, qui protège les sessions terminées (lecture seule) et différe l'écriture des saisies texte de 400 ms ;
   - les règles métier sont des fonctions pures dans `src/app/domain/` (`session-rules.ts`, `session-exchange.ts`, `report.ts`) ; la normalisation des formats et les migrations sont dans `src/app/data/`.
-- **Vérification** : `pnpm build` et `pnpm ng test --watch=false` (Vitest ; `fake-indexeddb` sert pour les tests Dexie). Le serveur de dev se lance via `.claude/launch.json` (`pnpm start`, port 4200).
-- **Travail en cours non commité** : sur `main`, quelqu'un a commencé l'**édition du titre** de la session dans le runner (`ChecklistSessionService.updateTitle`, champ éditable dans `checklist-runner`). Cette fonctionnalité ne fait partie d'aucun des trois changes ci-dessous. À commiter ou à abandonner avant de démarrer le change 3.
+- **Vérification** : `pnpm build` et `pnpm ng test --watch=false` (Vitest ; `fake-indexeddb` sert pour les tests Dexie). Le serveur de dev se lance avec `pnpm start` (port 4200).
 
 ---
 
 ## 1. `ui-dialogs-and-undo` : dialogues maison, toasts, annulation, accessibilité
 
-**À faire en premier** : les changes 4 et 5 réutilisent ses dialogues et ses toasts.
+**Livré et archivé** (`openspec/changes/archive/2026-10-16-ui-dialogs-and-undo/`). Section conservée pour mémoire.
 
 ### Objectif
 
@@ -98,7 +101,7 @@ Pour retrouver toutes les occurrences : `rg "\b(confirm|alert|prompt)\(" src/app
 
 ## 2. `template-builder-v2` : interface complète du constructeur de modèles
 
-**Dépend du change 1** : il utilise ses dialogues, son annulation et sa garde de sortie.
+**Livré et archivé** (`openspec/changes/archive/2026-10-16-template-builder-v2/`). Section conservée pour mémoire.
 
 ### Objectif
 
@@ -156,13 +159,13 @@ Rendre configurables depuis l'interface tous les réglages qui existent déjà d
 
 ---
 
-## 3. `runner-and-dashboard-productivity` : productivité au quotidien
+## 3. `dashboard-productivity` : productivité du tableau de bord
 
-**Dépend du change 1** : il utilise ses toasts et l'accessibilité des sections.
+**Indépendant des autres changes à faire.** Ce change s'appelait `runner-and-dashboard-productivity` ; son volet runner (raccourcis clavier, « Prochain item à traiter », résumé fixé en haut) est passé dans `quick-check-and-drawer` (section 5), pour être conçu avec la nouvelle ligne d'item.
 
 ### Objectif
 
-Accélérer les audits répétés : retrouver une session, refaire un audit, et remplir une checklist au clavier.
+Accélérer les audits répétés : retrouver une session et refaire un audit.
 
 ### Décisions validées
 
@@ -174,13 +177,6 @@ Accélérer les audits répétés : retrouver une session, refaire un audit, et 
   - crée une nouvelle session à partir d'une session existante ;
   - reprend le contexte en vidant les champs date (qui reprennent la date du jour) ;
   - laisse choisir de reprendre ou non les réponses.
-- **Raccourcis clavier dans le runner** :
-  - `↑/↓` ou `j/k` pour passer d'un item à l'autre, l'item actif étant mis en surbrillance ;
-  - `O`, `K`, `N` pour répondre OK, KO ou N/A ; un KO place directement le curseur dans le commentaire ;
-  - `C` pour le commentaire, `P` pour les preuves ;
-  - `?` pour afficher l'aide des raccourcis.
-- **Bouton « Prochain item à traiter »**.
-- **Résumé fixé en haut de l'écran** pendant le défilement : progression et compteurs OK/KO/N/A.
 
 ### État actuel du code
 
@@ -188,17 +184,10 @@ Accélérer les audits répétés : retrouver une session, refaire un audit, et 
   - filtre par statut (`statusFilter`, `filteredSessions`) et progression via `computeMetrics` ;
   - import d'une session et modale « Nouvelle checklist » ;
   - **ni recherche, ni tri, ni duplication**.
-- Le runner n'écoute aucun raccourci clavier. Seules les modales gèrent la touche Échap.
-- Points réutilisables :
-  - chaque item porte déjà une ancre `id="item-<itemId>"` avec `tabindex="-1"` ;
-  - `onIssueClick()` dans `checklist-runner.component.ts` sait déjà déplier une section, repasser le filtre à « Tous », faire défiler et donner le focus. C'est la mécanique de « Prochain item à traiter ».
 - `ChecklistSessionService.createSession()` construit une session à partir d'un modèle de la bibliothèque. La duplication doit partir de la **copie figée de la session source**, pas de la bibliothèque : le modèle d'origine a pu être modifié ou supprimé entre-temps.
 
 ### Points délicats
 
-- **Les raccourcis à une lettre ne doivent jamais se déclencher pendant une saisie.** Il faut les ignorer quand le focus est dans un `input`, un `textarea`, un `select` ou un élément `contenteditable`, ou quand une modale est ouverte.
-- **La session terminée** (`isReadonly()`) désactive `O`, `K`, `N`, mais garde la navigation et `P` (consultation des preuves).
-- **L'item actif** doit être un signal dans le runner, ou dans un petit service. Il se calcule sur les items **visibles**, c'est-à-dire après filtre et repli des sections : naviguer vers un item replié doit déplier sa section.
 - **Dupliquer** :
   - nouvel UUID et `status: 'in_progress'` ;
   - `closures: []` ;
@@ -206,18 +195,186 @@ Accélérer les audits répétés : retrouver une session, refaire un audit, et 
   - **ne pas copier les preuves** par défaut (elles sont lourdes ; à confirmer si besoin).
   - Les champs de type `date` reprennent la date du jour via `defaultContextValues`.
 - **Le tri par progression** appelle `computeMetrics` pour chaque carte. C'est acceptable pour quelques dizaines de sessions, mais mieux vaut le calculer une seule fois dans un `computed()` plutôt que dans le template HTML.
-- **Le résumé fixé** : `position: sticky` sur `app-audit-summary` (ou sur une version compacte), en tenant compte du header de l'application, qui est déjà en `sticky` (`header.component.css`).
 
 ### Critères de fin
 
 - Sur le dashboard, rechercher, filtrer (statut et modèle) et trier se combinent.
 - « Refaire l'audit » crée une session en cours, pré-remplie selon le choix fait, et ouvre le runner.
-- Un audit complet peut être rempli sans souris.
-- `?` affiche l'aide des raccourcis.
-- Aucun raccourci ne se déclenche pendant une saisie.
-- Tests :
-  - helpers purs (filtre et tri des sessions, duplication d'une session, calcul du prochain item à traiter) ;
-  - gestion des raccourcis (ignorés dans un `input` ou en lecture seule).
+- Tests : helpers purs (filtre et tri des sessions, duplication d'une session).
+
+---
+
+## 4. `step-flow-model` : modèle et règles des étapes
+
+**Premier change de l'intégration UX**, prérequis des sections 5 à 7. Lire d'abord les « Écarts retenus » de [checklist-ux.md](../docs/design/checklist-ux.md).
+
+### Objectif
+
+Poser les données et les règles de calcul des étapes, des portes et des jonctions, sans nouvel écran. Une section devient une étape d'un graphe orienté sans cycle ; un modèle sans dépendance garde exactement le comportement actuel.
+
+### Décisions validées
+
+- **Uniquement des champs optionnels**, donc ni migration Dexie ni nouvelle version du fichier d'échange (ADR 0004) :
+  - section : `dependsOn` (id d'autres sections), `joinMode` (`all` par défaut, ou `any`), `gate` (`hard` par défaut, ou `soft`) ;
+  - item : `criticality` (`blocking`, `important` ou `optional` ; absent = `optional`), `evidenceRequired` (`comment`, `photo`, `link` ou `file`), `evidenceHint` (consigne affichée au moment de la preuve) ;
+  - réponse : `evidencePending` (fait, preuve à compléter) et `history` (événements datés : coché, décoché, OK, KO, N/A, preuve ajoutée ou retirée, porte forcée) ;
+  - session : les portes souples forcées, avec leur justification et leur date ;
+  - modèle : une politique de clôture, par exemple `completionPolicy: 'all' | 'blocking'`.
+- **Règle « absent = ancien comportement »** : un item sans `controlType` reste un « statut », un modèle sans politique de clôture exige une réponse partout. Ce sont le builder et les nouveaux modèles qui écrivent explicitement les nouvelles valeurs par défaut (case à cocher, clôture sur les seuls bloquants).
+- **Résolu pour une porte** : OK, coché, choix sans anomalie (`isBlocking` à faux) ou N/A. Un KO n'est pas résolu.
+- **`requireNaReason` disparaît** : retiré du builder, de l'item, de la validation de clôture (`na-without-reason`) et de la comparaison de versions. Toléré mais ignoré dans les anciens fichiers.
+- **Fonctions pures** dans un nouveau `src/app/domain/flow-rules.ts`, sur le modèle de `session-rules.ts` :
+  - tri topologique et détection de cycle ; « ajouter cette dépendance créerait-il une boucle ? » ;
+  - colonne de chaque étape (plus long chemin depuis un départ) ;
+  - bloquants résolus d'une étape, calculés sur les items **applicables** ;
+  - étapes débloquées (`joinMode`, portes souples forcées) et progression d'une jonction (n/m) ;
+  - état visuel d'une étape : verrouillée, ouverte, franchie avec optionnels restants, terminée ;
+  - étapes suivantes et « Laissés en route » (items non bloquants sans réponse ou avec preuve en attente, dans les étapes franchies).
+- **Service** : `ChecklistSessionService` expose ces résultats en `computed`, et l'historique s'alimente dans `mutate()`.
+- **Modèle d'exemple à branches** : la « Mise en production » de la maquette 03, livrée à côté de `delivery-audit.json`, pour tester `runner-path-view` avant `builder-flow-editor`.
+
+### État actuel du code
+
+- `src/app/models/checklist.model.ts` : sections sans ordre ni dépendance. Seul `isBlocking` existe, sur une option de choix, au sens « anomalie ».
+- `normalizeTemplate` (`src/app/data/migrations.ts`) recopie déjà les champs qu'il ne connaît pas (`...rest`) : les nouveaux champs survivent aux imports, mais ne sont validés ni par `src/app/data/template-validation.ts` ni par `validateTemplateIntegrity` (builder).
+- `validateForCompletion`, `diffTemplates` et `rebaseSessionOnTemplate` (`session-rules.ts`) ignorent criticité et dépendances.
+- `TemplateService` ne charge que `assets/templates/delivery-audit.json` : il faut lui ajouter le modèle d'exemple.
+
+### Points délicats
+
+- **« Débloqué » ne se stocke jamais.** Seule exception : une porte souple forcée, parce que c'est une décision de l'utilisateur et non un état recalculable.
+- **Reverrouillage** : décocher un bloquant d'une étape franchie reverrouille les étapes suivantes, sans effacer leurs réponses.
+- **Applicabilité** : un bloquant masqué par `visibleIf` ne bloque pas ; une étape sans item applicable est franchie d'office.
+- **N/A sans justification** : un N/A suffit à résoudre un bloquant. Il doit être tracé dans l'historique pour pouvoir être signalé par `runner-path-view`.
+- **Historique** : uniquement sur les changements d'état, jamais à chaque frappe dans un commentaire.
+- **Les id de sections deviennent des références** (`dependsOn`), comme les id d'items : ils doivent rester non modifiables, et supprimer une section doit la retirer des `dependsOn` des autres.
+- **Comparaison de versions** : sans mise à jour de `diffTemplates`, la fenêtre « Modèle mis à jour » n'afficherait pas un changement de criticité ou de dépendance. À l'inverse, la ligne « Motif N/A obligatoire » doit disparaître, sinon une ancienne copie figée qui porte encore `requireNaReason` afficherait un faux changement.
+
+### Critères de fin
+
+- Les modèles existants s'exécutent à l'identique (aucun verrou, clôture inchangée), hormis le motif N/A devenu facultatif.
+- Le modèle d'exemple est disponible dans la bibliothèque.
+- Tests Vitest de `flow-rules.ts` : chemin linéaire, branches, jonction `all` et `any`, `visibleIf`, étape vide, KO sur un bloquant, porte souple forcée, cycle détecté. Tests de la clôture selon la politique et de la comparaison de versions avec les nouveaux champs.
+
+---
+
+## 5. `quick-check-and-drawer` : remplissage rapide
+
+**Dépend de `step-flow-model`** (criticité, preuve obligatoire, historique). Reprend le volet runner de l'ancien `runner-and-dashboard-productivity`. Maquettes 01, 06 et 07.
+
+### Objectif
+
+Rendre le remplissage instantané et le retour visuel immédiat, dès les modèles existants, sans attendre le graphe.
+
+### Décisions validées
+
+- **Geste principal sur toute la ligne** :
+  - case à cocher : coche ;
+  - statut : OK ; KO via un bouton discret ou la touche K, qui ouvre le tiroir sur le commentaire (obligatoire pour un KO) ;
+  - choix personnalisé : boutons conservés ; les choix `isBlocking` s'affichent « anomalie ».
+- **Tiroir sous la ligne**, ouvert par le trombone (visible au survol, en permanence sur écran tactile) : note (le `comment` existant), preuves (coller, glisser-déposer, fichier, photo via `capture="environment"`), N/A sans justification. Il remplace la modale `evidence-attachment`, dont on reprend la logique (limite de 50 Mo, annulation de suppression pendant 6 s).
+- **Compteurs** sur la ligne (note, preuves) et **suggestion douce** : le trombone s'allume environ 2 s après une coche sans pièce jointe.
+- **Preuve obligatoire** (maquette 06) : demandée au geste principal, dans la ligne, avec la consigne `evidenceHint`. Item bloquant : impossible de valider sans preuve. Sinon : bouton « Plus tard », qui pose `evidencePending`.
+- **Badges** « bloquant » et « important » uniquement.
+- **Anneaux par section** dans le résumé (maquette 01), dessinés en SVG.
+- **Raccourcis** : ↑/↓ (ou j/k) pour naviguer, Espace pour le geste principal, K pour KO, N pour N/A, A pour le tiroir, Entrée pour enregistrer une note, Échap pour annuler, ? pour l'aide.
+- **Bouton « Prochain item à traiter »** et **résumé fixé en haut** pendant le défilement.
+- **Builder** : sur chaque item, criticité qui change au clic (bloquant → important → optionnel), preuve obligatoire et sa consigne ; type « case à cocher » par défaut pour un nouvel item.
+- **Icônes** : adoption de Lucide via le paquet officiel `@lucide/angular` (ADR du change ; l'ancien `lucide-angular` est déprécié). Les composants touchés passent à Lucide.
+
+### État actuel du code
+
+- `checklist-item` : boutons OK/KO/N/A, case native, trombone qui ouvre la modale de preuves, zone de commentaire.
+- Chaque item porte une ancre `id="item-<itemId>"` avec `tabindex="-1"`. `onIssueClick()` (`checklist-runner.component.ts`) sait déplier une section, repasser le filtre à « Tous », faire défiler et donner le focus : c'est la mécanique de « Prochain item à traiter ».
+- Le runner n'écoute aucun raccourci ; seules les modales gèrent Échap.
+- Icônes : SVG Heroicons recopiés dans les templates HTML.
+
+### Points délicats
+
+- **Raccourcis à une lettre** : jamais pendant une saisie (`input`, `textarea`, `select`, `contenteditable`), ni quand une modale est ouverte.
+- **Session terminée** (`isReadonly()`) : ni geste principal, ni KO, ni N/A ; la navigation et la consultation des preuves restent possibles.
+- **Item actif** : un signal, calculé sur les items visibles (après filtre et repli des sections) ; naviguer vers un item replié déplie sa section.
+- **Clic sur la ligne** : un clic dans le tiroir ou sur un bouton de la ligne ne doit pas déclencher le geste principal.
+- **Accessibilité** : la ligne annonce son rôle et son état (`role="checkbox"` et `aria-checked` pour une case, état OK/KO/N/A pour un statut), et le trombone a un `aria-label`.
+- **Thème sombre** : nouvelles couleurs uniquement via les variables de `styles.css`, vérifiées dans les deux thèmes (bascule `data-theme="dark"`).
+- **Le résumé fixé** : `position: sticky`, en tenant compte du header de l'application, déjà en `sticky` (`header.component.css`).
+
+### Critères de fin
+
+- L'audit de livraison se remplit entièrement au clavier, sans modale.
+- Un item bloquant à preuve obligatoire ne peut pas être validé sans preuve ; un item non bloquant peut passer en « preuve à compléter ».
+- Tests : geste principal selon le type, raccourcis (ignorés dans un `input` ou en lecture seule), prochain item à traiter, preuve obligatoire.
+
+---
+
+## 6. `runner-path-view` : vue chemin dans le runner
+
+**Dépend de `step-flow-model`**, à faire après `quick-check-and-drawer`. Maquettes 02 et 03.
+
+### Objectif
+
+Montrer la progression d'un modèle à dépendances comme un chemin : étapes, portes qui s'ouvrent, branches parallèles et jonctions.
+
+### Décisions validées
+
+- **Un seul composant de graphe**, réutilisé par `builder-flow-editor` puis pour les phases :
+  - tout en SVG (nœuds, anneaux, liens et libellés dans le même `<svg>`), en pixels, largeur mesurée par `ResizeObserver` ;
+  - nœud : anneau de progression, cadenas, coche, icône de l'étape, badge de jonction n/m ;
+  - lien en courbe de Bézier : plein et coloré si la porte est ouverte, en pointillés gris sinon ;
+  - nœuds atteignables au clavier, avec `aria-label` ; petite animation au passage d'une porte.
+- **Runner** : vue « Chemin » quand le modèle a des dépendances (graphe, puis panneau de l'étape sélectionnée), avec une bascule Chemin / Liste. Sans dépendance, la vue actuelle.
+- **Étape verrouillée** : d'abord ses prérequis avec leur état (prête, bloquants en cours, pas encore ouverte), puis ses items en simple liste de texte, sans case ni badge.
+- **Pied d'étape** : « Porte ouverte vers … », « … attend encore une autre branche », bloquants restants, bloquants passés en N/A, preuves à compléter.
+- **Porte souple** : passage forcé avec justification, enregistrée dans l'historique.
+- **« Laissés en route »** dans le résumé, cliquable pour revenir à l'item.
+- **Icône d'étape** : `section.icon`, avec conversion des anciens noms Heroicons du modèle de livraison (`document-text` → `file-text`, `circle-stack` → `database`…).
+- **Confettis** à la fin (`canvas-confetti`, chargé à la demande, coupé si `prefers-reduced-motion`).
+- **« Passer le reste à OK »** ne touche que les étapes débloquées.
+
+### Points délicats
+
+- **Ne jamais placer les nœuds en pourcentages** : les maquettes le font, et c'est l'origine du bug cité dans la doc.
+- **Couleurs du graphe via des variables CSS**, jamais en dur, pour suivre le thème sombre.
+- **Étape reverrouillée qui a déjà des réponses** : choisir comment les montrer dans la liste de texte.
+- **Lisibilité au-delà de 7 ou 8 étapes** : l'audit de livraison en compte 8 s'il reçoit des dépendances ; prévoir un défilement horizontal.
+
+### Critères de fin
+
+- Le modèle d'exemple se parcourt de bout en bout : branches ouvertes ensemble, jonction qui attend les deux, porte souple, confettis.
+- Tests : composant de graphe (placement, liens, états), panneau d'étape verrouillée, porte souple.
+
+---
+
+## 7. `builder-flow-editor` : construire le chemin dans le builder
+
+**Dépend de `runner-path-view`** (composant de graphe). Maquette 05.
+
+### Objectif
+
+Créer et modifier les dépendances sans écrire de JSON : on édite une liste, on voit un graphe.
+
+### Décisions validées
+
+- **Aperçu du graphe en direct** au-dessus de la liste, avec le composant de `runner-path-view` : icônes de départ (`flag`), de jonction (`git-merge`) et de fin (`goal`), et « n items · m bloq. » sous chaque nœud.
+- **Puces « Après : »** sur chaque section ; celles qui créeraient une boucle sont grisées et désactivées.
+- **Porte** stricte ou souple et **mode de jonction** par section.
+- **Bandeau de validation** : nombre de départs et de fins, étapes sans item, absence de cycle.
+- **Palette d'icônes d'étape** : une trentaine d'icônes Lucide.
+- **Politique de clôture** du modèle ; un nouveau modèle est créé avec « seuls les bloquants ».
+- Le glisser-déposer CDK est conservé : il fixe l'ordre d'affichage en vue liste.
+- La fenêtre « Modèle mis à jour » affiche les changements de dépendances et de criticité.
+
+### Points délicats
+
+- **Nouvelle section** : elle dépend de la précédente si le modèle a déjà des dépendances, d'aucune sinon.
+- **Supprimer une section** la retire des `dependsOn` des autres, avec l'annulation de 6 s existante.
+- **Mises à jour immuables du signal** du modèle, pour que la détection des modifications non enregistrées reste fiable.
+
+### Critères de fin
+
+- Le modèle d'exemple de `step-flow-model` se recrée entièrement depuis le builder.
+- Il est impossible de créer une boucle.
+- Tests : helpers de dépendances (ajout, retrait, anti-cycle, suppression d'une section référencée), bandeau de validation.
 
 ---
 
@@ -227,4 +384,6 @@ Idées reportées volontairement, avec pour chacune la raison du report et le d�
 - Comparaison de deux sessions d'un même modèle.
 - PWA et fonctionnement hors ligne.
 - Synchronisation entre appareils ou partage en équipe.
-- Photo directe depuis la caméra comme preuve.
+- Photo directe depuis la caméra comme preuve (en partie reprise par `quick-check-and-drawer`).
+- Grand périmètre : phases, carte du projet et zoom.
+- Compléments de la vision UX : anticipation, mode discret, vues de synthèse, rapports enrichis.

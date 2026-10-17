@@ -4,6 +4,42 @@
 > Il consigne les **décisions prises** pour l'exécution et la création des checklists.
 > Les maquettes interactives correspondantes sont dans [`mockups/`](./mockups/) : ouvrir les fichiers HTML dans un navigateur.
 
+## Écarts retenus (à lire en premier)
+
+Ce document et ses maquettes ont été conçus sans connaître l'application existante. Ils décrivent une **vision**, pas une spécification : la source de vérité reste [`openspec/specs/`](../../openspec/specs/), et chaque règle ci-dessous y sera reprise sous forme d'exigences par les changes successifs (découpage dans [`HANDOVER.md`](../../openspec/HANDOVER.md)). Quand le reste du document contredit cette section, **cette section l'emporte**.
+
+### Modèle et données
+
+- **On étend le modèle existant** ([`checklist.model.ts`](../../src/app/models/checklist.model.ts)) au lieu d'adopter celui du §7. **Une section est une étape** : elle reçoit les champs optionnels `dependsOn`, `joinMode` et `gate`. Sans dépendance, toutes les sections sont des départs et rien n'est verrouillé : c'est le comportement actuel, les modèles existants fonctionnent sans modification.
+- **Phases** (§4.4) : reportées. Le jour venu, ajout d'une liste `phases` et d'un `phaseId` sur la section ; les sections restent à plat.
+- **Réponses** : `ItemAnswer` est conservé (statut OK/KO/NA, case à cocher, choix personnalisé). Pour une porte, un item est **résolu** s'il est OK, coché, sur un choix sans anomalie, ou N/A.
+- **Un KO n'est pas résolu** : sur un item bloquant, la porte reste fermée. Une porte souple permet de passer avec une justification enregistrée dans l'historique. L'état `at_risk` du §3.2 correspond au KO.
+- **Applicabilité** : les portes ne comptent que les items applicables (`visibleIf`). Une étape sans item applicable est franchie d'office.
+- **Version figée** : assurée par la copie `templateSnapshot` ([ADR 0003](../../adr/0003-template-snapshot-in-session.md)), pas par `templateVersion`. **Pièces jointes** : le `comment` et la table `evidences` existants, pas `attachments[]`.
+- **Compatibilité** : uniquement des champs optionnels, donc ni migration Dexie ni nouvelle version du fichier d'échange ([ADR 0004](../../adr/0004-self-contained-session-exchange-file.md)).
+
+### Remplissage et clôture
+
+- **Geste principal** selon le type de contrôle (§5.1) :
+  - case à cocher : toute la ligne coche ;
+  - statut : toute la ligne met OK ; KO passe par un bouton discret (ou la touche K) qui ouvre le tiroir sur le commentaire, déjà obligatoire pour un KO ;
+  - choix personnalisé : les boutons restent ;
+  - N/A : dans le tiroir, pour tous les types.
+- **N/A sans justification obligatoire**, contrairement au §5.3 et aux maquettes 06 et 07. L'option de modèle `requireNaReason` disparaît ; une note reste possible. Un N/A sur un item bloquant est tracé dans l'historique et signalé dans le pied d'étape.
+- **Clôture** : option de modèle « Exiger une réponse partout pour terminer », activée pour les modèles existants. Sans elle, seuls les bloquants empêchent de terminer ; les autres items apparaissent dans « Laissés en route ».
+- **Nouvel item** : type « case à cocher » par défaut, écrit explicitement par le builder (un item sans `controlType` reste lu comme « statut »). Criticité « optionnel » par défaut, comme prévu au §3.1.
+- **Badges de criticité** : seulement « bloquant » et « important », pas de badge « optionnel ».
+- **Vocabulaire** : « bloquant » désigne uniquement la criticité qui verrouille une porte. Le champ `isBlocking` d'une option de choix s'affiche « anomalie ».
+- **Clavier** : les raccourcis du §5.1 sont fusionnés avec ceux prévus pour le runner (↑/↓, Espace pour le geste principal, K, N, A, Entrée, Échap, ? pour l'aide). Le détail sera fixé par le change correspondant.
+
+### Rendu et technique
+
+- **Graphe** : tout en SVG (nœuds, anneaux, liens, libellés dans le même `<svg>`), en pixels, largeur mesurée par `ResizeObserver` : l'option 1 du §9. Les maquettes 02 à 04 placent les nœuds en pourcentages : ne pas reprendre ce procédé.
+- **Charte** : couleurs et thème de l'application, pas ceux des maquettes. Le thème sombre bascule via `data-theme="dark"` sur `<html>`, pas via `prefers-color-scheme`. Les couleurs du graphe passent par des variables CSS, jamais en dur. Correspondance : violet → couleur de marque, vert → `emerald`, rouge → `rose`, orange → `amber`.
+- **Icônes** : Lucide via le paquet officiel `@lucide/angular` (pas Tabler, pas l'ancien `lucide-angular`, déprécié). Le builder propose une palette restreinte d'icônes d'étape ; le drapeau à damier de fin devient `goal`.
+- **Dépendances** : `canvas-confetti` retenu, chargé à la demande et coupé si `prefers-reduced-motion`. `ngx-echarts` et `dagre` écartés pour l'instant (§10) : les anneaux se dessinent en SVG, le placement par plus long chemin suffit.
+- **Mobile** : le minimum (trombone visible sur écran tactile, photo via `capture="environment"`). Balayage, panneau en bas d'écran et hors ligne restent dans le [BACKLOG](../../openspec/BACKLOG.md).
+
 ## 1. Intention
 
 Rendre le remplissage de checklists de contrôle plus visuel et plus agréable, sans perdre en rigueur. L'idée de départ vient des checklists d'aviation : ne rien oublier avant de « décoller ».
