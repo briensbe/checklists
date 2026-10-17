@@ -12,7 +12,7 @@
 | 6 | `step-flow-model` | Livré, archivé (`openspec/changes/archive/2026-10-17-step-flow-model/`) |
 | 7 | `quick-check-and-drawer` | Livré, archivé (`openspec/changes/archive/2026-10-17-quick-check-and-drawer/`) |
 | 8 | `runner-path-view` | Livré, archivé (`openspec/changes/archive/2026-10-17-runner-path-view/`) |
-| 9 | `builder-flow-editor` | **À faire** : section 7 (dépend de `runner-path-view`) |
+| 9 | `builder-flow-editor` | Livré, archivé (`openspec/changes/archive/2026-10-17-builder-flow-editor/`) |
 | — | Backlog | Reporté, voir [BACKLOG.md](BACKLOG.md) |
 
 Chaque section ci-dessous se suffit à elle-même : on peut la donner telle quelle à `/opsx:propose <nom-du-change>` dans une session neuve.
@@ -351,6 +351,16 @@ Montrer la progression d'un modèle à dépendances comme un chemin : étapes, p
 ---
 
 ## 7. `builder-flow-editor` : construire le chemin dans le builder
+
+**Livré et archivé** (`openspec/changes/archive/2026-10-17-builder-flow-editor/`), sans nouvel ADR. Section conservée pour mémoire. Ce qu'il faut savoir pour la suite :
+- **Le builder ne modifie plus jamais son modèle en place** : chaque saisie passe par `template.update()` et un helper immuable (`template-builder.helpers.ts`, `flow-editor.helpers.ts`). Une écriture en place passerait inaperçue de `isDirty` et de l'aperçu du graphe.
+- **Le graphe `step-graph` a deux variantes** : `progress` (runner, par défaut) et `structure` (aperçu du builder). En variante `structure`, la légende et le nom accessible de chaque nœud sont fournis par l'appelant.
+- **Les libellés français des icônes d'étape** sont dans `STEP_ICON_LABELS` (`domain/step-icons.ts`).
+- **Décisions prises pendant le change** :
+  - l'aperçu montre des icônes de rôle (départ, jonction, fin), qui peuvent donc différer de celles du runner ;
+  - il n'y a pas de graphe tant que le modèle n'a aucune dépendance ;
+  - l'aperçu n'est pas fixé en haut de l'écran pendant le défilement.
+- **Pistes ouvertes** : un aperçu fixé pendant le défilement et un bouton « Enchaîner les étapes dans l'ordre », restés en questions ouvertes du design.
 
 **Dépend de `runner-path-view`** (composant de graphe). Maquette 05.
 
