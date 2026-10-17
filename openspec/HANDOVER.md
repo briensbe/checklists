@@ -9,7 +9,7 @@
 | 3 | `ui-dialogs-and-undo` | Livré, archivé (`openspec/changes/archive/2026-10-16-ui-dialogs-and-undo/`), fusionné sur `main` |
 | 4 | `template-builder-v2` | Livré, archivé (`openspec/changes/archive/2026-10-16-template-builder-v2/`) |
 | 5 | `dashboard-productivity` | **À faire** : section 3, indépendant des suivants. Son volet runner est passé dans `quick-check-and-drawer` |
-| 6 | `step-flow-model` | **À faire** : section 4 |
+| 6 | `step-flow-model` | Livré, archivé (`openspec/changes/archive/2026-10-17-step-flow-model/`) |
 | 7 | `quick-check-and-drawer` | **À faire** : section 5 (dépend de `step-flow-model`) |
 | 8 | `runner-path-view` | **À faire** : section 6 (dépend de `step-flow-model`, après `quick-check-and-drawer`) |
 | 9 | `builder-flow-editor` | **À faire** : section 7 (dépend de `runner-path-view`) |
@@ -206,7 +206,7 @@ Accélérer les audits répétés : retrouver une session et refaire un audit.
 
 ## 4. `step-flow-model` : modèle et règles des étapes
 
-**Premier change de l'intégration UX**, prérequis des sections 5 à 7. Lire d'abord les « Écarts retenus » de [checklist-ux.md](../docs/design/checklist-ux.md).
+**Livré et archivé** (`openspec/changes/archive/2026-10-17-step-flow-model/`). Premier change de l'intégration UX, prérequis des sections 5 à 7. Lire d'abord les « Écarts retenus » de [checklist-ux.md](../docs/design/checklist-ux.md).
 
 ### Objectif
 
