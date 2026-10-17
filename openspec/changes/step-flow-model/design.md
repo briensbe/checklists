@@ -174,8 +174,9 @@ export type ItemEvent =
 
 - **Où sont ajoutés les événements** : une fonction pure `appendItemEvent(answer, event)` dans `session-rules.ts` produit une nouvelle réponse. Elle est appelée par les méthodes du service qui changent un état : `updateAnswerStatus`, `updateAnswerCheckbox`, `updateAnswerChoice` et `markRemainingAsOk` (un événement par contrôle modifié). Pas par `mutate()` lui-même, qui ne sait pas ce qu'il modifie.
 - **Saisies de texte** : `updateAnswerComment` et `updateAnswerExtra` n'ajoutent rien, sinon chaque frappe produirait un événement.
-- **Preuves** : l'événement est ajouté au moment de l'action, dans la session courante, via une méthode `recordEvidenceEvent`. Si la suppression est annulée (ADR 0005), l'événement est retiré grâce à son `evidenceId`.
-  - Pourquoi au moment de l'action : la suppression réelle n'a lieu qu'après 6 secondes, éventuellement après un changement de page. À ce moment, la session courante peut ne plus être la bonne.
+- **Preuves** : l'événement est ajouté au moment de l'action, dans la session courante, via une méthode `recordEvidenceEvent`.
+  - Pourquoi au moment de l'action : avec l'annulation différée de l'ADR 0005, la suppression réelle n'a lieu qu'après 6 secondes, éventuellement après un changement de page. À ce moment, la session courante peut ne plus être la bonne.
+  - **Retrait à l'annulation, reporté** : constaté à l'implémentation, la suppression d'une preuve est aujourd'hui immédiate dans le code. L'annulation de 6 s, pourtant exigée par la spec `evidence-attachment`, n'a jamais été implémentée. L'événement de suppression est donc ajouté au moment où la preuve disparaît vraiment, ce qui est exact. Le retrait de l'événement quand l'utilisateur annule (en le retrouvant par son `evidenceId`) sera fait par `quick-check-and-drawer`, qui remplace la fenêtre des preuves par le tiroir et implémente cette annulation.
 - **Annulations et transformations** :
   - L'annulation de « Passer le reste à OK » restaure le cliché des réponses, historiques compris : l'action annulée n'a jamais existé.
   - `resetSession` efface tout, historiques compris : c'est l'objet d'une réinitialisation confirmée.

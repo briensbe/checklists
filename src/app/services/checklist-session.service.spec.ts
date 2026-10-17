@@ -207,9 +207,129 @@ describe('ChecklistSessionService', () => {
     expect(preview?.diff.removedWithData.map(i => i.id)).toEqual(['b']);
 
     await service.applyTemplateUpdate();
-    expect(service.currentSession()?.answers).toEqual({ a: { status: 'OK', comment: '', extra: {} } });
+    const answers = service.currentSession()!.answers;
+    expect(Object.keys(answers)).toEqual(['a']);
+    expect(answers['a']).toMatchObject({ status: 'OK', comment: '', extra: {} });
+    expect(answers['a'].history?.map(e => e.kind)).toEqual(['status']);
     expect(service.currentHasTemplateUpdate()).toBe(false);
     expect(await db.evidences.count()).toBe(0);
+  });
+
+  describe('historique des changements d’état', () => {
+    it('historise chaque changement de statut, jamais la saisie d’un commentaire', async () => {
+      await service.createSession('tpl', 'Audit');
+      await service.updateAnswerStatus('a', 'OK');
+      await service.updateAnswerStatus('a', 'KO');
+      await service.updateAnswerComment('a', 'cassé');
+      await service.flushPendingSave();
+      await service.updateAnswerStatus('a', 'KO'); // re-clic : retrait du statut
+
+      const history = service.currentSession()!.answers['a'].history ?? [];
+      expect(history.map(e => (e.kind === 'status' ? e.status : e.kind))).toEqual(['OK', 'KO', null]);
+      expect(history.every(e => !!e.at)).toBe(true);
+      expect((await db.sessions.get(service.currentSession()!.id))?.answers['a'].history).toHaveLength(3);
+    });
+
+    it('« Passer le reste à OK » ajoute un événement par contrôle, et son annulation restaure tout à l’identique', async () => {
+      await service.createSession('tpl', 'Audit');
+      await service.updateAnswerStatus('a', 'NA');
+      const before = structuredClone(service.currentSession()!.answers);
+
+      expect(await service.markRemainingAsOk()).toBe(1);
+      expect(service.currentSession()!.answers['b'].history?.map(e => e.kind)).toEqual(['status']);
+      expect(service.currentSession()!.answers['a'].history).toHaveLength(1);
+
+      await service.restoreAnswers(before);
+      expect(service.currentSession()!.answers).toEqual(before);
+    });
+
+    it('historise l’ajout et la suppression d’une preuve dans la session courante uniquement', async () => {
+      const s = await service.createSession('tpl', 'Audit');
+      await service.recordEvidenceEvent(s.id, 'a', 'evidence-added', { id: 'ev-1', name: 'rapport.png' });
+      await service.recordEvidenceEvent(s.id, 'a', 'evidence-removed', { id: 'ev-1', name: 'rapport.png' });
+      await service.recordEvidenceEvent('autre-session', 'a', 'evidence-added', { id: 'ev-2', name: 'x.png' });
+
+      const history = service.currentSession()!.answers['a'].history ?? [];
+      expect(history.map(e => e.kind)).toEqual(['evidence-added', 'evidence-removed']);
+      expect(history[0]).toMatchObject({ evidenceId: 'ev-1', name: 'rapport.png' });
+    });
+
+    it('la réinitialisation efface les réponses, leur historique et les portes forcées', async () => {
+      await service.createSession('tpl', 'Audit');
+      await service.updateAnswerStatus('a', 'OK');
+      await service.resetSession();
+      expect(service.currentSession()!.answers).toEqual({});
+      expect(service.currentSession()!.forcedGates).toBeUndefined();
+    });
+  });
+
+  describe('enchaînement des étapes', () => {
+    const FLOW: ChecklistTemplate = {
+      id: 'flow',
+      name: 'Mise en production',
+      description: '',
+      version: '1',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      contextSchema: [],
+      completionPolicy: 'blocking',
+      sections: [
+        { id: 'prep', title: 'Préparation', items: [{ id: 'p1', label: 'Ticket', criticality: 'blocking' }, { id: 'p2', label: 'Changelog' }] },
+        { id: 'doc', title: 'Documentation', dependsOn: ['prep'], gate: 'soft', items: [{ id: 'd1', label: 'Doc', criticality: 'blocking' }] },
+        { id: 'go', title: 'Go', dependsOn: ['doc'], items: [{ id: 'g1', label: 'Go', criticality: 'blocking' }] }
+      ]
+    };
+
+    beforeEach(async () => {
+      await db.templates.put(FLOW);
+      templates.availableTemplates.set([TEMPLATE, FLOW]);
+      await service.createSession('flow', 'MEP');
+    });
+
+    it('expose les états d’étapes et les contrôles laissés en route, recalculés à chaque réponse', async () => {
+      expect(service.stepFlow().steps['doc'].unlocked).toBe(false);
+      await service.updateAnswerStatus('p1', 'OK');
+      expect(service.stepFlow().steps['doc'].unlocked).toBe(true);
+      expect(service.leftBehind().map(i => i.id)).toEqual(['p2']);
+    });
+
+    it('refuse de forcer une porte verrouillée, stricte, inconnue ou sans justification', async () => {
+      expect(await service.forceGate('doc', 'Dérogation')).toBe(false); // verrouillée
+      await service.updateAnswerStatus('p1', 'OK');
+      expect(await service.forceGate('doc', '   ')).toBe(false); // justification vide
+      expect(await service.forceGate('prep', 'Dérogation')).toBe(false); // porte stricte
+      expect(await service.forceGate('inconnue', 'Dérogation')).toBe(false);
+      expect(service.currentSession()!.forcedGates).toBeUndefined();
+    });
+
+    it('force une porte souple : la suite se débloque et le forçage est persisté', async () => {
+      await service.updateAnswerStatus('p1', 'OK');
+      await service.updateAnswerStatus('d1', 'KO');
+      expect(await service.forceGate('doc', '  Dérogation validée par le PO ')).toBe(true);
+
+      expect(service.stepFlow().steps['go'].unlocked).toBe(true);
+      const stored = await db.sessions.get(service.currentSession()!.id);
+      expect(stored?.forcedGates).toEqual([{ sectionId: 'doc', reason: 'Dérogation validée par le PO', at: expect.any(String) }]);
+    });
+
+    it('refuse de forcer une porte sur une session terminée', async () => {
+      await service.updateAnswerStatus('p1', 'OK');
+      await service.updateAnswerStatus('d1', 'OK');
+      await service.updateAnswerStatus('g1', 'OK');
+      expect(await service.completeSession()).toEqual([]);
+      expect(await service.forceGate('doc', 'Dérogation')).toBe(false);
+    });
+
+    it('purge les portes forcées des sections supprimées à l’application d’une version', async () => {
+      await service.updateAnswerStatus('p1', 'OK');
+      await service.forceGate('doc', 'Dérogation');
+      await templates.saveTemplate({
+        ...FLOW,
+        sections: [FLOW.sections[0], { ...FLOW.sections[2], dependsOn: ['prep'] }]
+      });
+
+      await service.applyTemplateUpdate();
+      expect(service.currentSession()!.forcedGates).toEqual([]);
+    });
   });
 
   describe('import d’un fichier d’échange', () => {

@@ -1,12 +1,19 @@
 import {
   ChecklistItemTemplate,
+  ChecklistSectionTemplate,
   ChecklistSession,
   ChecklistTemplate,
   ChoiceTone,
+  CompletionPolicy,
   ContextFieldSchema,
   ContextFieldType,
+  Criticality,
+  EvidenceKind,
+  GateKind,
   ItemAnswer,
   ItemControlType,
+  ItemEvent,
+  JoinMode,
   MetricsSummary,
   VisibilityCondition
 } from '../models/checklist.model';
@@ -102,6 +109,33 @@ export function isKo(item: ChecklistItemTemplate, answer: ItemAnswer | undefined
   return answer.status === 'KO';
 }
 
+/** Criticité effective : un contrôle sans criticité est optionnel (ADR 0007). */
+export function criticalityOf(item: ChecklistItemTemplate): Criticality {
+  return item.criticality ?? 'optional';
+}
+
+/**
+ * Un contrôle est résolu (pour une porte ou la clôture) s'il est répondu sans anomalie :
+ * OK, N/A, coché, ou choix non marqué comme anomalie. Un KO n'est jamais résolu.
+ */
+export function isResolved(item: ChecklistItemTemplate, answer: ItemAnswer | undefined): boolean {
+  return isAnswered(item, answer) && !isKo(item, answer);
+}
+
+/**
+ * Sections dont la porte a été forcée et l'est encore effectivement : un forçage
+ * n'agit que tant que la porte de la section reste souple dans la copie figée.
+ */
+export function forcedSectionIds(session: ChecklistSession): Set<string> {
+  const softGates = new Set(session.templateSnapshot.sections.filter(s => s.gate === 'soft').map(s => s.id));
+  return new Set((session.forcedGates ?? []).map(g => g.sectionId).filter(id => softGates.has(id)));
+}
+
+/** Ajoute un événement à l'historique d'une réponse, sans jamais modifier les précédents. */
+export function appendItemEvent(answer: ItemAnswer, event: ItemEvent): ItemAnswer {
+  return { ...answer, history: [...(answer.history ?? []), event] };
+}
+
 export function computeMetrics(session: ChecklistSession | null | undefined): MetricsSummary {
   if (!session) {
     return { total: 0, answered: 0, okCount: 0, koCount: 0, naCount: 0, pending: 0, percent: 0 };
@@ -127,7 +161,7 @@ export function computeMetrics(session: ChecklistSession | null | undefined): Me
   return { total, answered, okCount, koCount, naCount, pending, percent };
 }
 
-export type CompletionIssueKind = 'context-required' | 'unanswered' | 'ko-without-comment' | 'na-without-reason';
+export type CompletionIssueKind = 'context-required' | 'unanswered' | 'ko-without-comment' | 'blocking-unresolved';
 
 export interface CompletionIssue {
   kind: CompletionIssueKind;
@@ -138,9 +172,17 @@ export interface CompletionIssue {
   sectionTitle?: string;
 }
 
-/** Liste exhaustive des anomalies empêchant de terminer la session (vide = clôture possible). */
+/**
+ * Liste exhaustive des anomalies empêchant de terminer la session (vide = clôture possible).
+ * - Politique `all` (défaut, y compris absente) : chaque contrôle applicable doit avoir une réponse.
+ * - Politique `blocking` : seuls les contrôles bloquants applicables doivent avoir une réponse.
+ * - Quelle que soit la politique, un bloquant en anomalie empêche la clôture (« no-go »),
+ *   sauf si la porte souple de sa section a été forcée. Un N/A n'exige jamais de commentaire.
+ */
 export function validateForCompletion(session: ChecklistSession): CompletionIssue[] {
   const issues: CompletionIssue[] = [];
+  const policy = session.templateSnapshot.completionPolicy ?? 'all';
+  const forced = forcedSectionIds(session);
 
   for (const field of session.templateSnapshot.contextSchema) {
     if (field.required && !(session.contextValues[field.id] ?? '').trim()) {
@@ -151,14 +193,19 @@ export function validateForCompletion(session: ChecklistSession): CompletionIssu
   for (const item of applicableItems(session.templateSnapshot, session.contextValues)) {
     const ans = session.answers[item.id];
     const base = { label: item.label, itemId: item.id, sectionId: item.sectionId, sectionTitle: item.sectionTitle };
-    const hasComment = !!ans?.comment?.trim();
+    const isBlocking = criticalityOf(item) === 'blocking';
 
     if (!isAnswered(item, ans)) {
-      issues.push({ kind: 'unanswered', ...base });
-    } else if (ans?.status === 'KO' && !hasComment) {
+      if (policy === 'all' || isBlocking) {
+        issues.push({ kind: 'unanswered', ...base });
+      }
+      continue;
+    }
+    if (ans?.status === 'KO' && !ans.comment?.trim()) {
       issues.push({ kind: 'ko-without-comment', ...base });
-    } else if (ans?.status === 'NA' && item.requireNaReason && !hasComment) {
-      issues.push({ kind: 'na-without-reason', ...base });
+    }
+    if (isBlocking && isKo(item, ans) && !forced.has(item.sectionId)) {
+      issues.push({ kind: 'blocking-unresolved', ...base });
     }
   }
   return issues;
@@ -168,7 +215,7 @@ export const COMPLETION_ISSUE_LABELS: Record<CompletionIssueKind, string> = {
   'context-required': 'Champ de contexte obligatoire vide',
   unanswered: 'Contrôle sans réponse',
   'ko-without-comment': 'KO sans justification',
-  'na-without-reason': 'N/A sans motif'
+  'blocking-unresolved': 'Bloquant non résolu'
 };
 
 /** Valeurs de contexte initiales : valeur par défaut, ou date du jour pour un champ date. */
@@ -240,6 +287,44 @@ const TONE_LABELS: Record<ChoiceTone, string> = {
   neutral: 'Gris'
 };
 
+const CRITICALITY_LABELS: Record<Criticality, string> = {
+  blocking: 'bloquant',
+  important: 'important',
+  optional: 'optionnel'
+};
+
+const EVIDENCE_LABELS: Record<EvidenceKind, string> = {
+  comment: 'commentaire',
+  photo: 'photo',
+  link: 'lien',
+  file: 'fichier'
+};
+
+const JOIN_MODE_LABELS: Record<JoinMode, string> = {
+  all: 'toutes les branches',
+  any: 'une seule branche'
+};
+
+const GATE_LABELS: Record<GateKind, string> = {
+  hard: 'stricte',
+  soft: 'souple'
+};
+
+const COMPLETION_POLICY_LABELS: Record<CompletionPolicy, string> = {
+  all: 'une réponse partout',
+  blocking: 'seuls les bloquants'
+};
+
+/** Libellé lisible d'une consigne qui apparaît, disparaît ou change (aide, consigne de preuve). */
+function describeTextChange(subject: string, before: string | undefined, after: string | undefined): string | null {
+  const b = (before ?? '').trim();
+  const a = (after ?? '').trim();
+  if (b === a) return null;
+  if (!b) return `${subject} ajoutée : « ${a} »`;
+  if (!a) return `${subject} supprimée`;
+  return `${subject} modifiée : « ${b} » → « ${a} »`;
+}
+
 function formatVisibilityCondition(cond: VisibilityCondition, template: ChecklistTemplate): string {
   const field = (template.contextSchema ?? []).find(f => f.id === cond.fieldId);
   const fieldName = field?.label || cond.fieldId;
@@ -274,16 +359,9 @@ function diffSingleItem(
     }
   }
 
-  const bHelp = (before.help ?? '').trim();
-  const aHelp = (after.help ?? '').trim();
-  if (bHelp !== aHelp) {
-    if (!bHelp && aHelp) {
-      changes.push(`Consigne ajoutée : « ${aHelp} »`);
-    } else if (bHelp && !aHelp) {
-      changes.push('Consigne supprimée');
-    } else {
-      changes.push(`Consigne modifiée : « ${bHelp} » → « ${aHelp} »`);
-    }
+  const helpChange = describeTextChange('Consigne', before.help, after.help);
+  if (helpChange) {
+    changes.push(helpChange);
   }
 
   if (aType === 'checkbox' && !!before.withTimestamp !== !!after.withTimestamp) {
@@ -331,8 +409,20 @@ function diffSingleItem(
     }
   }
 
-  if (!!before.requireNaReason !== !!after.requireNaReason) {
-    changes.push(`Motif N/A obligatoire : ${after.requireNaReason ? 'activé' : 'désactivé'}`);
+  const bCriticality = criticalityOf(before);
+  const aCriticality = criticalityOf(after);
+  if (bCriticality !== aCriticality) {
+    changes.push(`Criticité : ${CRITICALITY_LABELS[bCriticality]} → ${CRITICALITY_LABELS[aCriticality]}`);
+  }
+
+  if (before.evidenceRequired !== after.evidenceRequired) {
+    const label = (kind: EvidenceKind | undefined) => (kind ? EVIDENCE_LABELS[kind] : 'aucune');
+    changes.push(`Preuve exigée : ${label(before.evidenceRequired)} → ${label(after.evidenceRequired)}`);
+  }
+
+  const hintChange = describeTextChange('Consigne de preuve', before.evidenceHint, after.evidenceHint);
+  if (hintChange) {
+    changes.push(hintChange);
   }
 
   if (!before.extraField && after.extraField) {
@@ -423,6 +513,12 @@ function diffStructureAndMetadata(snapshot: ChecklistTemplate, current: Checklis
     changes.push('Description du modèle modifiée');
   }
 
+  const bPolicy = snapshot.completionPolicy ?? 'all';
+  const aPolicy = current.completionPolicy ?? 'all';
+  if (bPolicy !== aPolicy) {
+    changes.push(`Politique de clôture : ${COMPLETION_POLICY_LABELS[bPolicy]} → ${COMPLETION_POLICY_LABELS[aPolicy]}`);
+  }
+
   const bSecMap = new Map(snapshot.sections.map(s => [s.id, s]));
   const aSecMap = new Map(current.sections.map(s => [s.id, s]));
 
@@ -430,8 +526,11 @@ function diffStructureAndMetadata(snapshot: ChecklistTemplate, current: Checklis
     const bs = bSecMap.get(s.id);
     if (!bs) {
       changes.push(`Section ajoutée : « ${s.title} »`);
-    } else if (bs.title !== s.title) {
-      changes.push(`Section renommée : « ${bs.title} » → « ${s.title} »`);
+    } else {
+      if (bs.title !== s.title) {
+        changes.push(`Section renommée : « ${bs.title} » → « ${s.title} »`);
+      }
+      changes.push(...diffSectionFlow(bs, s, bSecMap, aSecMap));
     }
   }
 
@@ -459,6 +558,37 @@ function diffStructureAndMetadata(snapshot: ChecklistTemplate, current: Checklis
     }
   }
 
+  return changes;
+}
+
+/** Changements d'enchaînement d'une section conservée : dépendances, mode de jonction, porte. */
+function diffSectionFlow(
+  before: ChecklistSectionTemplate,
+  after: ChecklistSectionTemplate,
+  beforeSections: ReadonlyMap<string, ChecklistSectionTemplate>,
+  afterSections: ReadonlyMap<string, ChecklistSectionTemplate>
+): string[] {
+  const changes: string[] = [];
+  // L'ordre des dépendances n'a pas de sens : on compare des ensembles.
+  const bDeps = [...new Set(before.dependsOn ?? [])].sort();
+  const aDeps = [...new Set(after.dependsOn ?? [])].sort();
+  if (bDeps.join('\0') !== aDeps.join('\0')) {
+    const names = (ids: string[], sections: ReadonlyMap<string, ChecklistSectionTemplate>) =>
+      ids.length > 0 ? ids.map(id => `« ${sections.get(id)?.title ?? id} »`).join(', ') : 'aucune (départ)';
+    changes.push(`Dépendances de « ${after.title} » : ${names(bDeps, beforeSections)} → ${names(aDeps, afterSections)}`);
+  }
+
+  const bJoin = before.joinMode ?? 'all';
+  const aJoin = after.joinMode ?? 'all';
+  if (bJoin !== aJoin) {
+    changes.push(`Jonction de « ${after.title} » : ${JOIN_MODE_LABELS[bJoin]} → ${JOIN_MODE_LABELS[aJoin]}`);
+  }
+
+  const bGate = before.gate ?? 'hard';
+  const aGate = after.gate ?? 'hard';
+  if (bGate !== aGate) {
+    changes.push(`Porte de « ${after.title} » : ${GATE_LABELS[bGate]} → ${GATE_LABELS[aGate]}`);
+  }
   return changes;
 }
 
@@ -511,8 +641,9 @@ export function diffTemplates(
 /**
  * Remplace la copie figée par la version courante du template :
  * réponses conservées pour les items de même identifiant (réinitialisées si le type de contrôle
- * ou l'option de choix sélectionnée n'est plus compatible, en préservant commentaire et extra),
- * purgées pour les items supprimés, valeurs par défaut posées pour les nouveaux champs de contexte.
+ * ou l'option de choix sélectionnée n'est plus compatible, en préservant commentaire, extra et historique),
+ * purgées pour les items supprimés, valeurs par défaut posées pour les nouveaux champs de contexte,
+ * portes forcées des sections supprimées purgées.
  */
 export function rebaseSessionOnTemplate(
   session: ChecklistSession,
@@ -532,7 +663,8 @@ export function rebaseSessionOnTemplate(
       answers[itemId] = {
         status: null,
         comment: answer.comment ?? '',
-        ...(answer.extra ? { extra: answer.extra } : {})
+        ...(answer.extra ? { extra: answer.extra } : {}),
+        ...(answer.history ? { history: answer.history } : {})
       };
     } else if (
       nextType === 'choice' &&
@@ -546,11 +678,13 @@ export function rebaseSessionOnTemplate(
     }
   }
 
+  const keptSectionIds = new Set(current.sections.map(s => s.id));
   return {
     ...session,
     templateSnapshot: structuredClone(current),
     contextValues: { ...defaultContextValues(current, now.split('T')[0]), ...session.contextValues },
     answers,
+    ...(session.forcedGates ? { forcedGates: session.forcedGates.filter(g => keptSectionIds.has(g.sectionId)) } : {}),
     updatedAt: now
   };
 }

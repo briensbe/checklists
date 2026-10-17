@@ -12,6 +12,7 @@ import { newEvidenceId } from './evidence.service';
 import { AppDatabaseService } from './app-database.service';
 import { TemplateService } from './template.service';
 import {
+  appendItemEvent,
   applicableItems,
   CompletionIssue,
   computeMetrics,
@@ -22,6 +23,7 @@ import {
   TemplateDiff,
   validateForCompletion
 } from '../domain/session-rules';
+import { computeStepFlow, StepFlow } from '../domain/flow-rules';
 
 export type FilterType = 'all' | 'pending' | 'ko';
 export type SessionLoadState = 'loading' | 'ready' | 'not-found';
@@ -63,6 +65,10 @@ export class ChecklistSessionService {
   });
 
   readonly metrics = computed(() => computeMetrics(this.currentSession()));
+
+  /** États des étapes (portes, jonctions, laissés en route) : calculés, jamais stockés (ADR 0007). */
+  readonly stepFlow = computed<StepFlow>(() => computeStepFlow(this.currentSession()));
+  readonly leftBehind = computed(() => this.stepFlow().leftBehind);
 
   /** Anomalies recalculées en direct : la liste se vide au fur et à mesure des corrections. */
   readonly completionIssues = computed<CompletionIssue[]>(() => {
@@ -148,20 +154,65 @@ export class ChecklistSessionService {
     return this.mutate(s => ({ ...s, contextValues: { ...s.contextValues, [key]: value } }), { debounce: true });
   }
 
+  // Chaque changement d'état est historisé ; les saisies de texte (commentaire, champ additionnel) ne le sont pas.
+
   updateAnswerStatus(itemId: string, status: ControlStatus): Promise<void> {
-    return this.mutateAnswer(itemId, ans => ({ ...ans, status: ans.status === status ? null : status }));
+    return this.mutateAnswer(itemId, ans => {
+      const next = ans.status === status ? null : status;
+      return appendItemEvent({ ...ans, status: next }, { at: new Date().toISOString(), kind: 'status', status: next });
+    });
   }
 
   updateAnswerCheckbox(itemId: string, checked: boolean, withTimestamp: boolean): Promise<void> {
-    const checkedAt = checked && withTimestamp ? new Date().toISOString() : undefined;
-    return this.mutateAnswer(itemId, ans => ({ ...ans, checked, checkedAt }));
+    const now = new Date().toISOString();
+    const checkedAt = checked && withTimestamp ? now : undefined;
+    return this.mutateAnswer(itemId, ans => appendItemEvent({ ...ans, checked, checkedAt }, { at: now, kind: 'checked', checked }));
   }
 
   updateAnswerChoice(itemId: string, choiceId: string): Promise<void> {
-    return this.mutateAnswer(itemId, ans => ({
-      ...ans,
-      selectedChoice: ans.selectedChoice === choiceId ? undefined : choiceId
+    return this.mutateAnswer(itemId, ans => {
+      const next = ans.selectedChoice === choiceId ? undefined : choiceId;
+      return appendItemEvent(
+        { ...ans, selectedChoice: next },
+        { at: new Date().toISOString(), kind: 'choice', choiceId: next ?? null }
+      );
+    });
+  }
+
+  /**
+   * Historise l'ajout ou la suppression d'une preuve sur un contrôle de la session courante.
+   * Ignoré si `sessionId` n'est plus la session affichée.
+   */
+  recordEvidenceEvent(
+    sessionId: string,
+    itemId: string,
+    kind: 'evidence-added' | 'evidence-removed',
+    evidence: { id: string; name: string }
+  ): Promise<void> {
+    if (this.currentSession()?.id !== sessionId) return Promise.resolve();
+    return this.mutateAnswer(itemId, ans =>
+      appendItemEvent(ans, { at: new Date().toISOString(), kind, evidenceId: evidence.id, name: evidence.name })
+    );
+  }
+
+  /**
+   * Force la porte souple d'une section débloquée, avec une justification non vide.
+   * Renvoie `false` (sans rien enregistrer) si l'une de ces conditions n'est pas remplie
+   * ou si la session est terminée.
+   */
+  async forceGate(sectionId: string, reason: string): Promise<boolean> {
+    const session = this.currentSession();
+    const justification = reason.trim();
+    if (!session || session.status === 'completed' || !justification) return false;
+
+    const section = session.templateSnapshot.sections.find(s => s.id === sectionId);
+    if (!section || section.gate !== 'soft' || !this.stepFlow().steps[sectionId]?.unlocked) return false;
+
+    await this.mutate(s => ({
+      ...s,
+      forcedGates: [...(s.forcedGates ?? []), { sectionId, reason: justification, at: new Date().toISOString() }]
     }));
+    return true;
   }
 
   updateAnswerComment(itemId: string, comment: string): Promise<void> {
@@ -182,23 +233,34 @@ export class ChecklistSessionService {
 
       for (const item of applicableItems(session.templateSnapshot, session.contextValues)) {
         const current = answers[item.id];
-        const keep = { comment: current?.comment ?? '', extra: current?.extra ?? {} };
+        // L'historique existant est conservé : on lui ajoute un événement par contrôle modifié.
+        const keep = {
+          comment: current?.comment ?? '',
+          extra: current?.extra ?? {},
+          ...(current?.history ? { history: current.history } : {})
+        };
         const type = item.controlType ?? 'status';
 
         if (type === 'checkbox') {
           if (!current?.checked) {
-            answers[item.id] = { ...keep, status: null, checked: true, checkedAt: item.withTimestamp ? now : undefined };
+            answers[item.id] = appendItemEvent(
+              { ...keep, status: null, checked: true, checkedAt: item.withTimestamp ? now : undefined },
+              { at: now, kind: 'checked', checked: true }
+            );
             modified++;
           }
         } else if (type === 'choice') {
           if (!current?.selectedChoice && item.customChoices && item.customChoices.length > 0) {
             // Premier choix non bloquant
             const validChoice = item.customChoices.find(c => !c.isBlocking) ?? item.customChoices[0];
-            answers[item.id] = { ...keep, status: null, selectedChoice: validChoice.id };
+            answers[item.id] = appendItemEvent(
+              { ...keep, status: null, selectedChoice: validChoice.id },
+              { at: now, kind: 'choice', choiceId: validChoice.id }
+            );
             modified++;
           }
         } else if (!current?.status) {
-          answers[item.id] = { ...keep, status: 'OK' };
+          answers[item.id] = appendItemEvent({ ...keep, status: 'OK' }, { at: now, kind: 'status', status: 'OK' });
           modified++;
         }
       }
@@ -207,8 +269,12 @@ export class ChecklistSessionService {
     return modified;
   }
 
+  /**
+   * Réinitialisation confirmée : efface les réponses avec leur historique, ainsi que les
+   * portes forcées, qui n'ont plus d'objet une fois les réponses effacées.
+   */
   resetSession(): Promise<void> {
-    return this.mutate(s => ({ ...s, answers: {} }));
+    return this.mutate(({ forcedGates: _forcedGates, ...s }) => ({ ...s, answers: {} }));
   }
 
   restoreAnswers(answers: Record<string, ItemAnswer>): Promise<void> {

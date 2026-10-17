@@ -1,4 +1,5 @@
 import { ChecklistItemTemplate, ChecklistSectionTemplate, ChecklistTemplate, ContextFieldSchema } from '../../models/checklist.model';
+import { validateFlow } from '../../domain/flow-rules';
 
 /**
  * Duplique un item de checklist en lui attribuant un nouvel identifiant unique.
@@ -17,6 +18,7 @@ export function duplicateItem(item: ChecklistItemTemplate): ChecklistItemTemplat
 
 /**
  * Duplique une section complète et tous ses items en attribuant de nouveaux identifiants uniques.
+ * La copie garde les dépendances (`dependsOn`) de l'originale ; aucune section ne dépend de la copie.
  */
 export function duplicateSection(section: ChecklistSectionTemplate): ChecklistSectionTemplate {
   const clone = structuredClone(section);
@@ -24,6 +26,19 @@ export function duplicateSection(section: ChecklistSectionTemplate): ChecklistSe
   clone.title = `${clone.title} (copie)`;
   clone.items = (clone.items || []).map(item => duplicateItem(item));
   return clone;
+}
+
+/**
+ * Retire une section supprimée des dépendances des autres sections (copie immuable :
+ * seules les sections concernées sont recréées).
+ */
+export function removeSectionFromDependencies(
+  sections: readonly ChecklistSectionTemplate[],
+  removedId: string
+): ChecklistSectionTemplate[] {
+  return sections.map(s =>
+    s.dependsOn?.includes(removedId) ? { ...s, dependsOn: s.dependsOn.filter(d => d !== removedId) } : s
+  );
 }
 
 export interface TemplateValidationResult {
@@ -37,6 +52,7 @@ export interface TemplateValidationResult {
  * - Au moins une section
  * - Sections avec titre et au moins un item
  * - Unicité globale des identifiants d'items
+ * - Enchaînement valide (`validateFlow`)
  */
 export function validateTemplateIntegrity(template: ChecklistTemplate): TemplateValidationResult {
   const errors: string[] = [];
@@ -80,6 +96,9 @@ export function validateTemplateIntegrity(template: ChecklistTemplate): Template
   if (duplicateItemIds.size > 0) {
     errors.push(`Identifiants de contrôles en doublon détectés : ${Array.from(duplicateItemIds).join(', ')}.`);
   }
+
+  // Même règle d'enchaînement qu'à l'import : dépendances connues, pas de boucle, valeurs autorisées.
+  errors.push(...validateFlow(template).map(issue => issue.message));
 
   return {
     valid: errors.length === 0,

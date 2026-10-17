@@ -1,8 +1,11 @@
 import { ChecklistTemplate } from '../models/checklist.model';
+import { validateFlow } from '../domain/flow-rules';
 
 /**
  * Validation structurelle minimale d'un template (déjà normalisé).
  * Pure : partagée par l'import de templates et par l'import de sessions (copie figée).
+ * L'enchaînement des étapes (dépendances, boucles, valeurs autorisées) est vérifié par
+ * `validateFlow`, la même règle que celle du builder.
  */
 export function validateTemplateStructure(template: ChecklistTemplate): void {
   if (!template.id || !template.name || !Array.isArray(template.sections)) {
@@ -17,5 +20,9 @@ export function validateTemplateStructure(template: ChecklistTemplate): void {
         throw new Error(`Contrôle invalide dans la section ${section.title}.`);
       }
     }
+  }
+  const [firstIssue] = validateFlow(template);
+  if (firstIssue) {
+    throw new Error(`Enchaînement invalide : ${firstIssue.message}`);
   }
 }

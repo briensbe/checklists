@@ -1,4 +1,5 @@
 import {
+  appendItemEvent,
   applicableItems,
   computeMetrics,
   diffTemplates,
@@ -27,7 +28,7 @@ function template(overrides: Partial<ChecklistTemplate> = {}): ChecklistTemplate
         items: [
           { id: 'always', label: 'Toujours' },
           { id: 'patch', label: 'Patch seulement', visibleIf: { fieldId: 'mode', equals: ['patch'] } },
-          { id: 'na-reason', label: 'NA motivé', requireNaReason: true }
+          { id: 'na-reason', label: 'Non applicable possible' }
         ]
       },
       {
@@ -163,19 +164,71 @@ describe('validateForCompletion', () => {
     expect(issues[1]).toMatchObject({ itemId: 'always', sectionId: 's1', sectionTitle: 'Section 1' });
   });
 
-  it('signale les items sans réponse et les N/A sans motif exigé', () => {
+  it('signale les items sans réponse et accepte un N/A sans commentaire', () => {
     const s = session({
       answers: { ...complete, 'na-reason': { status: 'NA', comment: '' }, check: { status: null, checked: false, comment: '' } }
     });
-    expect(validateForCompletion(s).map(i => [i.kind, i.itemId])).toEqual([
-      ['na-without-reason', 'na-reason'],
-      ['unanswered', 'check']
-    ]);
+    expect(validateForCompletion(s).map(i => [i.kind, i.itemId])).toEqual([['unanswered', 'check']]);
   });
 
   it('Item masqué non évalué', () => {
     // 'patch' n'a pas de réponse mais il est masqué en mode full.
     expect(validateForCompletion(session({ answers: complete })).some(i => i.itemId === 'patch')).toBe(false);
+  });
+
+  it('Modèle sans politique de clôture : un optionnel sans réponse est une anomalie', () => {
+    const { check: _check, ...answers } = complete;
+    expect(validateForCompletion(session({ answers })).map(i => [i.kind, i.itemId])).toEqual([['unanswered', 'check']]);
+  });
+
+  it('Politique limitée aux bloquants : seuls les bloquants doivent avoir une réponse', () => {
+    const t = template({ completionPolicy: 'blocking' });
+    t.sections[0].items[0].criticality = 'blocking';
+    const blockingOnly = session({ templateSnapshot: t, answers: {} });
+    expect(validateForCompletion(blockingOnly).map(i => [i.kind, i.itemId])).toEqual([['unanswered', 'always']]);
+
+    const resolved = session({ templateSnapshot: t, answers: { always: { status: 'OK', comment: '' } } });
+    expect(validateForCompletion(resolved)).toEqual([]);
+  });
+
+  it('Bloquant en anomalie : refusé même commenté, quelle que soit la politique', () => {
+    const t = template();
+    t.sections[0].items[0].criticality = 'blocking';
+    const s = session({ templateSnapshot: t, answers: { ...complete, always: { status: 'KO', comment: 'Build rouge' } } });
+    expect(validateForCompletion(s).map(i => [i.kind, i.itemId])).toEqual([['blocking-unresolved', 'always']]);
+
+    const choiceBlocking = template({ completionPolicy: 'blocking' });
+    choiceBlocking.sections[1].items[1].criticality = 'blocking';
+    const stopped = session({ templateSnapshot: choiceBlocking, answers: { choice: { status: null, selectedChoice: 'stop', comment: '' } } });
+    expect(validateForCompletion(stopped).map(i => i.kind)).toEqual(['blocking-unresolved']);
+  });
+
+  it('Bloquant en anomalie avec porte souple forcée : accepté', () => {
+    const t = template();
+    t.sections[0].items[0].criticality = 'blocking';
+    t.sections[0].gate = 'soft';
+    const s = session({
+      templateSnapshot: t,
+      answers: { ...complete, always: { status: 'KO', comment: 'Build rouge' } },
+      forcedGates: [{ sectionId: 's1', reason: 'Dérogation', at: '2026-10-17T10:00:00.000Z' }]
+    });
+    expect(validateForCompletion(s)).toEqual([]);
+
+    // Le forçage n'agit plus si la porte est stricte.
+    t.sections[0].gate = 'hard';
+    expect(validateForCompletion(s).map(i => i.kind)).toEqual(['blocking-unresolved']);
+  });
+});
+
+describe('appendItemEvent', () => {
+  it('ajoute un événement sans modifier les précédents ni la réponse d’origine', () => {
+    const answer = { status: 'OK' as const, comment: '', history: [{ at: 't1', kind: 'status' as const, status: 'OK' as const }] };
+    const next = appendItemEvent(answer, { at: 't2', kind: 'status', status: 'KO' });
+    expect(next.history).toEqual([
+      { at: 't1', kind: 'status', status: 'OK' },
+      { at: 't2', kind: 'status', status: 'KO' }
+    ]);
+    expect(answer.history).toHaveLength(1);
   });
 });
 
@@ -257,7 +310,9 @@ describe('diffTemplates et rebaseSessionOnTemplate', () => {
       id: 'patch',
       label: 'Patch seulement',
       visibleIf: { fieldId: 'mode', equals: ['patch', 'hotfix'] },
-      requireNaReason: true
+      criticality: 'blocking',
+      evidenceRequired: 'photo',
+      evidenceHint: 'Capture du rapport'
     };
     next.sections[1].items[1] = {
       id: 'choice',
@@ -287,7 +342,9 @@ describe('diffTemplates et rebaseSessionOnTemplate', () => {
     expect(patchDiff.answerIncompatible).toBe(false);
     expect(patchDiff.changes).toEqual(
       expect.arrayContaining([
-        'Motif N/A obligatoire : activé',
+        'Criticité : optionnel → bloquant',
+        'Preuve exigée : aucune → photo',
+        'Consigne de preuve ajoutée : « Capture du rapport »',
         "Condition d'affichage modifiée : Mode ∈ [patch] → Environnement ∈ [patch, hotfix]"
       ])
     );
@@ -319,5 +376,52 @@ describe('diffTemplates et rebaseSessionOnTemplate', () => {
     const rebased = rebaseSessionOnTemplate(s, next, '2026-10-06T12:00:00.000Z');
     expect(rebased.answers['always']).toEqual({ status: null, comment: 'Constaté' });
     expect(rebased.answers['choice']).toEqual({ status: null, comment: 'Bloqué' });
+  });
+
+  it('Ancien motif N/A ignoré : aucun changement signalé', () => {
+    const legacy = template();
+    Object.assign(legacy.sections[0].items[2], { requireNaReason: true });
+    const s = session({ templateSnapshot: legacy });
+    const diff = diffTemplates(legacy, template({ updatedAt: '2026-10-05T00:00:00.000Z' }), s, new Set());
+    expect(diff.modified).toEqual([]);
+  });
+
+  it('signale les changements de dépendances, de jonction, de porte et de politique de clôture', () => {
+    const before = template();
+    const after = template({ updatedAt: '2026-10-05T00:00:00.000Z', completionPolicy: 'blocking' });
+    after.sections[1] = { ...after.sections[1], dependsOn: ['s1'], joinMode: 'any', gate: 'soft' };
+    const diff = diffTemplates(before, after, session(), new Set());
+    expect(diff.structureChanges).toEqual(
+      expect.arrayContaining([
+        'Politique de clôture : une réponse partout → seuls les bloquants',
+        'Dépendances de « Section 2 » : aucune (départ) → « Section 1 »',
+        'Jonction de « Section 2 » : toutes les branches → une seule branche',
+        'Porte de « Section 2 » : stricte → souple'
+      ])
+    );
+    // L'ordre des dépendances n'est pas un changement.
+    const reordered = structuredClone(after);
+    after.sections[1].dependsOn = ['s1', 's0'];
+    reordered.sections[1].dependsOn = ['s0', 's1'];
+    expect(diffTemplates(after, reordered, session(), new Set()).structureChanges.some(c => c.startsWith('Dépendances'))).toBe(false);
+  });
+
+  it('Application : historique conservé, même sur une réponse réinitialisée, et portes forcées purgées', () => {
+    const history = [{ at: '2026-10-02T00:00:00.000Z', kind: 'status' as const, status: 'OK' as const }];
+    const s = session({
+      answers: { always: { status: 'OK', comment: '', history }, 'na-reason': { status: 'NA', comment: '', history } },
+      forcedGates: [
+        { sectionId: 's1', reason: 'A', at: '2026-10-02T00:00:00.000Z' },
+        { sectionId: 's2', reason: 'B', at: '2026-10-02T00:00:00.000Z' }
+      ]
+    });
+    const next = template({ updatedAt: '2026-10-05T00:00:00.000Z' });
+    next.sections[0].items[0] = { id: 'always', label: 'Toujours', controlType: 'checkbox' };
+    next.sections = [next.sections[0]];
+
+    const rebased = rebaseSessionOnTemplate(s, next, '2026-10-06T12:00:00.000Z');
+    expect(rebased.answers['always']).toEqual({ status: null, comment: '', history });
+    expect(rebased.answers['na-reason'].history).toEqual(history);
+    expect(rebased.forcedGates).toEqual([{ sectionId: 's1', reason: 'A', at: '2026-10-02T00:00:00.000Z' }]);
   });
 });

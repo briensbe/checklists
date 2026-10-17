@@ -8,13 +8,7 @@ describe('ChecklistItemComponent', () => {
 
   const defaultItem: ChecklistItemTemplate = {
     id: 'item-default',
-    label: 'Test contrôle standard (N/A facultatif)'
-  };
-
-  const itemWithRequiredNa: ChecklistItemTemplate = {
-    id: 'item-required-na',
-    label: 'Test contrôle strict (N/A obligatoire)',
-    requireNaReason: true
+    label: 'Test contrôle standard'
   };
 
   beforeEach(async () => {
@@ -30,10 +24,9 @@ describe('ChecklistItemComponent', () => {
 
   it('devrait être instancié avec succès', () => {
     expect(component).toBeTruthy();
-    expect(component.requireNaReason()).toBe(false);
   });
 
-  it('ne doit PAS ouvrir la boîte de commentaire si statut N/A par défaut sur le template', () => {
+  it('ne doit PAS ouvrir la boîte de commentaire pour un N/A : aucun motif n’est jamais exigé', () => {
     fixture.componentRef.setInput('item', defaultItem);
     fixture.componentRef.setInput('answer', { status: 'NA', comment: '' });
     fixture.detectChanges();
@@ -43,18 +36,15 @@ describe('ChecklistItemComponent', () => {
     expect(commentBox).toBeNull();
   });
 
-  it('DOIT ouvrir la boîte de commentaire et exiger le motif si requireNaReason = true sur le template', () => {
-    fixture.componentRef.setInput('item', itemWithRequiredNa);
+  it('affiche un motif N/A facultatif, sans erreur, quand la boîte est ouverte', () => {
     fixture.componentRef.setInput('answer', { status: 'NA', comment: '' });
+    component.toggleCommentBox();
     fixture.detectChanges();
 
-    expect(component.requireNaReason()).toBe(true);
-    expect(component.isCommentBoxVisible()).toBe(true);
-    const commentBox = fixture.nativeElement.querySelector('.comment-box');
-    expect(commentBox).not.toBeNull();
-
+    const label = fixture.nativeElement.querySelector('.comment-label');
+    expect(label.textContent).toContain('Motif N/A (optionnel)');
     const input = fixture.nativeElement.querySelector('.comment-input');
-    expect(input.classList.contains('error-required')).toBe(true);
+    expect(input.classList.contains('error-required')).toBe(false);
   });
 
   it('doit toujours ouvrir la boîte de commentaire si statut KO quel que soit le template', () => {

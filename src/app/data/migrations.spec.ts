@@ -91,6 +91,42 @@ describe('normalizeTemplate', () => {
     expect(() => normalizeTemplate('oops', NOW)).toThrow();
     expect(() => normalizeTemplate(null, NOW)).toThrow();
   });
+
+  it('retire le motif N/A obligatoire (option supprimée)', () => {
+    const raw = {
+      id: 't',
+      name: 'n',
+      description: '',
+      version: '1',
+      sections: [{ id: 's', title: 'S', items: [{ id: 'i', label: 'I', requireNaReason: true }] }]
+    };
+    const item = normalizeTemplate(raw, NOW).sections[0].items[0];
+    expect('requireNaReason' in item).toBe(false);
+  });
+
+  it('conserve les champs d’enchaînement et de criticité', () => {
+    const current: ChecklistTemplate = {
+      id: 't',
+      name: 'n',
+      description: '',
+      version: '1',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      contextSchema: [],
+      completionPolicy: 'blocking',
+      sections: [
+        { id: 'a', title: 'A', items: [{ id: 'a1', label: 'A1', criticality: 'blocking' }] },
+        {
+          id: 'b',
+          title: 'B',
+          dependsOn: ['a'],
+          joinMode: 'any',
+          gate: 'soft',
+          items: [{ id: 'b1', label: 'B1', evidenceRequired: 'photo', evidenceHint: 'Capture du rapport' }]
+        }
+      ]
+    };
+    expect(normalizeTemplate(structuredClone(current), NOW)).toEqual(current);
+  });
 });
 
 describe('migrateSessionV3', () => {

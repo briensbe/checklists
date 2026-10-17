@@ -1,4 +1,4 @@
-import { Component, input, output, signal, computed } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { ChecklistItemTemplate, ItemAnswer, ControlStatus } from '../../models/checklist.model';
 import { DatePipe } from '@angular/common';
 
@@ -15,8 +15,6 @@ export class ChecklistItemComponent {
   readonly evidenceCount = input<number>(0);
   readonly readonly = input<boolean>(false);
 
-  readonly requireNaReason = computed<boolean>(() => !!this.item().requireNaReason);
-
   readonly statusChange = output<ControlStatus>();
   readonly checkboxChange = output<{ checked: boolean; withTimestamp: boolean }>();
   readonly choiceChange = output<string>();
@@ -30,8 +28,8 @@ export class ChecklistItemComponent {
     const ans = this.answer();
     if (this.manuallyOpenedComment()) return true;
     if (ans) {
+      // Seul un KO exige une justification : un N/A n'en demande jamais (ADR 0007).
       if (ans.status === 'KO') return true;
-      if (ans.status === 'NA' && this.requireNaReason()) return true;
       if (!!ans.comment) return true;
     }
     return false;

@@ -67,9 +67,6 @@
                   @if (it.visibleIf) {
                     <span class="preview-badge-condition">Conditionné par {{ getContextFieldLabel(it.visibleIf.fieldId) }} : {{ formatVisibleIfValues(it) }}</span>
                   }
-                  @if (it.requireNaReason) {
-                    <span class="preview-badge-na">Motif N/A requis</span>
-                  }
                   @if (it.extraField) {
                     <span class="preview-badge-extra">+ {{ it.extraField.label }}</span>
                   }
@@ -421,22 +418,14 @@
                           <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
                         </svg>
                         <span>Options avancées</span>
-                        @if (it.visibleIf || it.requireNaReason || it.extraField) {
+                        @if (it.visibleIf || it.extraField) {
                           <span class="badge-active-options">• actives</span>
                         }
                       </button>
 
                       @if (isAdvancedOpen(it.id)) {
                         <div class="advanced-panel">
-                          <!-- 1. Motif N/A obligatoire -->
-                          <div class="advanced-group">
-                            <label class="checkbox-option-toggle">
-                              <input type="checkbox" [(ngModel)]="it.requireNaReason" />
-                              <span>Exiger un motif de justification obligatoire si le contrôle est évalué à N/A</span>
-                            </label>
-                          </div>
-
-                          <!-- 2. Champ additionnel (extraField) -->
+                          <!-- 1. Champ additionnel (extraField) -->
                           <div class="advanced-group">
                             <label class="checkbox-option-toggle">
                               <input
@@ -460,7 +449,7 @@
                             }
                           </div>
 
-                          <!-- 3. Condition d'affichage contextuelle (visibleIf) -->
+                          <!-- 2. Condition d'affichage contextuelle (visibleIf) -->
                           <div class="advanced-group">
                             <label class="checkbox-option-toggle">
                               <input

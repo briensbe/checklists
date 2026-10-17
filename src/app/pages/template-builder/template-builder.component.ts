@@ -18,6 +18,7 @@ import {
   duplicateItem,
   duplicateSection,
   findVisibleIfOrphans,
+  removeSectionFromDependencies,
   validateTemplateIntegrity
 } from './template-builder.helpers';
 
@@ -254,8 +255,11 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
 
   removeSection(index: number): void {
     const t = this.template();
-    const sections = [...t.sections];
-    const [removed] = sections.splice(index, 1);
+    const remaining = [...t.sections];
+    const [removed] = remaining.splice(index, 1);
+    // Les sections qui dépendaient de la section supprimée perdent cette dépendance.
+    const dependentIds = remaining.filter(s => s.dependsOn?.includes(removed.id)).map(s => s.id);
+    const sections = removeSectionFromDependencies(remaining, removed.id);
     this.template.update(cur => ({ ...cur, sections }));
 
     this.toastService.showDeferred({
@@ -264,7 +268,12 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
       undoLabel: 'Annuler',
       onCommit: () => {},
       onUndo: () => {
-        const curSections = [...this.template().sections];
+        // On restaure la section et ses dépendances sur l'état courant (d'autres modifications ont pu suivre).
+        const curSections = this.template().sections.map(s =>
+          dependentIds.includes(s.id) && !s.dependsOn?.includes(removed.id)
+            ? { ...s, dependsOn: [...(s.dependsOn ?? []), removed.id] }
+            : s
+        );
         curSections.splice(index, 0, removed);
         this.template.update(cur => ({ ...cur, sections: curSections }));
       }

@@ -38,6 +38,29 @@ export interface VisibilityCondition {
   equals: string[];
 }
 
+// --- Enchaînement des étapes (voir ADR 0007) ----------------------------------
+// Tous ces champs sont optionnels : leur absence reproduit le comportement antérieur.
+
+/** Seuls les contrôles bloquants verrouillent une porte. Absente = `optional`. */
+export type Criticality = 'blocking' | 'important' | 'optional';
+export const CRITICALITIES: readonly Criticality[] = ['blocking', 'important', 'optional'];
+
+/** Type de preuve exigé par le modèle au moment de valider un contrôle. */
+export type EvidenceKind = 'comment' | 'photo' | 'link' | 'file';
+export const EVIDENCE_KINDS: readonly EvidenceKind[] = ['comment', 'photo', 'link', 'file'];
+
+/** Jonction : toutes les dépendances franchies (`all`, défaut) ou au moins une (`any`). */
+export type JoinMode = 'all' | 'any';
+export const JOIN_MODES: readonly JoinMode[] = ['all', 'any'];
+
+/** Porte stricte (`hard`, défaut) ou franchissable avec justification (`soft`). */
+export type GateKind = 'hard' | 'soft';
+export const GATE_KINDS: readonly GateKind[] = ['hard', 'soft'];
+
+/** Clôture : une réponse partout (`all`, défaut) ou seuls les bloquants résolus (`blocking`). */
+export type CompletionPolicy = 'all' | 'blocking';
+export const COMPLETION_POLICIES: readonly CompletionPolicy[] = ['all', 'blocking'];
+
 export interface ChecklistItemTemplate {
   id: string;
   label: string;
@@ -47,7 +70,9 @@ export interface ChecklistItemTemplate {
   customChoices?: CustomChoiceOption[]; // Pour type 'choice'
   visibleIf?: VisibilityCondition; // Absent = toujours applicable
   extraField?: ExtraFieldSchema;
-  requireNaReason?: boolean; // Option de template : exige un motif obligatoire si N/A
+  criticality?: Criticality; // Absente = 'optional'
+  evidenceRequired?: EvidenceKind; // Absent = aucune preuve exigée (les preuves libres restent possibles)
+  evidenceHint?: string; // Consigne affichée au moment de fournir la preuve
 }
 
 export interface ChecklistSectionTemplate {
@@ -55,6 +80,9 @@ export interface ChecklistSectionTemplate {
   title: string;
   icon?: string;
   items: ChecklistItemTemplate[];
+  dependsOn?: string[]; // Identifiants des sections à franchir avant celle-ci ; absent ou vide = départ
+  joinMode?: JoinMode; // Absent = 'all'
+  gate?: GateKind; // Absent = 'hard'
 }
 
 export interface ChecklistTemplate {
@@ -65,7 +93,17 @@ export interface ChecklistTemplate {
   updatedAt: string; // ISO, mis à jour à chaque enregistrement
   contextSchema: ContextFieldSchema[];
   sections: ChecklistSectionTemplate[];
+  completionPolicy?: CompletionPolicy; // Absente = 'all'
 }
+
+/** Changement d'état d'un contrôle. Les saisies de texte ne sont jamais historisées. */
+export type ItemEvent =
+  | { at: string; kind: 'status'; status: ControlStatus | null }
+  | { at: string; kind: 'checked'; checked: boolean }
+  | { at: string; kind: 'choice'; choiceId: string | null }
+  | { at: string; kind: 'evidence-added'; evidenceId: string; name: string }
+  | { at: string; kind: 'evidence-removed'; evidenceId: string; name: string }
+  | { at: string; kind: 'evidence-pending'; pending: boolean };
 
 export interface ItemAnswer {
   status: ControlStatus | null;
@@ -74,6 +112,15 @@ export interface ItemAnswer {
   selectedChoice?: string; // Option id or label
   comment: string;
   extra?: Record<string, string>;
+  evidencePending?: boolean; // Fait, preuve à compléter (jamais sur un bloquant)
+  history?: ItemEvent[]; // On ajoute, on n'écrase pas
+}
+
+/** Franchissement forcé d'une porte souple : c'est une décision de l'utilisateur, donc stockée. */
+export interface ForcedGate {
+  sectionId: string;
+  reason: string;
+  at: string;
 }
 
 export type SessionStatus = 'in_progress' | 'completed';
@@ -93,6 +140,7 @@ export interface ChecklistSession {
   closures: SessionClosure[];
   contextValues: Record<string, string>;
   answers: Record<string, ItemAnswer>;
+  forcedGates?: ForcedGate[];
   createdAt: string;
   updatedAt: string;
 }

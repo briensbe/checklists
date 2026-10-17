@@ -272,7 +272,8 @@ Rendre le remplissage instantané et le retour visuel immédiat, dès les modèl
   - case à cocher : coche ;
   - statut : OK ; KO via un bouton discret ou la touche K, qui ouvre le tiroir sur le commentaire (obligatoire pour un KO) ;
   - choix personnalisé : boutons conservés ; les choix `isBlocking` s'affichent « anomalie ».
-- **Tiroir sous la ligne**, ouvert par le trombone (visible au survol, en permanence sur écran tactile) : note (le `comment` existant), preuves (coller, glisser-déposer, fichier, photo via `capture="environment"`), N/A sans justification. Il remplace la modale `evidence-attachment`, dont on reprend la logique (limite de 50 Mo, annulation de suppression pendant 6 s).
+- **Tiroir sous la ligne**, ouvert par le trombone (visible au survol, en permanence sur écran tactile) : note (le `comment` existant), preuves (coller, glisser-déposer, fichier, photo via `capture="environment"`), N/A sans justification. Il remplace la modale `evidence-attachment`, dont on reprend la logique (limite de 50 Mo).
+- **Annulation de la suppression d'une preuve pendant 6 s** : exigée par la spec `evidence-attachment` mais jamais implémentée (la suppression est aujourd'hui immédiate, constaté pendant `step-flow-model`). À faire dans le tiroir selon l'ADR 0005, avec le **retrait de l'événement d'historique `evidence-removed`** (retrouvé par son `evidenceId`) quand l'utilisateur annule.
 - **Compteurs** sur la ligne (note, preuves) et **suggestion douce** : le trombone s'allume environ 2 s après une coche sans pièce jointe.
 - **Preuve obligatoire** (maquette 06) : demandée au geste principal, dans la ligne, avec la consigne `evidenceHint`. Item bloquant : impossible de valider sans preuve. Sinon : bouton « Plus tard », qui pose `evidencePending`.
 - **Badges** « bloquant » et « important » uniquement.

@@ -43,6 +43,8 @@ type LegacyChoice = Omit<CustomChoiceOption, 'tone'> & { tone?: string; color?: 
 type LegacyItem = Omit<ChecklistItemTemplate, 'customChoices'> & {
   mode?: string;
   customChoices?: LegacyChoice[];
+  /** Motif N/A obligatoire : option retirée (ADR 0007), le champ est supprimé à la normalisation. */
+  requireNaReason?: boolean;
 };
 type LegacySection = Omit<ChecklistSectionTemplate, 'items'> & { items?: LegacyItem[] };
 type LegacyTemplate = Omit<ChecklistTemplate, 'sections' | 'updatedAt' | 'contextSchema'> & {
@@ -57,7 +59,8 @@ function normalizeChoice(choice: LegacyChoice): CustomChoiceOption {
 }
 
 function normalizeItem(item: LegacyItem): ChecklistItemTemplate {
-  const { mode, customChoices, ...rest } = item;
+  // Les champs inconnus (criticité, preuve exigée…) passent tels quels via `rest`.
+  const { mode, customChoices, requireNaReason: _requireNaReason, ...rest } = item;
   const normalized: ChecklistItemTemplate = { ...rest };
 
   if (!normalized.visibleIf && mode === 'patch') {
@@ -71,7 +74,7 @@ function normalizeItem(item: LegacyItem): ChecklistItemTemplate {
 
 /**
  * Convertit un template (éventuellement à l'ancien format) au format courant :
- * `mode: 'patch'` → `visibleIf`, `color` → `tone`, `updatedAt` renseigné.
+ * `mode: 'patch'` → `visibleIf`, `color` → `tone`, `requireNaReason` retiré, `updatedAt` renseigné.
  * Idempotente : un template déjà au format courant ressort identique.
  * La validation structurelle (id, nom, sections...) reste du ressort de l'appelant.
  */

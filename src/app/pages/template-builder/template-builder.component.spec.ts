@@ -45,6 +45,26 @@ describe('TemplateBuilderComponent', () => {
     expect(component.template().sections.length).toBe(1);
   });
 
+  it('devrait retirer une section supprimée des dépendances des autres et tout restaurer à l’annulation', async () => {
+    const sections: ChecklistSectionTemplate[] = [
+      { id: 'prep', title: 'Préparation', items: [{ id: 'i1', label: 'Ticket' }] },
+      { id: 'build', title: 'Build', dependsOn: ['prep'], items: [{ id: 'i2', label: 'Build vert' }] },
+      { id: 'go', title: 'Go', dependsOn: ['build', 'prep'], items: [{ id: 'i3', label: 'Go' }] }
+    ];
+    component.template.update(cur => ({ ...cur, sections }));
+
+    component.removeSection(0);
+    expect(component.template().sections.map(s => [s.id, s.dependsOn])).toEqual([
+      ['build', []],
+      ['go', ['build']]
+    ]);
+
+    await toastService.toasts()[0].action?.run();
+    expect(component.template().sections.map(s => s.id)).toEqual(['prep', 'build', 'go']);
+    expect(component.template().sections[1].dependsOn).toEqual(['prep']);
+    expect(component.template().sections[2].dependsOn).toEqual(expect.arrayContaining(['build', 'prep']));
+  });
+
   it('devrait afficher un toast d’avertissement si le nom du modèle est vide lors de la sauvegarde', async () => {
     const warningSpy = vi.spyOn(toastService, 'warning');
     const saveSpy = vi.spyOn(templateService, 'saveTemplate');

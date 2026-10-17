@@ -3,6 +3,7 @@ import {
   duplicateItem,
   duplicateSection,
   findVisibleIfOrphans,
+  removeSectionFromDependencies,
   reorderArray,
   transferItemBetweenLists,
   validateTemplateIntegrity
@@ -21,7 +22,7 @@ describe('template-builder.helpers', () => {
           { id: 'opt-2', label: 'Non', tone: 'danger' }
         ],
         withTimestamp: false,
-        requireNaReason: true,
+        criticality: 'blocking',
         extraField: { id: 'ext-1', label: 'Détail' }
       };
 
@@ -30,7 +31,7 @@ describe('template-builder.helpers', () => {
       expect(copy.id).not.toBe(original.id);
       expect(copy.id).toMatch(/^item-[a-f0-9-]+$/);
       expect(copy.label).toBe(original.label);
-      expect(copy.requireNaReason).toBe(true);
+      expect(copy.criticality).toBe('blocking');
       expect(copy.extraField).toEqual(original.extraField);
       expect(copy.customChoices?.[0].id).not.toBe(original.customChoices?.[0].id);
       expect(copy.customChoices?.[0].label).toBe('Oui');
@@ -57,6 +58,38 @@ describe('template-builder.helpers', () => {
       expect(copy.items[0].id).not.toBe('item-10');
       expect(copy.items[1].id).not.toBe('item-20');
       expect(copy.items[0].label).toBe('Firewall actif');
+    });
+
+    it('devrait conserver les dépendances de l’originale sans créer de dépendance vers la copie', () => {
+      const sections: ChecklistSectionTemplate[] = [
+        { id: 'prep', title: 'Préparation', items: [{ id: 'i1', label: 'Ticket' }] },
+        { id: 'build', title: 'Build', dependsOn: ['prep'], joinMode: 'any', gate: 'soft', items: [{ id: 'i2', label: 'Build vert' }] },
+        { id: 'tests', title: 'Tests', dependsOn: ['build'], items: [{ id: 'i3', label: 'Tests OK' }] }
+      ];
+
+      const copy = duplicateSection(sections[1]);
+
+      expect(copy.dependsOn).toEqual(['prep']);
+      expect(copy.dependsOn).not.toBe(sections[1].dependsOn);
+      expect(copy.joinMode).toBe('any');
+      expect(copy.gate).toBe('soft');
+      expect(sections.some(s => s.dependsOn?.includes(copy.id))).toBe(false);
+    });
+  });
+
+  describe('removeSectionFromDependencies', () => {
+    it('devrait retirer la section supprimée des dépendances des autres, sans muter l’entrée', () => {
+      const sections: ChecklistSectionTemplate[] = [
+        { id: 'build', title: 'Build', dependsOn: ['prep'], items: [] },
+        { id: 'go', title: 'Go', dependsOn: ['build', 'doc'], items: [] },
+        { id: 'doc', title: 'Doc', items: [] }
+      ];
+
+      const result = removeSectionFromDependencies(sections, 'build');
+
+      expect(result.map(s => s.dependsOn)).toEqual([['prep'], ['doc'], undefined]);
+      expect(sections[1].dependsOn).toEqual(['build', 'doc']);
+      expect(result[0]).toBe(sections[0]);
     });
   });
 
@@ -128,6 +161,32 @@ describe('template-builder.helpers', () => {
       const result = validateTemplateIntegrity(template);
       expect(result.valid).toBe(false);
       expect(result.errors.some(e => e.includes('duplicate-id'))).toBe(true);
+    });
+
+    it('devrait bloquer un enchaînement invalide en nommant les sections', () => {
+      const template: ChecklistTemplate = {
+        id: 'tpl-1',
+        name: 'Modèle en boucle',
+        description: '',
+        version: '1.0.0',
+        updatedAt: '',
+        contextSchema: [],
+        sections: [
+          { id: 'a', title: 'Alpha', dependsOn: ['b'], items: [{ id: 'i1', label: 'Item 1' }] },
+          { id: 'b', title: 'Bêta', dependsOn: ['a'], items: [{ id: 'i2', label: 'Item 2' }] },
+          { id: 'c', title: 'Gamma', dependsOn: ['c', 'inconnue'], items: [{ id: 'i3', label: 'Item 3' }] }
+        ]
+      };
+
+      const result = validateTemplateIntegrity(template);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          'La section « Gamma » dépend d\'elle-même.',
+          'La section « Gamma » dépend d\'une section inconnue (« inconnue »).',
+          'Les dépendances forment une boucle entre les sections « Alpha », « Bêta ».'
+        ])
+      );
     });
   });
 

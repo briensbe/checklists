@@ -114,7 +114,8 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
     const sessionId = this.sessionId;
     if (!sessionId) return;
     try {
-      await this.evidenceService.addEvidence(sessionId, itemId, data.file, data.filename, data.type);
+      const record = await this.evidenceService.addEvidence(sessionId, itemId, data.file, data.filename, data.type);
+      await this.sessionService.recordEvidenceEvent(sessionId, itemId, 'evidence-added', record);
     } catch (err) {
       this.toastService.danger(err instanceof Error ? err.message : String(err));
     }
@@ -125,8 +126,12 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
     const itemId = this.activeEvidenceItemId();
     const sessionId = this.sessionId;
     if (!sessionId) return;
+    const deleted = this.activeItemEvidences().find(e => e.id === evidenceId);
     await this.evidenceService.deleteEvidence(sessionId, evidenceId);
     if (itemId) {
+      if (deleted) {
+        await this.sessionService.recordEvidenceEvent(sessionId, itemId, 'evidence-removed', deleted);
+      }
       this.activeItemEvidences.set(await this.evidenceService.getEvidencesForItem(itemId, sessionId));
     }
   }

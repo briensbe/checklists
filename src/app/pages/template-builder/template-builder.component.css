@@ -115,9 +115,8 @@
 .preview-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border-color); gap: 1rem; }
 .preview-item-info { display: flex; flex-direction: column; gap: 0.25rem; }
 .preview-item-label { font-weight: 500; color: var(--text-main); }
-.preview-badge-condition, .preview-badge-na, .preview-badge-extra { display: inline-block; font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; width: fit-content; }
+.preview-badge-condition, .preview-badge-extra { display: inline-block; font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; width: fit-content; }
 .preview-badge-condition { background: var(--chip-info-bg, #e0f2fe); color: var(--chip-info-text, #0369a1); }
-.preview-badge-na { background: var(--chip-warning-bg, #fef3c7); color: var(--chip-warning-text, #b45309); }
 .preview-badge-extra { background: var(--chip-success-bg, #dcfce7); color: var(--chip-success-text, #15803d); }
 .preview-checkbox { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-main); }
 .preview-choices { display: flex; gap: 0.4rem; }
