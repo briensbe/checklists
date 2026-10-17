@@ -11,7 +11,7 @@
 | 5 | `dashboard-productivity` | **À faire** : section 3, indépendant des suivants. Son volet runner est passé dans `quick-check-and-drawer` |
 | 6 | `step-flow-model` | Livré, archivé (`openspec/changes/archive/2026-10-17-step-flow-model/`) |
 | 7 | `quick-check-and-drawer` | Livré, archivé (`openspec/changes/archive/2026-10-17-quick-check-and-drawer/`) |
-| 8 | `runner-path-view` | **À faire** : section 6 (dépend de `step-flow-model`, après `quick-check-and-drawer`) |
+| 8 | `runner-path-view` | Livré, archivé (`openspec/changes/archive/2026-10-17-runner-path-view/`) |
 | 9 | `builder-flow-editor` | **À faire** : section 7 (dépend de `runner-path-view`) |
 | — | Backlog | Reporté, voir [BACKLOG.md](BACKLOG.md) |
 
@@ -311,6 +311,8 @@ Rendre le remplissage instantané et le retour visuel immédiat, dès les modèl
 ---
 
 ## 6. `runner-path-view` : vue chemin dans le runner
+
+**Livré et archivé** (`openspec/changes/archive/2026-10-17-runner-path-view/`), ADR 0010 (graphe d'étapes unique, vues pilotées par le `RunnerController`, portes appliquées à la saisie). Section conservée pour mémoire. Pour la suite (`builder-flow-editor`) : le composant `step-graph` est présentationnel (il reçoit des `StepGraphNode`, placés par `layoutStepGraph` dans `domain/step-graph-layout.ts`) ; la liste fermée d'icônes d'étape et la conversion des anciens noms sont dans `domain/step-icons.ts`, enregistrées par `provideStepIcons()`. Décisions prises pendant le change : pas de révocation d'une porte forcée, et confirmation (sans blocage) de la clôture quand une preuve exigée manque ; deux suites ont été ajoutées au [BACKLOG](BACKLOG.md).
 
 **Dépend de `step-flow-model`**, à faire après `quick-check-and-drawer`. Maquettes 02 et 03.
 
