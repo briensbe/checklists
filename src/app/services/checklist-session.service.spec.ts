@@ -235,7 +235,7 @@ describe('ChecklistSessionService', () => {
       await service.updateAnswerStatus('a', 'NA');
       const before = structuredClone(service.currentSession()!.answers);
 
-      expect(await service.markRemainingAsOk()).toBe(1);
+      expect(await service.markRemainingAsOk()).toEqual({ modified: 1, skippedForEvidence: 0 });
       expect(service.currentSession()!.answers['b'].history?.map(e => e.kind)).toEqual(['status']);
       expect(service.currentSession()!.answers['a'].history).toHaveLength(1);
 
@@ -254,12 +254,157 @@ describe('ChecklistSessionService', () => {
       expect(history[0]).toMatchObject({ evidenceId: 'ev-1', name: 'rapport.png' });
     });
 
+    it('retire l’événement de suppression d’une preuve quand la suppression est annulée', async () => {
+      const s = await service.createSession('tpl', 'Audit');
+      await service.recordEvidenceEvent(s.id, 'a', 'evidence-added', { id: 'ev-1', name: 'rapport.png' });
+      const before = structuredClone(service.currentSession()!.answers['a']);
+      await service.recordEvidenceEvent(s.id, 'a', 'evidence-removed', { id: 'ev-1', name: 'rapport.png' });
+
+      await service.removeEvidenceRemovedEvent('autre-session', 'a', 'ev-1');
+      expect(service.currentSession()!.answers['a'].history).toHaveLength(2);
+
+      await service.removeEvidenceRemovedEvent(s.id, 'a', 'ev-1');
+      expect(service.currentSession()!.answers['a']).toEqual(before);
+      expect((await db.sessions.get(s.id))?.answers['a'].history?.map(e => e.kind)).toEqual(['evidence-added']);
+    });
+
     it('la réinitialisation efface les réponses, leur historique et les portes forcées', async () => {
       await service.createSession('tpl', 'Audit');
       await service.updateAnswerStatus('a', 'OK');
       await service.resetSession();
       expect(service.currentSession()!.answers).toEqual({});
       expect(service.currentSession()!.forcedGates).toBeUndefined();
+    });
+  });
+
+  describe('saisie rapide : N/A, preuve exigée, lien', () => {
+    const QUICK: ChecklistTemplate = {
+      id: 'quick',
+      name: 'Saisie rapide',
+      description: '',
+      version: '1',
+      updatedAt: '2026-10-17T00:00:00.000Z',
+      contextSchema: [],
+      sections: [
+        {
+          id: 's1',
+          title: 'Section',
+          items: [
+            { id: 'check', label: 'Case', controlType: 'checkbox', withTimestamp: true },
+            { id: 'photo-blocking', label: 'Rapport de tests', controlType: 'checkbox', criticality: 'blocking', evidenceRequired: 'photo' },
+            { id: 'comment-important', label: 'Tests de charge', criticality: 'important', evidenceRequired: 'comment' },
+            { id: 'link', label: 'Doc API', evidenceRequired: 'link' },
+            {
+              id: 'choice',
+              label: 'Choix',
+              controlType: 'choice',
+              customChoices: [
+                { id: 'go', label: 'Go', tone: 'success' },
+                { id: 'stop', label: 'Stop', tone: 'danger', isBlocking: true }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    const kinds = (itemId: string) =>
+      (service.currentSession()!.answers[itemId].history ?? []).map(e =>
+        e.kind === 'status' ? `status:${e.status}` : e.kind === 'evidence-pending' ? `pending:${e.pending}` : e.kind
+      );
+
+    beforeEach(async () => {
+      await db.templates.put(QUICK);
+      templates.availableTemplates.set([TEMPLATE, QUICK]);
+      await service.createSession('quick', 'Saisie');
+    });
+
+    it('N/A sur une case cochée : retire la coche, compte comme réponse, puis se retire', async () => {
+      await service.updateAnswerCheckbox('check', true, true);
+      await service.toggleNa('check');
+      let answer = service.currentSession()!.answers['check'];
+      expect(answer.status).toBe('NA');
+      expect(answer.checked).toBeUndefined();
+      expect(answer.checkedAt).toBeUndefined();
+      expect(service.metrics().naCount).toBe(1);
+
+      await service.toggleNa('check');
+      answer = service.currentSession()!.answers['check'];
+      expect(answer.status).toBeNull();
+      expect(kinds('check')).toEqual(['checked', 'status:NA', 'status:null']);
+    });
+
+    it('« Plus tard » puis preuve complétée, avec leurs événements', async () => {
+      await service.resolveItem('comment-important', { pending: true });
+      let answer = service.currentSession()!.answers['comment-important'];
+      expect(answer.status).toBe('OK');
+      expect(answer.evidencePending).toBe(true);
+
+      await service.updateAnswerComment('comment-important', 'Charge max 300 req/s');
+      await service.resolveItem('comment-important');
+      answer = service.currentSession()!.answers['comment-important'];
+      expect(answer.evidencePending).toBeUndefined();
+      expect(kinds('comment-important')).toEqual(['status:OK', 'pending:true', 'pending:false']);
+    });
+
+    it('refuse « Plus tard » sur un bloquant', async () => {
+      await service.resolveItem('photo-blocking', { pending: true });
+      expect(service.currentSession()!.answers['photo-blocking']).toBeUndefined();
+    });
+
+    it('retirer la réponse d’un contrôle en attente retire aussi l’indicateur', async () => {
+      await service.resolveItem('comment-important', { pending: true });
+      await service.updateAnswerStatus('comment-important', 'OK'); // re-clic : retrait du OK
+      const answer = service.currentSession()!.answers['comment-important'];
+      expect(answer.status).toBeNull();
+      expect(answer.evidencePending).toBeUndefined();
+    });
+
+    it('le N/A retire la preuve en attente', async () => {
+      await service.resolveItem('comment-important', { pending: true });
+      await service.toggleNa('comment-important');
+      expect(service.currentSession()!.answers['comment-important'].evidencePending).toBeUndefined();
+      expect(kinds('comment-important')).toEqual(['status:OK', 'pending:true', 'status:NA', 'pending:false']);
+    });
+
+    it('historise la validation puis le retrait d’un lien, et refuse une adresse non http(s)', async () => {
+      await service.setEvidenceLink('link', 'javascript:alert(1)');
+      expect(service.currentSession()!.answers['link']).toBeUndefined();
+
+      await service.resolveItem('link', { link: 'https://wiki.example.org/api' });
+      expect(service.currentSession()!.answers['link']).toMatchObject({ status: 'OK', evidenceLink: 'https://wiki.example.org/api' });
+
+      await service.setEvidenceLink('link', null);
+      expect(service.currentSession()!.answers['link'].evidenceLink).toBeUndefined();
+      const history = service.currentSession()!.answers['link'].history ?? [];
+      expect(history.filter(e => e.kind === 'evidence-link').map(e => (e.kind === 'evidence-link' ? e.url : ''))).toEqual([
+        'https://wiki.example.org/api',
+        null
+      ]);
+    });
+
+    it('« Passer le reste à OK » respecte les N/A et la preuve exigée, et s’annule à l’identique', async () => {
+      await service.toggleNa('check');
+      const before = structuredClone(service.currentSession()!.answers);
+
+      const result = await service.markRemainingAsOk({});
+      expect(result).toEqual({ modified: 3, skippedForEvidence: 1 });
+      const answers = service.currentSession()!.answers;
+      expect(answers['check'].status).toBe('NA');
+      expect(answers['check'].checked).toBeUndefined();
+      expect(answers['photo-blocking']).toBeUndefined();
+      expect(answers['comment-important']).toMatchObject({ status: 'OK', evidencePending: true });
+      expect(answers['link']).toMatchObject({ status: 'OK', evidencePending: true });
+      expect(answers['choice'].selectedChoice).toBe('go');
+
+      await service.restoreAnswers(before);
+      expect(service.currentSession()!.answers).toEqual(before);
+    });
+
+    it('« Passer le reste à OK » répond au bloquant dont la photo est fournie', async () => {
+      const result = await service.markRemainingAsOk({ 'photo-blocking': { total: 1, images: 1 } });
+      expect(result.skippedForEvidence).toBe(0);
+      expect(service.currentSession()!.answers['photo-blocking']).toMatchObject({ checked: true });
+      expect(service.currentSession()!.answers['photo-blocking'].evidencePending).toBeUndefined();
     });
   });
 

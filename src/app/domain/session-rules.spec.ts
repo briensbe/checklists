@@ -5,8 +5,11 @@ import {
   diffTemplates,
   hasTemplateUpdate,
   isAnswered,
+  isKo,
+  isResolved,
   rebaseSessionOnTemplate,
-  validateForCompletion
+  validateForCompletion,
+  withoutEvidenceRemovedEvent
 } from './session-rules';
 import { ChecklistSession, ChecklistTemplate } from '../models/checklist.model';
 
@@ -113,6 +116,38 @@ describe('isAnswered', () => {
     expect(isAnswered({ id: 'a', label: 'a', controlType: 'checkbox' }, { status: null, checked: true, comment: '' })).toBe(true);
     expect(isAnswered({ id: 'a', label: 'a', controlType: 'choice' }, { status: null, selectedChoice: 'go', comment: '' })).toBe(true);
     expect(isAnswered({ id: 'a', label: 'a' }, undefined)).toBe(false);
+  });
+
+  it('compte un N/A comme une réponse quel que soit le type (ADR 0009)', () => {
+    expect(isAnswered({ id: 'a', label: 'a', controlType: 'checkbox' }, { status: 'NA', comment: '' })).toBe(true);
+    expect(isAnswered({ id: 'a', label: 'a', controlType: 'choice' }, { status: 'NA', comment: '' })).toBe(true);
+  });
+});
+
+describe('N/A sur une case à cocher ou un choix', () => {
+  const na = { status: 'NA' as const, comment: '' };
+
+  it('est compté dans naCount, résolu et jamais en anomalie', () => {
+    const s = session({ answers: { check: na, choice: na } });
+    const metrics = computeMetrics(s);
+    expect(metrics.naCount).toBe(2);
+    expect(metrics.answered).toBe(2);
+    const item = { id: 'check', label: 'Case', controlType: 'checkbox' as const };
+    expect(isResolved(item, na)).toBe(true);
+    expect(isKo(item, na)).toBe(false);
+  });
+
+  it('n’est pas signalé sans réponse à la clôture', () => {
+    const s = session({
+      contextValues: { mode: 'full' },
+      answers: {
+        always: { status: 'OK', comment: '' },
+        'na-reason': { status: 'OK', comment: '' },
+        check: na,
+        choice: na
+      }
+    });
+    expect(validateForCompletion(s)).toEqual([]);
   });
 });
 
@@ -229,6 +264,29 @@ describe('appendItemEvent', () => {
       { at: 't2', kind: 'status', status: 'KO' }
     ]);
     expect(answer.history).toHaveLength(1);
+  });
+});
+
+describe('withoutEvidenceRemovedEvent', () => {
+  const added = { at: 't1', kind: 'evidence-added' as const, evidenceId: 'ev1', name: 'a.png' };
+  const removed = { at: 't2', kind: 'evidence-removed' as const, evidenceId: 'ev1', name: 'a.png' };
+
+  it('retire l’événement de suppression de la preuve, et lui seul', () => {
+    const answer = { status: 'OK' as const, comment: '', history: [added, removed] };
+    expect(withoutEvidenceRemovedEvent(answer, 'ev1').history).toEqual([added]);
+    expect(answer.history).toHaveLength(2);
+  });
+
+  it('renvoie la réponse inchangée si aucun événement ne correspond', () => {
+    const answer = { status: 'OK' as const, comment: '', history: [added] };
+    expect(withoutEvidenceRemovedEvent(answer, 'ev1')).toBe(answer);
+    expect(withoutEvidenceRemovedEvent({ status: null, comment: '' }, 'ev1').history).toBeUndefined();
+  });
+
+  it('ne retire que le dernier événement quand la même preuve a été supprimée plusieurs fois', () => {
+    const again = { ...removed, at: 't3' };
+    const answer = { status: 'OK' as const, comment: '', history: [added, removed, again] };
+    expect(withoutEvidenceRemovedEvent(answer, 'ev1').history).toEqual([added, removed]);
   });
 });
 

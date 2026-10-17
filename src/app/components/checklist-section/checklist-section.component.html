@@ -1,63 +1,45 @@
-<div class="section-card">
+<div class="section-card" [id]="'section-' + section().id" tabindex="-1">
   <!-- En-tête de section pliable accessible -->
-  <button 
+  <button
     type="button"
     (click)="toggleCollapse.emit()"
     [attr.aria-expanded]="!isCollapsed()"
     class="section-header">
     <div class="section-title-group">
       <div class="section-icon-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-        </svg>
+        <svg lucideListChecks [size]="16"></svg>
       </div>
       <div>
         <h3 class="section-title">{{ section().title }}</h3>
-        <p class="section-counter">{{ answeredCount() }}/{{ items().length }} complétés</p>
+        <p class="section-counter">{{ answeredCount() }}/{{ totalCount() }} complétés</p>
       </div>
     </div>
 
     <div class="section-header-right">
-      <span 
+      <span
         class="section-status-pill"
-        [class.is-complete]="answeredCount() === items().length && items().length > 0"
-        [class.is-pending]="answeredCount() !== items().length || items().length === 0">
-        {{ answeredCount() === items().length && items().length > 0 ? 'Complet' : (items().length - answeredCount()) + ' en attente' }}
+        [class.is-complete]="isComplete()"
+        [class.is-pending]="!isComplete()">
+        {{ isComplete() ? 'Complet' : (totalCount() - answeredCount()) + ' en attente' }}
       </span>
 
-      <svg 
-        class="chevron-icon"
-        [class.is-expanded]="!isCollapsed()"
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-      </svg>
+      <!-- La classe dynamique va sur l'enveloppe : l'icône Lucide réécrit son propre attribut class. -->
+      <span class="chevron-icon" [class.is-expanded]="!isCollapsed()" aria-hidden="true">
+        <svg lucideChevronDown [size]="16"></svg>
+      </span>
     </div>
   </button>
 
   <!-- Corps de la section -->
   @if (!isCollapsed()) {
     <div class="section-body">
-      @if (filteredItems().length === 0) {
+      @if (items().length === 0) {
         <div class="empty-section-message">
           Aucun contrôle correspondant au filtre actif dans cette section.
         </div>
       } @else {
-        @for (item of filteredItems(); track item.id) {
-          <app-checklist-item
-            [item]="item"
-            [answer]="answers()[item.id]"
-            [evidenceCount]="evidenceCounts()[item.id] || 0"
-            [readonly]="readonly()"
-            (statusChange)="statusChange.emit({ itemId: item.id, status: $event })"
-            (checkboxChange)="checkboxChange.emit({ itemId: item.id, checked: $event.checked, withTimestamp: $event.withTimestamp })"
-            (choiceChange)="choiceChange.emit({ itemId: item.id, choiceId: $event })"
-            (commentChange)="commentChange.emit({ itemId: item.id, comment: $event })"
-            (extraChange)="extraChange.emit({ itemId: item.id, key: $event.key, value: $event.value })"
-            (openEvidence)="openEvidence.emit($event)">
-          </app-checklist-item>
+        @for (item of items(); track item.id) {
+          <app-checklist-item [item]="item" [answer]="answers()[item.id]" [readonly]="readonly()"></app-checklist-item>
         }
       }
     </div>

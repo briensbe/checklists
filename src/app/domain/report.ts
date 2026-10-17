@@ -81,8 +81,17 @@ export function reportSummaryFields(metrics: MetricsSummary): ReportField[] {
   ];
 }
 
-/** Texte de la colonne « État » d'un item, quel que soit son type de contrôle. */
+/**
+ * Texte de la colonne « État » d'un item, quel que soit son type de contrôle.
+ * Un N/A s'affiche `N/A` pour tous les types (ADR 0009) ; une preuve en attente est signalée.
+ */
 export function itemStateText(item: ChecklistItemTemplate, answer: ItemAnswer | undefined): string {
+  const state = baseStateText(item, answer);
+  return answer?.evidencePending && answer.status !== 'NA' ? `${state} · preuve à compléter` : state;
+}
+
+function baseStateText(item: ChecklistItemTemplate, answer: ItemAnswer | undefined): string {
+  if (answer?.status === 'NA') return 'N/A';
   const type = item.controlType ?? 'status';
   if (type === 'checkbox') {
     if (!answer?.checked) return 'NON FAIT';
@@ -97,7 +106,7 @@ export function itemStateText(item: ChecklistItemTemplate, answer: ItemAnswer | 
   return answer?.status ?? 'À TRAITER';
 }
 
-/** Commentaire suivi du champ additionnel, préfixé de son libellé (et non de sa clé technique). */
+/** Commentaire, champ additionnel préfixé de son libellé (et non de sa clé technique), puis lien de preuve. */
 export function itemObservations(item: ChecklistItemTemplate, answer: ItemAnswer | undefined, separator: string): string {
   const parts: string[] = [];
   if (answer?.comment?.trim()) parts.push(answer.comment.trim());
@@ -106,5 +115,6 @@ export function itemObservations(item: ChecklistItemTemplate, answer: ItemAnswer
     const label = item.extraField?.id === key ? item.extraField.label : key;
     parts.push(`${label} : ${value.trim()}`);
   }
+  if (answer?.evidenceLink?.trim()) parts.push(`Lien de preuve : ${answer.evidenceLink.trim()}`);
   return parts.join(separator);
 }

@@ -1,6 +1,8 @@
 /* CHECKLIST SECTION COMPONENT (CSS STANDARD) */
 
 .section-card {
+  scroll-margin-top: calc(var(--sticky-header-offset) + var(--runner-bar-height) + 0.5rem);
+  outline: none;
   background-color: var(--bg-card);
   border-radius: var(--radius-2xl);
   border: 1px solid var(--border-color);
@@ -60,11 +62,6 @@
   box-shadow: var(--shadow-xs);
 }
 
-.section-icon-box svg {
-  width: 1rem;
-  height: 1rem;
-}
-
 .section-title {
   font-size: 0.875rem;
   font-weight: 700;
@@ -106,6 +103,7 @@
 }
 
 .chevron-icon {
+  display: inline-flex;
   width: 1rem;
   height: 1rem;
   color: var(--color-slate-400);

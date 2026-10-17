@@ -1,0 +1,32 @@
+:host {
+  display: inline-flex;
+}
+
+.ring-track {
+  stroke: var(--ring-track);
+}
+
+.ring-value {
+  stroke: var(--ring-progress);
+  transition: stroke-dashoffset 0.4s ease-in-out, stroke 0.2s ease-in-out;
+}
+
+.ring-value.is-complete {
+  stroke: var(--ring-complete);
+}
+
+.ring-value.is-anomaly {
+  stroke: var(--ring-anomaly);
+}
+
+.ring-text {
+  fill: var(--text-heading);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-value {
+    transition: none;
+  }
+}

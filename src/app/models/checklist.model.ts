@@ -103,7 +103,8 @@ export type ItemEvent =
   | { at: string; kind: 'choice'; choiceId: string | null }
   | { at: string; kind: 'evidence-added'; evidenceId: string; name: string }
   | { at: string; kind: 'evidence-removed'; evidenceId: string; name: string }
-  | { at: string; kind: 'evidence-pending'; pending: boolean };
+  | { at: string; kind: 'evidence-pending'; pending: boolean }
+  | { at: string; kind: 'evidence-link'; url: string | null };
 
 export interface ItemAnswer {
   status: ControlStatus | null;
@@ -113,6 +114,7 @@ export interface ItemAnswer {
   comment: string;
   extra?: Record<string, string>;
   evidencePending?: boolean; // Fait, preuve à compléter (jamais sur un bloquant)
+  evidenceLink?: string; // Preuve de type lien : une seule adresse http(s) validée (ADR 0009)
   history?: ItemEvent[]; // On ajoute, on n'écrase pas
 }
 

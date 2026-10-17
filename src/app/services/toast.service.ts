@@ -141,6 +141,18 @@ export class ToastService {
   }
 
   /**
+   * Exécute tout de suite la validation différée d'un toast (sans attendre son délai) et le ferme.
+   * Sans effet si le toast a déjà été validé ou annulé. Les erreurs remontent à l'appelant.
+   */
+  async commitNow(id: string): Promise<void> {
+    const commit = this.pendingCommits.get(id);
+    if (!commit) return;
+    this.pendingCommits.delete(id);
+    this.dismiss(id);
+    await commit();
+  }
+
+  /**
    * Exécute immédiatement tous les commits différés en attente et purge la file.
    */
   flushPending(): void {

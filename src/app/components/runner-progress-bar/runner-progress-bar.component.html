@@ -1,0 +1,58 @@
+<section class="progress-bar" aria-label="Progression de la checklist">
+  <div class="global">
+    <app-progress-ring
+      [value]="metrics().total > 0 ? metrics().answered / metrics().total : 0"
+      [tone]="metrics().koCount > 0 ? 'anomaly' : metrics().percent === 100 ? 'complete' : 'progress'"
+      [size]="40"
+      [stroke]="5"
+      [showPercent]="true">
+    </app-progress-ring>
+    <div class="global-text">
+      <span class="global-count">{{ metrics().answered }} / {{ metrics().total }}</span>
+      <span class="global-caption">renseignés</span>
+    </div>
+    @if (unresolvedBlocking() !== null) {
+      <span class="blocking-count" [class.is-clear]="unresolvedBlocking() === 0">
+        @if (unresolvedBlocking() === 0) {
+          <svg lucideLockOpen [size]="14"></svg>
+        } @else {
+          <svg lucideLock [size]="14"></svg>
+        }
+        {{ blockingLabel() }}
+      </span>
+    }
+  </div>
+
+  @if (sections().length > 0) {
+    <ul class="rings" aria-label="Progression par section">
+      @for (section of sections(); track section.sectionId) {
+        <li>
+          <button
+            type="button"
+            class="ring-btn"
+            [attr.aria-label]="ringLabel(section)"
+            [title]="ringLabel(section)"
+            (click)="sectionClick.emit(section.sectionId)">
+            <app-progress-ring [value]="section.answered / section.total" [tone]="ringTone(section)" [size]="28" [stroke]="4"></app-progress-ring>
+            <span class="ring-title" aria-hidden="true">{{ section.title }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <div class="actions">
+    <button
+      type="button"
+      class="btn-next"
+      [disabled]="nextDisabled()"
+      [attr.aria-label]="nextDisabled() ? 'Tout est renseigné' : 'Prochain item à traiter'"
+      (click)="next.emit()">
+      <svg lucideSkipForward [size]="14"></svg>
+      <span class="btn-next-label">{{ nextDisabled() ? 'Tout est renseigné' : 'Prochain item à traiter' }}</span>
+    </button>
+    <button type="button" class="btn-help" aria-label="Raccourcis clavier" title="Raccourcis clavier (?)" (click)="help.emit()">
+      <svg lucideKeyboard [size]="16"></svg>
+    </button>
+  </div>
+</section>

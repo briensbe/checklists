@@ -3,9 +3,7 @@
     <div>
       <div class="breadcrumb">
         <a routerLink="/templates">
-          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-            <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
-          </svg>
+          <svg lucideArrowLeft [size]="16"></svg>
           Retour aux modèles
         </a>
       </div>
@@ -14,24 +12,15 @@
     <div class="header-actions">
       <button class="btn btn-secondary" (click)="previewMode.set(!previewMode())">
         @if (previewMode()) {
-          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
-            <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
-            <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
-          </svg>
+          <svg lucidePencil [size]="18"></svg>
           Mode Édition
         } @else {
-          <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
-            <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-            <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-          </svg>
+          <svg lucideEye [size]="18"></svg>
           Aperçu
         }
       </button>
       <button class="btn btn-primary" (click)="save()">
-        <svg viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5" aria-hidden="true">
-          <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
-          <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-        </svg>
+        <svg lucideSave [size]="18"></svg>
         Enregistrer le modèle
       </button>
     </div>
@@ -64,6 +53,22 @@
               <div class="preview-item">
                 <div class="preview-item-info">
                   <span class="preview-item-label">{{ it.label }}</span>
+                  @if (criticalityOf(it) === 'blocking') {
+                    <span class="criticality-badge is-blocking">bloquant</span>
+                  } @else if (criticalityOf(it) === 'important') {
+                    <span class="criticality-badge is-important">important</span>
+                  }
+                  @if (it.evidenceRequired) {
+                    <span class="preview-badge-evidence" [title]="it.evidenceHint || ''">
+                      @switch (it.evidenceRequired) {
+                        @case ('photo') { <svg lucideCamera [size]="12"></svg> }
+                        @case ('comment') { <svg lucideMessageSquare [size]="12"></svg> }
+                        @case ('link') { <svg lucideLink [size]="12"></svg> }
+                        @default { <svg lucideFile [size]="12"></svg> }
+                      }
+                      Preuve exigée : {{ evidenceLabels[it.evidenceRequired].toLowerCase() }}
+                    </span>
+                  }
                   @if (it.visibleIf) {
                     <span class="preview-badge-condition">Conditionné par {{ getContextFieldLabel(it.visibleIf.fieldId) }} : {{ formatVisibleIfValues(it) }}</span>
                   }
@@ -173,9 +178,7 @@
                       (click)="removeContextField(fIdx)"
                       aria-label="Supprimer cette variable"
                       title="Supprimer la variable">
-                      <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-                      </svg>
+                      <svg lucideTrash [size]="16"></svg>
                     </button>
                   </div>
                 </div>
@@ -199,9 +202,7 @@
                             (click)="removeContextFieldOption(field, optIdx)"
                             aria-label="Supprimer cette option"
                             title="Supprimer cette option">
-                            <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                            </svg>
+                            <svg lucideX [size]="14"></svg>
                           </button>
                         </div>
                       }
@@ -227,9 +228,7 @@
             <div class="section-card-header">
               <div class="section-header-left">
                 <span class="drag-handle" cdkDragHandle title="Glisser pour réordonner la section" aria-label="Glisser pour déplacer la section">
-                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-                    <path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-12a2 2 0 10.001 4.001A2 2 0 0013 2zm0 6a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z" />
-                  </svg>
+                  <svg lucideGripVertical [size]="16"></svg>
                 </span>
                 <div class="section-title-inputs">
                   <input type="text" class="section-title-input" [(ngModel)]="sec.title" placeholder="Titre de la section" />
@@ -244,9 +243,7 @@
                   [disabled]="sIdx === 0"
                   aria-label="Monter cette section"
                   title="Monter cette section">
-                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" />
-                  </svg>
+                  <svg lucideArrowUp [size]="16"></svg>
                 </button>
                 <button
                   type="button"
@@ -255,9 +252,7 @@
                   [disabled]="sIdx === template().sections.length - 1"
                   aria-label="Descendre cette section"
                   title="Descendre cette section">
-                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clip-rule="evenodd" />
-                  </svg>
+                  <svg lucideArrowDown [size]="16"></svg>
                 </button>
                 <button
                   type="button"
@@ -265,10 +260,7 @@
                   (click)="duplicateSection(sIdx)"
                   aria-label="Dupliquer la section"
                   title="Dupliquer la section">
-                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-                    <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12a1.5 1.5 0 01.439 1.061V14.5A1.5 1.5 0 0115.5 16h-7A1.5 1.5 0 017 14.5v-11z" />
-                    <path d="M5 6.5A1.5 1.5 0 003.5 8v8A1.5 1.5 0 005 17.5h7A1.5 1.5 0 0013.5 16v-1H5V6.5z" />
-                  </svg>
+                  <svg lucideCopy [size]="16"></svg>
                 </button>
                 <button
                   type="button"
@@ -276,9 +268,7 @@
                   (click)="removeSection(sIdx)"
                   aria-label="Supprimer la section"
                   title="Supprimer la section">
-                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-                  </svg>
+                  <svg lucideTrash [size]="16"></svg>
                 </button>
               </div>
             </div>
@@ -295,12 +285,22 @@
                 <div class="item-builder-row" cdkDrag>
                   <div class="item-main-inputs">
                     <span class="drag-handle item-drag-handle" cdkDragHandle title="Glisser pour déplacer ce contrôle" aria-label="Glisser pour déplacer le contrôle">
-                      <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                        <path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-12a2 2 0 10.001 4.001A2 2 0 0013 2zm0 6a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z" />
-                      </svg>
+                      <svg lucideGripVertical [size]="14"></svg>
                     </span>
 
                     <input type="text" class="form-input item-label-input" [(ngModel)]="it.label" placeholder="Libellé de la tâche / contrôle *" />
+
+                    <!-- Criticité : la pastille tourne au clic (bloquant → important → optionnel) -->
+                    <button
+                      type="button"
+                      class="criticality-badge criticality-chip"
+                      [class.is-blocking]="criticalityOf(it) === 'blocking'"
+                      [class.is-important]="criticalityOf(it) === 'important'"
+                      [attr.aria-label]="criticalityAriaLabel(it)"
+                      [title]="criticalityAriaLabel(it)"
+                      (click)="cycleCriticality(it)">
+                      {{ criticalityLabels[criticalityOf(it)] }}
+                    </button>
                     
                     <select class="form-select control-type-select" [ngModel]="it.controlType || 'status'" (ngModelChange)="onControlTypeChange(it, $event)">
                       <option value="checkbox">Case à cocher</option>
@@ -316,9 +316,7 @@
                         [disabled]="itIdx === 0"
                         aria-label="Monter ce contrôle"
                         title="Monter le contrôle">
-                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                          <path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" />
-                        </svg>
+                        <svg lucideArrowUp [size]="14"></svg>
                       </button>
                       <button
                         type="button"
@@ -327,9 +325,7 @@
                         [disabled]="itIdx === sec.items.length - 1"
                         aria-label="Descendre ce contrôle"
                         title="Descendre le contrôle">
-                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                          <path fill-rule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clip-rule="evenodd" />
-                        </svg>
+                        <svg lucideArrowDown [size]="14"></svg>
                       </button>
                       <button
                         type="button"
@@ -337,10 +333,7 @@
                         (click)="duplicateItem(sec, itIdx)"
                         aria-label="Dupliquer ce contrôle"
                         title="Dupliquer le contrôle">
-                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                          <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12a1.5 1.5 0 01.439 1.061V14.5A1.5 1.5 0 0115.5 16h-7A1.5 1.5 0 017 14.5v-11z" />
-                          <path d="M5 6.5A1.5 1.5 0 003.5 8v8A1.5 1.5 0 005 17.5h7A1.5 1.5 0 0013.5 16v-1H5V6.5z" />
-                        </svg>
+                        <svg lucideCopy [size]="14"></svg>
                       </button>
                       <button
                         type="button"
@@ -348,9 +341,7 @@
                         (click)="removeItem(sec, itIdx)"
                         aria-label="Supprimer le contrôle"
                         title="Supprimer le contrôle">
-                        <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                        </svg>
+                        <svg lucideX [size]="14"></svg>
                       </button>
                     </div>
                   </div>
@@ -359,13 +350,34 @@
                   <div class="item-extra-options">
                     <input type="text" class="form-input item-help-input" [(ngModel)]="it.help" placeholder="Aide ou consigne optionnelle..." />
 
+                    <!-- Preuve exigée au moment de valider le contrôle, et sa consigne -->
+                    <div class="evidence-config">
+                      <label class="evidence-config-label" [for]="'evidence-' + it.id">Preuve exigée</label>
+                      <select
+                        class="form-select form-input-sm evidence-select"
+                        [id]="'evidence-' + it.id"
+                        [ngModel]="it.evidenceRequired ?? ''"
+                        (ngModelChange)="onEvidenceKindChange(it, $event)">
+                        <option value="">Aucune</option>
+                        @for (k of evidenceKinds; track k.value) {
+                          <option [value]="k.value">{{ k.label }}</option>
+                        }
+                      </select>
+                      @if (it.evidenceRequired) {
+                        <input
+                          type="text"
+                          class="form-input form-input-sm evidence-hint-input"
+                          [ngModel]="it.evidenceHint ?? ''"
+                          (ngModelChange)="onEvidenceHintChange(it, $event)"
+                          aria-label="Consigne affichée au moment de fournir la preuve"
+                          placeholder="Consigne affichée au moment de la preuve (ex : capture du rapport de tests)" />
+                      }
+                    </div>
+
                     @if (it.controlType === 'checkbox') {
                       <label class="checkbox-option-toggle">
                         <input type="checkbox" [(ngModel)]="it.withTimestamp" />
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4" aria-hidden="true">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
+                        <svg lucideClock [size]="16"></svg>
                         <span>Activer l'horodatage automatique au clic</span>
                       </label>
                     }
@@ -382,9 +394,9 @@
                                 <option [value]="tone.value">{{ tone.label }}</option>
                               }
                             </select>
-                            <label class="choice-blocking" title="Compte comme non conforme si sélectionné">
+                            <label class="choice-blocking" title="Ce choix signale une anomalie (non conforme) s'il est sélectionné">
                               <input type="checkbox" [(ngModel)]="opt.isBlocking" />
-                              <span>Bloquant</span>
+                              <span>Anomalie</span>
                             </label>
                             <button
                               type="button"
@@ -392,9 +404,7 @@
                               (click)="removeChoiceOption(it, optIdx)"
                               aria-label="Supprimer cette option"
                               title="Supprimer cette option">
-                              <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                              </svg>
+                              <svg lucideX [size]="14"></svg>
                             </button>
                           </div>
                         }
@@ -409,14 +419,10 @@
                         class="btn-toggle-advanced"
                         (click)="toggleAdvanced(it.id)"
                         [attr.aria-expanded]="isAdvancedOpen(it.id)">
-                        <svg
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          class="w-4 h-4 chevron-icon"
-                          [class.rotated]="isAdvancedOpen(it.id)"
-                          aria-hidden="true">
-                          <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
-                        </svg>
+                        <!-- Rotation sur l'enveloppe : l'icône Lucide réécrit son propre attribut class. -->
+                        <span class="chevron-icon" [class.rotated]="isAdvancedOpen(it.id)" aria-hidden="true">
+                          <svg lucideChevronRight [size]="16"></svg>
+                        </span>
                         <span>Options avancées</span>
                         @if (it.visibleIf || it.extraField) {
                           <span class="badge-active-options">• actives</span>

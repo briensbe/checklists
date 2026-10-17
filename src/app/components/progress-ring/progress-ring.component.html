@@ -1,0 +1,31 @@
+<svg
+  [attr.width]="size()"
+  [attr.height]="size()"
+  [attr.viewBox]="'0 0 ' + size() + ' ' + size()"
+  [attr.role]="label() ? 'img' : null"
+  [attr.aria-label]="label() || null"
+  [attr.aria-hidden]="label() ? null : 'true'">
+  <circle
+    class="ring-track"
+    fill="none"
+    [attr.cx]="center()"
+    [attr.cy]="center()"
+    [attr.r]="radius()"
+    [attr.stroke-width]="stroke()" />
+  <circle
+    class="ring-value"
+    [class.is-complete]="tone() === 'complete'"
+    [class.is-anomaly]="tone() === 'anomaly'"
+    fill="none"
+    stroke-linecap="round"
+    [attr.cx]="center()"
+    [attr.cy]="center()"
+    [attr.r]="radius()"
+    [attr.stroke-width]="stroke()"
+    [attr.stroke-dasharray]="circumference()"
+    [attr.stroke-dashoffset]="dashOffset()"
+    [attr.transform]="'rotate(-90 ' + center() + ' ' + center() + ')'" />
+  @if (showPercent()) {
+    <text class="ring-text" [attr.x]="center()" [attr.y]="center()" text-anchor="middle" dominant-baseline="central">{{ percent() }}%</text>
+  }
+</svg>

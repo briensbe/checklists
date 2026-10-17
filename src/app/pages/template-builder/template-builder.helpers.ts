@@ -1,5 +1,62 @@
-import { ChecklistItemTemplate, ChecklistSectionTemplate, ChecklistTemplate, ContextFieldSchema } from '../../models/checklist.model';
+import {
+  ChecklistItemTemplate,
+  ChecklistSectionTemplate,
+  ChecklistTemplate,
+  ContextFieldSchema,
+  Criticality,
+  EvidenceKind
+} from '../../models/checklist.model';
 import { validateFlow } from '../../domain/flow-rules';
+
+const CRITICALITY_CYCLE: Record<Criticality, Criticality> = {
+  blocking: 'important',
+  important: 'optional',
+  optional: 'blocking'
+};
+
+/** Criticité suivante au clic sur la pastille : bloquant → important → optionnel → bloquant. */
+export function nextCriticality(current: Criticality): Criticality {
+  return CRITICALITY_CYCLE[current];
+}
+
+/** Copie immuable du modèle où seul l'item `itemId` (et sa section) est recréé. */
+function updateItem(
+  template: ChecklistTemplate,
+  itemId: string,
+  change: (item: ChecklistItemTemplate) => ChecklistItemTemplate
+): ChecklistTemplate {
+  return {
+    ...template,
+    sections: template.sections.map(section =>
+      section.items.some(i => i.id === itemId)
+        ? { ...section, items: section.items.map(i => (i.id === itemId ? change(i) : i)) }
+        : section
+    )
+  };
+}
+
+/** Change la criticité d'un item ; la valeur est toujours écrite explicitement, `optional` compris. */
+export function setItemCriticality(template: ChecklistTemplate, itemId: string, criticality: Criticality): ChecklistTemplate {
+  return updateItem(template, itemId, item => ({ ...item, criticality }));
+}
+
+/**
+ * Fixe la preuve exigée d'un item et sa consigne. `null` (« aucune ») retire `evidenceRequired`
+ * et `evidenceHint` du modèle ; une consigne vide est retirée.
+ */
+export function setItemEvidence(
+  template: ChecklistTemplate,
+  itemId: string,
+  kind: EvidenceKind | null,
+  hint?: string
+): ChecklistTemplate {
+  return updateItem(template, itemId, item => {
+    const { evidenceRequired: _kind, evidenceHint: _hint, ...rest } = item;
+    if (!kind) return rest;
+    const trimmed = hint?.trim();
+    return trimmed ? { ...rest, evidenceRequired: kind, evidenceHint: hint } : { ...rest, evidenceRequired: kind };
+  });
+}
 
 /**
  * Duplique un item de checklist en lui attribuant un nouvel identifiant unique.

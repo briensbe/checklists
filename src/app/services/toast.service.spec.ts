@@ -100,4 +100,18 @@ describe('ToastService', () => {
     expect(committed).toBe(true);
     expect(service.toasts().length).toBe(0);
   });
+
+  it('commitNow exécute tout de suite la validation d’un toast, une seule fois, et le ferme', async () => {
+    const onCommit = vi.fn();
+    const id = service.showDeferred({ message: 'Preuve supprimée', durationMs: 6000, onCommit });
+
+    await service.commitNow(id);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(service.toasts().length).toBe(0);
+
+    vi.advanceTimersByTime(6000);
+    await Promise.resolve();
+    await service.commitNow(id);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
 });

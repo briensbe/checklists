@@ -133,6 +133,12 @@ describe('computeStepFlow : dépendances et portes', () => {
     expect(ko.steps['build'].unlocked).toBe(false);
   });
 
+  it('N/A sur un bloquant de type case à cocher : il résout la porte (ADR 0009)', () => {
+    const flow = computeStepFlow(session(releaseSections(), { 'prep-ticket': { status: 'NA', comment: '' } }));
+    expect(flow.steps['prep'].blockingResolved).toBe(true);
+    expect(flow.steps['build'].unlocked).toBe(true);
+  });
+
   it('Bloquant masqué par une condition d’affichage : non pris en compte', () => {
     const sections = releaseSections();
     sections[0].items = [blocking('prep-patch', { visibleIf: { fieldId: 'mode', equals: ['patch'] } })];

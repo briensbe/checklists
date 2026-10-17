@@ -86,9 +86,13 @@ export function applicableItems(
   return list;
 }
 
-/** Règle unique de « répondu » : statut posé, case cochée ou choix sélectionné selon le type. */
+/**
+ * Règle unique de « répondu » : statut posé, case cochée ou choix sélectionné selon le type.
+ * Un N/A (`status: 'NA'`) est une réponse quel que soit le type du contrôle (ADR 0009).
+ */
 export function isAnswered(item: ChecklistItemTemplate, answer: ItemAnswer | undefined): boolean {
   if (!answer) return false;
+  if (answer.status === 'NA') return true;
   switch (item.controlType ?? 'status') {
     case 'checkbox':
       return !!answer.checked;
@@ -134,6 +138,23 @@ export function forcedSectionIds(session: ChecklistSession): Set<string> {
 /** Ajoute un événement à l'historique d'une réponse, sans jamais modifier les précédents. */
 export function appendItemEvent(answer: ItemAnswer, event: ItemEvent): ItemAnswer {
   return { ...answer, history: [...(answer.history ?? []), event] };
+}
+
+/**
+ * Retire le dernier événement de suppression de la preuve `evidenceId` : c'est l'annulation
+ * de l'action qui l'a produit, seule exception à l'historique en ajout seul (ADR 0007).
+ * Renvoie la réponse inchangée si aucun événement ne correspond.
+ */
+export function withoutEvidenceRemovedEvent(answer: ItemAnswer, evidenceId: string): ItemAnswer {
+  const history = answer.history ?? [];
+  let index = history.length - 1;
+  while (index >= 0) {
+    const event = history[index];
+    if (event.kind === 'evidence-removed' && event.evidenceId === evidenceId) break;
+    index--;
+  }
+  if (index < 0) return answer;
+  return { ...answer, history: [...history.slice(0, index), ...history.slice(index + 1)] };
 }
 
 export function computeMetrics(session: ChecklistSession | null | undefined): MetricsSummary {

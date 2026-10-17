@@ -289,4 +289,71 @@ describe('TemplateBuilderComponent', () => {
     item.visibleIf = { fieldId: field.id, equals: ['production_france'] };
     expect(component.formatVisibleIfValues(item)).toBe('Production France');
   });
+
+  describe('criticité et preuve exigée', () => {
+    it('crée un nouvel item en case à cocher optionnelle, valeurs écrites explicitement', () => {
+      expect(component.template().sections[0].items[0]).toMatchObject({ controlType: 'checkbox', criticality: 'optional' });
+      component.addItem(component.template().sections[0]);
+      const added = component.template().sections[0].items[1];
+      expect(added).toMatchObject({ controlType: 'checkbox', criticality: 'optional' });
+      expect(added.evidenceRequired).toBeUndefined();
+    });
+
+    it('fait tourner la criticité au clic sur la pastille', () => {
+      fixture.detectChanges();
+      const chip = () => fixture.nativeElement.querySelector('.criticality-chip') as HTMLButtonElement;
+      expect(chip().textContent?.trim()).toBe('optionnel');
+      expect(chip().getAttribute('aria-label')).toContain('Criticité : optionnel');
+
+      const seen: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        chip().click();
+        fixture.detectChanges();
+        seen.push(component.template().sections[0].items[0].criticality ?? '');
+      }
+      expect(seen).toEqual(['blocking', 'important', 'optional']);
+    });
+
+    it('enregistre la preuve exigée et sa consigne, puis les retire avec « aucune »', () => {
+      const item = () => component.template().sections[0].items[0];
+      component.onEvidenceKindChange(item(), 'photo');
+      component.onEvidenceHintChange(item(), 'Capture du rapport de tests');
+      expect(item()).toMatchObject({ evidenceRequired: 'photo', evidenceHint: 'Capture du rapport de tests' });
+
+      component.onEvidenceKindChange(item(), '');
+      expect('evidenceRequired' in item()).toBe(false);
+      expect('evidenceHint' in item()).toBe(false);
+    });
+
+    it('libelle « Anomalie » l’option isBlocking d’un choix', () => {
+      const item = component.template().sections[0].items[0];
+      component.onControlTypeChange(item, 'choice');
+      component.template.update(t => ({ ...t }));
+      fixture.detectChanges();
+      const labels = [...fixture.nativeElement.querySelectorAll('.choice-blocking span')].map((s: Element) => s.textContent?.trim());
+      expect(labels).toEqual(['Anomalie', 'Anomalie']);
+    });
+
+    it('affiche dans l’aperçu les badges de criticité et la preuve exigée', () => {
+      component.template.update(t => ({
+        ...t,
+        sections: [
+          {
+            id: 's1',
+            title: 'Section',
+            items: [
+              { id: 'a', label: 'Doc API', criticality: 'blocking', evidenceRequired: 'link' },
+              { id: 'b', label: 'FAQ', criticality: 'optional' }
+            ]
+          }
+        ]
+      }));
+      component.previewMode.set(true);
+      fixture.detectChanges();
+      const items = [...fixture.nativeElement.querySelectorAll('.preview-item')] as HTMLElement[];
+      expect(items[0].querySelector('.criticality-badge')?.textContent).toContain('bloquant');
+      expect(items[0].querySelector('.preview-badge-evidence')?.textContent).toContain('Preuve exigée : lien');
+      expect(items[1].querySelector('.criticality-badge')).toBeNull();
+    });
+  });
 });

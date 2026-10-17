@@ -9,23 +9,19 @@
 
     <!-- Actions d'export -->
     <div class="export-actions">
-      <button 
+      <button
         type="button"
         (click)="exportExcel.emit()"
         class="btn-export btn-excel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
+        <svg lucideFileSpreadsheet [size]="16"></svg>
         Export Excel (.xlsx)
       </button>
 
-      <button 
+      <button
         type="button"
         (click)="exportPdf.emit()"
         class="btn-export btn-pdf">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-        </svg>
+        <svg lucideFileText [size]="16"></svg>
         Export PDF
       </button>
     </div>
@@ -72,25 +68,8 @@
     }
   </div>
 
-  <!-- Barre de progression et métriques réactives -->
+  <!-- Métriques et action de groupe (la progression est dans la barre fixée du runner) -->
   <div class="progress-section">
-    <div class="progress-container">
-      <div class="progress-info">
-        <span>
-          Progression de la revue
-          <span class="progress-percent">{{ metrics().percent }}%</span>
-        </span>
-        <span>{{ metrics().answered }} / {{ metrics().total }} points renseignés</span>
-      </div>
-      <div class="progress-bar-track">
-        <div 
-          class="progress-bar-fill"
-          [style.width.%]="metrics().percent">
-        </div>
-      </div>
-    </div>
-
-    <!-- Chips et action de groupe -->
     <div class="chips-container">
       <span class="chip chip-ok">{{ metrics().okCount }} OK</span>
       <span class="chip chip-ko">{{ metrics().koCount }} KO</span>
@@ -98,11 +77,12 @@
       <span class="chip chip-pending">{{ metrics().pending }} Restants</span>
 
       @if (!readonly()) {
-        <button 
+        <button
           type="button"
           (click)="markAllOk.emit()"
           class="btn-batch-ok">
-          ✓ Passer le reste à OK
+          <svg lucideCheckCheck [size]="14"></svg>
+          Passer le reste à OK
         </button>
       }
     </div>

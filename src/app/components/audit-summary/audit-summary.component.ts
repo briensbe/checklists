@@ -1,10 +1,12 @@
 import { Component, input, output } from '@angular/core';
+import { LucideCheckCheck, LucideFileSpreadsheet, LucideFileText } from '@lucide/angular';
 import { ChecklistTemplate, MetricsSummary } from '../../models/checklist.model';
 import { FilterType } from '../../services/checklist-session.service';
 
 @Component({
   selector: 'app-audit-summary',
   standalone: true,
+  imports: [LucideCheckCheck, LucideFileSpreadsheet, LucideFileText],
   templateUrl: './audit-summary.component.html',
   styleUrl: './audit-summary.component.css'
 })

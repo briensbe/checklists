@@ -1,6 +1,7 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { AppDatabaseService } from './app-database.service';
 import { EvidenceRecord, MAX_EVIDENCE_SIZE } from '../models/checklist.model';
+import { EvidenceSummary } from '../domain/quick-check';
 
 export { MAX_EVIDENCE_SIZE };
 
@@ -22,16 +23,52 @@ export function evidenceTypeOf(file: File): EvidenceType {
 export class EvidenceService {
   private db = inject(AppDatabaseService);
 
-  // Cache des compteurs de preuves par itemId
-  readonly evidenceCounts = signal<Record<string, number>>({});
+  // Métadonnées des preuves de la session chargée (sans les Blob), pour les compteurs et la preuve exigée.
+  private readonly metas = signal<{ id: string; itemId: string; type: EvidenceType }[]>([]);
+
+  /** Preuves masquées en attendant l'expiration de leur toast d'annulation (ADR 0005). */
+  readonly pendingDeletionIds = signal<ReadonlySet<string>>(new Set());
+
+  /** Résumé des preuves par itemId, hors preuves en attente de suppression. */
+  readonly summaries = computed<Record<string, EvidenceSummary>>(() => {
+    const hidden = this.pendingDeletionIds();
+    const result: Record<string, EvidenceSummary> = {};
+    for (const meta of this.metas()) {
+      if (hidden.has(meta.id)) continue;
+      const summary = (result[meta.itemId] ??= { total: 0, images: 0 });
+      summary.total++;
+      if (meta.type === 'image') summary.images++;
+    }
+    return result;
+  });
+
+  /** Nombre de preuves par itemId, hors preuves en attente de suppression. */
+  readonly evidenceCounts = computed<Record<string, number>>(() =>
+    Object.fromEntries(Object.entries(this.summaries()).map(([itemId, s]) => [itemId, s.total]))
+  );
 
   async loadEvidenceCounts(sessionId: string): Promise<void> {
     const list = await this.db.evidences.where('sessionId').equals(sessionId).toArray();
-    const counts: Record<string, number> = {};
-    for (const ev of list) {
-      counts[ev.itemId] = (counts[ev.itemId] || 0) + 1;
+    this.metas.set(list.map(e => ({ id: e.id, itemId: e.itemId, type: e.type })));
+  }
+
+  /** Masque une preuve tout de suite ; la suppression réelle attend `commitDeletion`. */
+  hideForDeletion(id: string): void {
+    this.pendingDeletionIds.update(ids => new Set([...ids, id]));
+  }
+
+  /** Annulation : la preuve, toujours en base, réapparaît. */
+  restore(id: string): void {
+    this.pendingDeletionIds.update(ids => new Set([...ids].filter(other => other !== id)));
+  }
+
+  /** Suppression définitive d'une preuve masquée (expiration du toast, sortie de page, clôture). */
+  async commitDeletion(sessionId: string, id: string): Promise<void> {
+    try {
+      await this.deleteEvidence(sessionId, id);
+    } finally {
+      this.restore(id);
     }
-    this.evidenceCounts.set(counts);
   }
 
   async getEvidencesForItem(itemId: string, sessionId: string): Promise<EvidenceRecord[]> {

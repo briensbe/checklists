@@ -103,7 +103,7 @@ describe('report', () => {
 
     it('couvre les autres types de contrôle', () => {
       expect(itemStateText(choiceItem, undefined)).toBe('NON SÉLECTIONNÉ');
-      expect(itemStateText({ id: 'x', label: 'X' }, { status: 'NA', comment: '' })).toBe('NA');
+      expect(itemStateText({ id: 'x', label: 'X' }, { status: 'NA', comment: '' })).toBe('N/A');
       expect(itemStateText({ id: 'x', label: 'X' }, undefined)).toBe('À TRAITER');
       expect(itemStateText({ id: 'k', label: 'K', controlType: 'checkbox' }, { status: null, comment: '', checked: true })).toBe('FAIT');
       expect(itemStateText({ id: 'k', label: 'K', controlType: 'checkbox' }, undefined)).toBe('NON FAIT');
@@ -115,6 +115,26 @@ describe('report', () => {
         'Dette à 7% | Score Sonar : 7%'
       );
       expect(itemObservations(item, undefined, ' | ')).toBe('');
+    });
+
+    it('affiche N/A pour une case à cocher ou un choix non applicable', () => {
+      const na = { status: 'NA' as const, comment: '' };
+      expect(itemStateText({ id: 'k', label: 'K', controlType: 'checkbox' }, na)).toBe('N/A');
+      expect(itemStateText(choiceItem, na)).toBe('N/A');
+    });
+
+    it('signale une preuve à compléter', () => {
+      const item: ChecklistItemTemplate = { id: 'k', label: 'K', controlType: 'checkbox' };
+      expect(itemStateText(item, { status: null, comment: '', checked: true, evidencePending: true })).toBe(
+        'FAIT · preuve à compléter'
+      );
+    });
+
+    it('reprend le lien de preuve après le commentaire', () => {
+      const item: ChecklistItemTemplate = { id: 'i', label: 'I' };
+      expect(
+        itemObservations(item, { status: 'OK', comment: 'Doc publiée', evidenceLink: 'https://wiki.example.org/api' }, ' | ')
+      ).toBe('Doc publiée | Lien de preuve : https://wiki.example.org/api');
     });
   });
 });

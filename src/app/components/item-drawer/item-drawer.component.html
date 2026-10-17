@@ -1,0 +1,195 @@
+<section
+  class="item-drawer"
+  [class.is-prompt]="mode() === 'prompt'"
+  [class.is-dragover]="dragOver()"
+  [id]="'drawer-' + item().id"
+  role="region"
+  tabindex="-1"
+  [attr.aria-label]="(mode() === 'prompt' ? 'Preuve demandée : ' : 'Note et preuves : ') + item().label"
+  (paste)="onPaste($event)"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave()"
+  (drop)="onDrop($event)">
+
+  @if (mode() === 'prompt') {
+    <!-- Demande de la preuve exigée par le modèle -->
+    <div class="prompt-hint">
+      @switch (kind()) {
+        @case ('photo') { <svg lucideCamera [size]="16"></svg> }
+        @case ('comment') { <svg lucideMessageSquare [size]="16"></svg> }
+        @case ('link') { <svg lucideLink [size]="16"></svg> }
+        @default { <svg lucideFile [size]="16"></svg> }
+      }
+      <span>{{ promptHint() }}</span>
+    </div>
+
+    @switch (kind()) {
+      @case ('comment') {
+        <label class="field-label" [for]="'note-' + item().id">Commentaire</label>
+        <textarea
+          #note
+          class="note-input"
+          [id]="'note-' + item().id"
+          rows="2"
+          placeholder="Votre commentaire… (Entrée pour valider, Maj+Entrée pour aller à la ligne)"
+          [value]="answer()?.comment ?? ''"
+          (focus)="onNoteFocus($event)"
+          (input)="onNoteInput($event)"
+          (keydown)="onNoteKeydown($event)"></textarea>
+      }
+      @case ('link') {
+        <label class="field-label" [for]="'link-' + item().id">Lien de preuve</label>
+        <input
+          #link
+          type="url"
+          class="link-input"
+          [id]="'link-' + item().id"
+          placeholder="https://…"
+          [value]="linkDraft()"
+          [attr.aria-invalid]="linkDraftInvalid()"
+          (input)="onLinkInput($event)"
+          (keydown)="onLinkKeydown($event)" />
+        @if (linkDraftInvalid()) {
+          <p class="field-error" role="alert">Une adresse http ou https est attendue.</p>
+        }
+      }
+      @case ('photo') {
+        <div class="drop-zone">
+          <p>Collez une capture (<kbd>Ctrl+V</kbd>), glissez une image ici, ou :</p>
+          <div class="tool-row">
+            <label class="tool-btn">
+              <svg lucideCamera [size]="14"></svg>
+              Prendre une photo
+              <input type="file" accept="image/*" capture="environment" class="sr-only" (change)="onFileInput($event)" />
+            </label>
+            <label class="tool-btn">
+              <svg lucideImage [size]="14"></svg>
+              Choisir une image
+              <input type="file" accept="image/*" multiple class="sr-only" (change)="onFileInput($event)" />
+            </label>
+          </div>
+        </div>
+      }
+      @default {
+        <div class="drop-zone">
+          <p>Glissez un fichier ici, ou :</p>
+          <div class="tool-row">
+            <label class="tool-btn">
+              <svg lucideFile [size]="14"></svg>
+              Choisir un fichier
+              <input type="file" multiple class="sr-only" (change)="onFileInput($event)" />
+            </label>
+          </div>
+        </div>
+      }
+    }
+  } @else {
+    <!-- Note du contrôle (son commentaire) -->
+    <label class="field-label" [class.is-required]="noteRequired()" [for]="'note-' + item().id">
+      @if (isKo()) {
+        Justification du KO (obligatoire)
+      } @else {
+        Note
+      }
+    </label>
+    <textarea
+      #note
+      class="note-input"
+      [class.error-required]="noteRequired()"
+      [id]="'note-' + item().id"
+      rows="2"
+      [placeholder]="isKo() ? 'Expliquer la cause du blocage ou la dérogation accordée… (Entrée pour enregistrer)' : 'Votre note… (Entrée pour enregistrer, Maj+Entrée pour aller à la ligne)'"
+      [value]="answer()?.comment ?? ''"
+      [readOnly]="readonly()"
+      [attr.aria-required]="isKo()"
+      (focus)="onNoteFocus($event)"
+      (input)="onNoteInput($event)"
+      (keydown)="onNoteKeydown($event)"></textarea>
+  }
+
+  <!-- Lien de preuve enregistré -->
+  @if (link()) {
+    <div class="link-row">
+      <svg lucideLink [size]="14"></svg>
+      @if (linkIsSafe()) {
+        <a [href]="link()" target="_blank" rel="noopener noreferrer">{{ link() }}</a>
+      } @else {
+        <span class="link-unsafe">{{ link() }}</span>
+      }
+      @if (!readonly()) {
+        <button type="button" class="btn-icon" [attr.aria-label]="'Retirer le lien de preuve de ' + item().label" title="Retirer le lien" (click)="controller.removeLink(item().id)">
+          <svg lucideX [size]="14"></svg>
+        </button>
+      }
+    </div>
+  }
+
+  <!-- Preuves jointes -->
+  @if (evidences().length > 0) {
+    <ul class="evidence-list" aria-label="Preuves jointes">
+      @for (ev of evidences(); track ev.id) {
+        <li class="evidence-card">
+          @if (ev.type === 'image') {
+            <img class="evidence-thumb" [src]="getBlobUrl(ev)" [alt]="ev.name" />
+          } @else {
+            <span class="evidence-doc" aria-hidden="true"><svg lucideFile [size]="18"></svg></span>
+          }
+          <span class="evidence-details">
+            <span class="evidence-name">{{ ev.name }}</span>
+            <span class="evidence-meta">{{ formatSize(ev.size) }} • {{ ev.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+          </span>
+          <a class="btn-icon" [href]="getBlobUrl(ev)" [download]="ev.name" [attr.aria-label]="'Télécharger ' + ev.name" title="Télécharger">
+            <svg lucideDownload [size]="16"></svg>
+          </a>
+          @if (!readonly()) {
+            <button type="button" class="btn-icon btn-danger" [attr.aria-label]="'Supprimer ' + ev.name" title="Supprimer (annulable 6 s)" (click)="controller.deleteEvidence(ev)">
+              <svg lucideTrash [size]="16"></svg>
+            </button>
+          }
+        </li>
+      }
+    </ul>
+  } @else if (mode() === 'notes' && readonly()) {
+    <p class="drawer-empty">Aucune preuve jointe.</p>
+  }
+
+  @if (mode() === 'prompt') {
+    <div class="prompt-actions">
+      <button type="button" class="btn btn-primary" [disabled]="!promptSatisfied()" (click)="validate()">Valider</button>
+      @if (!isBlocking()) {
+        <button type="button" class="btn btn-outline" (click)="controller.later()">Plus tard</button>
+      }
+      <button type="button" class="btn btn-ghost" (click)="controller.cancelPrompt()">Annuler</button>
+    </div>
+    @if (isBlocking()) {
+      <p class="prompt-blocking">Contrôle bloquant : la preuve est nécessaire pour le valider.</p>
+    }
+  } @else if (readonly()) {
+    <p class="drawer-readonly">Session terminée : la note et les preuves sont consultables, mais ne peuvent plus être modifiées.</p>
+  } @else {
+    <!-- Ajouts : collage, photo, fichiers, non applicable -->
+    <div class="tool-row toolbar">
+      <span class="paste-hint">Collez une capture (<kbd>Ctrl+V</kbd>) ou glissez des fichiers dans ce tiroir.</span>
+      <label class="tool-btn">
+        <svg lucideCamera [size]="14"></svg>
+        Photo
+        <input type="file" accept="image/*" capture="environment" class="sr-only" (change)="onFileInput($event)" />
+      </label>
+      <label class="tool-btn">
+        <svg lucideFile [size]="14"></svg>
+        Fichier
+        <input type="file" multiple class="sr-only" (change)="onFileInput($event)" />
+      </label>
+      <button
+        type="button"
+        class="tool-btn tool-na"
+        [class.active]="isNa()"
+        [attr.aria-pressed]="isNa()"
+        title="Non applicable (touche N)"
+        (click)="controller.toggleNa(item().id)">
+        <svg lucideCircleOff [size]="14"></svg>
+        {{ isNa() ? 'Retirer le N/A' : 'Non applicable' }}
+      </button>
+    </div>
+  }
+</section>

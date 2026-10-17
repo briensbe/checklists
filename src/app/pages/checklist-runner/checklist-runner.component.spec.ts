@@ -9,6 +9,7 @@ import { EvidenceService } from '../../services/evidence.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
 import { ChecklistSession } from '../../models/checklist.model';
+import { RunnerController } from './runner-controller';
 
 describe('ChecklistRunnerComponent', () => {
   let component: ChecklistRunnerComponent;
@@ -88,7 +89,7 @@ describe('ChecklistRunnerComponent', () => {
 
   it('devrait permettre d’annuler le passage groupé à OK et restaurer les réponses initiales', async () => {
     const restoreSpy = vi.spyOn(sessionService, 'restoreAnswers').mockResolvedValue();
-    vi.spyOn(sessionService, 'markRemainingAsOk').mockResolvedValue(1);
+    vi.spyOn(sessionService, 'markRemainingAsOk').mockResolvedValue({ modified: 1, skippedForEvidence: 0 });
 
     await component.onMarkAllOk();
 
@@ -133,5 +134,94 @@ describe('ChecklistRunnerComponent', () => {
     await component.onExportPdf();
 
     expect(dangerSpy).toHaveBeenCalledWith(expect.stringContaining('Erreur PDF'));
+  });
+
+  it('signale dans le toast les bloquants laissés sans réponse faute de preuve', async () => {
+    vi.spyOn(sessionService, 'markRemainingAsOk').mockResolvedValue({ modified: 2, skippedForEvidence: 1 });
+    await component.onMarkAllOk();
+    expect(toastService.toasts()[0].message).toBe('2 contrôle(s) passé(s) à OK. 1 bloquant(s) laissé(s) sans réponse faute de preuve.');
+  });
+
+  it('exécute les suppressions de preuves en attente avant une clôture acceptée, pas avant une clôture refusée', async () => {
+    const controller = fixture.debugElement.injector.get(RunnerController);
+    const flush = vi.spyOn(controller, 'flushEvidenceDeletions').mockResolvedValue();
+    const complete = vi.spyOn(sessionService, 'completeSession').mockResolvedValue([]);
+
+    await component.onComplete(); // KO sans justification et item sans réponse : clôture refusée
+    expect(flush).not.toHaveBeenCalled();
+
+    sessionService.currentSession.set({
+      ...mockSession,
+      answers: { 'item-1': { status: 'OK', comment: '' }, 'item-2': { status: 'NA', comment: '' } }
+    });
+    await component.onComplete();
+    expect(flush).toHaveBeenCalledTimes(1);
+    expect(complete).toHaveBeenCalledTimes(2);
+  });
+
+  describe('raccourcis clavier', () => {
+    let controller: RunnerController;
+    let handle: ReturnType<typeof vi.spyOn>;
+
+    const press = (key: string, target: EventTarget = document.body, init: KeyboardEventInit = {}) => {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
+      target.dispatchEvent(event);
+      return event;
+    };
+
+    beforeEach(() => {
+      controller = fixture.debugElement.injector.get(RunnerController);
+      handle = vi.spyOn(controller, 'handleShortcut').mockResolvedValue(true);
+    });
+
+    it('déclenche le geste principal par Espace, sans défilement de la page', () => {
+      const event = press(' ');
+      expect(handle).toHaveBeenCalledWith('primary');
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('ignore les raccourcis pendant une saisie', () => {
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      press('k', input);
+      press(' ', input);
+      input.remove();
+      expect(handle).not.toHaveBeenCalled();
+    });
+
+    it('ignore les raccourcis quand une fenêtre modale est ouverte', () => {
+      component.isJsonDraftModalOpen.set(true);
+      press('k');
+      expect(handle).not.toHaveBeenCalled();
+    });
+
+    it('laisse passer les raccourcis du navigateur', () => {
+      const event = press('a', document.body, { ctrlKey: true });
+      expect(handle).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('Session terminée : ni Espace ni K, mais la navigation et le tiroir restent', () => {
+      sessionService.currentSession.set({ ...mockSession, status: 'completed' });
+      press(' ');
+      press('k');
+      press('ArrowDown');
+      press('a');
+      expect(handle.mock.calls.map((call: unknown[]) => call[0])).toEqual(['next', 'drawer']);
+    });
+
+    it('ouvre l’aide avec la touche ?', async () => {
+      handle.mockRestore();
+      press('?');
+      await Promise.resolve();
+      expect(controller.helpOpen()).toBe(true);
+      expect(component.isModalOpen()).toBe(true);
+    });
+
+    it('laisse Échap tranquille quand aucun tiroir n’est ouvert', () => {
+      const event = press('Escape');
+      expect(handle).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
   });
 });

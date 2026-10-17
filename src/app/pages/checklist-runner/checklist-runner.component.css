@@ -179,7 +179,7 @@
 .btn-complete {
   background: var(--primary);
   border: 1px solid var(--primary);
-  color: #ffffff;
+  color: var(--text-on-accent);
 }
 
 .btn-complete:hover {

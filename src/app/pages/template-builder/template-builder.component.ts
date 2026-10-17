@@ -8,6 +8,9 @@ import {
   ChecklistSectionTemplate,
   ChecklistItemTemplate,
   ChoiceTone,
+  Criticality,
+  EVIDENCE_KINDS,
+  EvidenceKind,
   ItemControlType,
   ContextFieldSchema,
   ContextFieldType
@@ -15,17 +18,72 @@ import {
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import {
+  LucideArrowDown,
+  LucideArrowLeft,
+  LucideArrowUp,
+  LucideCamera,
+  LucideChevronRight,
+  LucideClock,
+  LucideCopy,
+  LucideEye,
+  LucideFile,
+  LucideGripVertical,
+  LucideLink,
+  LucideMessageSquare,
+  LucidePencil,
+  LucideSave,
+  LucideTrash,
+  LucideX
+} from '@lucide/angular';
+import { criticalityOf } from '../../domain/session-rules';
+import {
   duplicateItem,
   duplicateSection,
   findVisibleIfOrphans,
+  nextCriticality,
   removeSectionFromDependencies,
+  setItemCriticality,
+  setItemEvidence,
   validateTemplateIntegrity
 } from './template-builder.helpers';
+
+const CRITICALITY_LABELS: Record<Criticality, string> = {
+  blocking: 'bloquant',
+  important: 'important',
+  optional: 'optionnel'
+};
+
+const EVIDENCE_LABELS: Record<EvidenceKind, string> = {
+  comment: 'Commentaire',
+  photo: 'Photo',
+  link: 'Lien',
+  file: 'Fichier'
+};
 
 @Component({
   selector: 'app-template-builder',
   standalone: true,
-  imports: [RouterLink, FormsModule, DragDropModule],
+  imports: [
+    RouterLink,
+    FormsModule,
+    DragDropModule,
+    LucideArrowDown,
+    LucideArrowLeft,
+    LucideArrowUp,
+    LucideCamera,
+    LucideChevronRight,
+    LucideClock,
+    LucideCopy,
+    LucideEye,
+    LucideFile,
+    LucideGripVertical,
+    LucideLink,
+    LucideMessageSquare,
+    LucidePencil,
+    LucideSave,
+    LucideTrash,
+    LucideX
+  ],
   templateUrl: './template-builder.component.html',
   styleUrl: './template-builder.component.css'
 })
@@ -86,6 +144,11 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
     { value: 'select', label: 'Liste de choix' }
   ];
 
+  readonly evidenceKinds = EVIDENCE_KINDS.map(value => ({ value, label: EVIDENCE_LABELS[value] }));
+  protected readonly criticalityOf = criticalityOf;
+  protected readonly criticalityLabels = CRITICALITY_LABELS;
+  protected readonly evidenceLabels = EVIDENCE_LABELS;
+
   async ngOnInit(): Promise<void> {
     await this.templateService.initTemplates();
     const id = this.route.snapshot.paramMap.get('id');
@@ -129,6 +192,7 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
               id: `item-${Date.now()}`,
               label: 'Premier contrôle ou tâche',
               controlType: 'checkbox',
+              criticality: 'optional',
               withTimestamp: false
             }
           ]
@@ -299,14 +363,37 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
 
   // --- Gestion des items ---
   addItem(section: ChecklistSectionTemplate): void {
+    // Valeurs par défaut écrites explicitement : case à cocher, criticité « optionnel » (ADR 0007).
     const newItem: ChecklistItemTemplate = {
       id: `item-${crypto.randomUUID()}`,
       label: 'Nouvelle tâche',
       controlType: 'checkbox',
+      criticality: 'optional',
       withTimestamp: false
     };
     section.items.push(newItem);
     this.template.update(cur => ({ ...cur }));
+  }
+
+  // --- Criticité et preuve exigée (mises à jour immuables, ADR 0006) ---
+  cycleCriticality(item: ChecklistItemTemplate): void {
+    const next = nextCriticality(criticalityOf(item));
+    this.template.update(t => setItemCriticality(t, item.id, next));
+  }
+
+  criticalityAriaLabel(item: ChecklistItemTemplate): string {
+    const label = CRITICALITY_LABELS[criticalityOf(item)];
+    return `Criticité : ${label}. Cliquer pour passer à « ${CRITICALITY_LABELS[nextCriticality(criticalityOf(item))]} »`;
+  }
+
+  onEvidenceKindChange(item: ChecklistItemTemplate, value: string): void {
+    const kind = EVIDENCE_KINDS.find(k => k === value) ?? null;
+    this.template.update(t => setItemEvidence(t, item.id, kind, item.evidenceHint));
+  }
+
+  onEvidenceHintChange(item: ChecklistItemTemplate, hint: string): void {
+    if (!item.evidenceRequired) return;
+    this.template.update(t => setItemEvidence(t, item.id, item.evidenceRequired ?? null, hint));
   }
 
   duplicateItem(section: ChecklistSectionTemplate, itemIndex: number): void {

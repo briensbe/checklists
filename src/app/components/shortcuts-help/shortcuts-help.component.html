@@ -1,0 +1,24 @@
+<div class="help-backdrop" (click)="onBackdropClick($event)">
+  <div #dialog class="help-card" role="dialog" aria-modal="true" aria-labelledby="shortcuts-help-title">
+    <div class="help-header">
+      <span class="help-icon" aria-hidden="true"><svg lucideKeyboard [size]="20"></svg></span>
+      <h2 id="shortcuts-help-title" class="help-title">Raccourcis clavier</h2>
+      <button type="button" class="btn-close" aria-label="Fermer l'aide" (click)="close.emit()">
+        <svg lucideX [size]="18"></svg>
+      </button>
+    </div>
+    <dl class="help-list">
+      @for (entry of shortcuts; track entry.description) {
+        <div class="help-row">
+          <dt>
+            @for (key of entry.keys; track key) {
+              <kbd>{{ key }}</kbd>
+            }
+          </dt>
+          <dd>{{ entry.description }}</dd>
+        </div>
+      }
+    </dl>
+    <p class="help-note">Les raccourcis agissent sur le contrôle actif. Ils sont ignorés pendant une saisie ; sur une checklist terminée, seuls la navigation, le tiroir et l'aide restent disponibles.</p>
+  </div>
+</div>

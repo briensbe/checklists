@@ -3,9 +3,7 @@
     <!-- Navigation rapide en sous-titre -->
     <div class="runner-top-nav">
       <a routerLink="/checklists" class="back-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-        </svg>
+        <svg lucideArrowLeft [size]="16"></svg>
         <span>Retour aux checklists</span>
       </a>
       <div class="session-info">
@@ -22,10 +20,7 @@
               (keydown.enter)="$any($event.target).blur()"
               aria-label="Titre de la checklist"
               title="Modifier le titre de la checklist" />
-            <svg viewBox="0 0 20 20" fill="currentColor" class="session-title-edit-icon" aria-hidden="true">
-              <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
-              <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
-            </svg>
+            <svg lucidePencil class="session-title-edit-icon" [size]="16"></svg>
           </label>
         }
         @if (session.status === 'completed') {
@@ -37,34 +32,25 @@
         }
         @if (sessionService.isSaving()) {
           <span class="save-indicator">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h8l4 4v12a2 2 0 01-2 2z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-8H7v8M7 3v5h8" />
-            </svg>
+            <svg lucideSave [size]="16"></svg>
             Sauvegarde...
           </span>
         }
       </div>
       <div class="session-actions-top">
         <button class="btn btn-sm btn-outline" (click)="openJsonModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-          </svg>
+          <svg lucideFileDown [size]="16"></svg>
           Exporter le rapport
         </button>
         @if (session.status === 'completed') {
           <button class="btn btn-sm btn-outline" (click)="onReopen()">Rouvrir</button>
         } @else if (!session.structureUnavailable) {
           <button class="btn btn-sm btn-outline-danger" (click)="onResetSession()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-            </svg>
+            <svg lucideRotateCcw [size]="16"></svg>
             Réinitialiser
           </button>
           <button class="btn btn-sm btn-complete" (click)="onComplete()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
+            <svg lucideCheck [size]="16"></svg>
             Terminer
           </button>
         }
@@ -128,40 +114,36 @@
         (collapseAll)="sessionService.collapseAll($event)">
       </app-audit-summary>
 
+      <!-- Résumé de progression fixé sous l'en-tête pendant le défilement -->
+      <app-runner-progress-bar
+        [metrics]="sessionService.metrics()"
+        [sections]="controller.sectionProgress()"
+        [unresolvedBlocking]="controller.declaresBlocking() ? controller.unresolvedBlocking() : null"
+        [nextDisabled]="!controller.nextToProcess()"
+        (next)="controller.goToNext()"
+        (help)="controller.helpOpen.set(true)"
+        (sectionClick)="controller.focusSection($event)">
+      </app-runner-progress-bar>
+
       <!-- Sections dynamiques (issues de la copie figée du modèle) -->
       <div class="sections-container">
         @for (section of sessionService.currentTemplate()?.sections; track section.id) {
           <app-checklist-section
             [section]="section"
-            [items]="getItemsForSection(section.id)"
+            [items]="controller.visibleBySection()[section.id] ?? []"
+            [progress]="controller.progressBySection()[section.id]"
             [answers]="session.answers"
-            [evidenceCounts]="evidenceService.evidenceCounts()"
             [isCollapsed]="!!sessionService.collapsedSections()[section.id]"
-            [filter]="sessionService.activeFilter()"
             [readonly]="sessionService.isReadonly()"
-            (toggleCollapse)="sessionService.toggleSection(section.id)"
-            (statusChange)="sessionService.updateAnswerStatus($event.itemId, $event.status)"
-            (checkboxChange)="sessionService.updateAnswerCheckbox($event.itemId, $event.checked, $event.withTimestamp)"
-            (choiceChange)="sessionService.updateAnswerChoice($event.itemId, $event.choiceId)"
-            (commentChange)="sessionService.updateAnswerComment($event.itemId, $event.comment)"
-            (extraChange)="sessionService.updateAnswerExtra($event.itemId, $event.key, $event.value)"
-            (openEvidence)="onOpenEvidence($event)">
+            (toggleCollapse)="sessionService.toggleSection(section.id)">
           </app-checklist-section>
         }
       </div>
     }
 
-    <!-- Modale Preuves -->
-    @if (activeEvidenceItemId(); as itemId) {
-      <app-evidence-attachment
-        [itemId]="itemId"
-        [itemLabel]="getActiveItemLabel(itemId)"
-        [evidences]="activeItemEvidences()"
-        [readonly]="sessionService.isReadonly()"
-        (close)="activeEvidenceItemId.set(null)"
-        (fileAdded)="onEvidenceFileAdded(itemId, $event)"
-        (deleteEvidence)="onEvidenceDeleted($event)">
-      </app-evidence-attachment>
+    <!-- Aide des raccourcis clavier -->
+    @if (controller.helpOpen()) {
+      <app-shortcuts-help (close)="controller.helpOpen.set(false)"></app-shortcuts-help>
     }
 
     <!-- Récapitulatif de mise à jour du modèle -->

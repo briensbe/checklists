@@ -1,39 +1,69 @@
-<div 
+<div
   class="item-row"
-  [id]="'item-' + item().id"
-  tabindex="-1"
-  [class.status-ko]="answer()?.status === 'KO'"
-  [class.status-ok]="answer()?.status === 'OK' || answer()?.checked"
-  [class.status-na]="answer()?.status === 'NA'">
-  <div class="item-layout">
-    <!-- Libellé, Aide et Champ complémentaire -->
+  [class.is-active]="isActive()"
+  [class.is-drawer-open]="drawerOpen()"
+  [class.is-readonly]="readonly()"
+  [class.is-na]="isNa()"
+  [class.status-ok]="state() === 'ok'"
+  [class.status-ko]="state() === 'ko'"
+  [class.status-na]="state() === 'na'"
+  (click)="onRowClick($event)">
+  <!-- Zone principale : élément focalisable qui annonce le rôle et l'état du contrôle -->
+  <div
+    class="item-main"
+    [id]="'item-' + item().id"
+    [attr.tabindex]="isActive() ? 0 : -1"
+    [attr.role]="rowRole()"
+    [attr.aria-checked]="ariaChecked()"
+    [attr.aria-disabled]="readonly() || isNa() ? 'true' : null"
+    [attr.aria-label]="type() === 'choice' ? item().label : null"
+    (focus)="controller.setActive(item().id)">
+    <span class="state-icon" [class]="'state-icon state-' + state()" aria-hidden="true">
+      @switch (state()) {
+        @case ('ok') { <svg lucideCircleCheck [size]="20"></svg> }
+        @case ('ko') { <svg lucideCircleX [size]="20"></svg> }
+        @case ('na') { <svg lucideCircleOff [size]="20"></svg> }
+        @default { <svg lucideCircle [size]="20"></svg> }
+      }
+    </span>
+
     <div class="item-info">
       <div class="item-title-row">
-        @if (item().controlType === 'checkbox') {
-          <label class="item-checkbox-label">
-            <input 
-              type="checkbox" 
-              class="item-checkbox-input"
-              [checked]="!!answer()?.checked" 
-              [disabled]="readonly()"
-              (change)="onCheckboxToggle($event)" />
-            <span class="item-label" [class.item-checked]="answer()?.checked">{{ item().label }}</span>
-          </label>
-        } @else {
-          <span class="item-label">{{ item().label }}</span>
+        <span class="item-label" [class.item-done]="state() === 'ok' && type() === 'checkbox'">{{ item().label }}</span>
+        @if (type() === 'status') {
+          <span class="sr-only">, état : {{ stateLabel() }}</span>
+        }
+
+        @if (criticality() === 'blocking') {
+          <span class="criticality-badge is-blocking">bloquant</span>
+        } @else if (criticality() === 'important') {
+          <span class="criticality-badge is-important">important</span>
+        }
+
+        @if (isNa()) {
+          <span class="badge badge-na">Non applicable</span>
         }
 
         @if (item().visibleIf; as cond) {
-          <span class="badge-patch" [title]="'Affiché si ' + cond.fieldId + ' = ' + cond.equals.join(' ou ')">Conditionnel</span>
+          <span class="badge badge-conditional" [title]="'Affiché si ' + cond.fieldId + ' = ' + cond.equals.join(' ou ')">Conditionnel</span>
         }
 
-        @if (item().controlType === 'checkbox' && item().withTimestamp && answer()?.checked && answer()?.checkedAt) {
+        @if (type() === 'checkbox' && item().withTimestamp && answer()?.checked && answer()?.checkedAt) {
           <span class="timestamp-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <span>Coché le {{ answer()?.checkedAt | date:'dd/MM/yyyy à HH:mm:ss' }}</span>
+            <svg lucideClock [size]="14"></svg>
+            <span>Coché le {{ answer()?.checkedAt | date: 'dd/MM/yyyy à HH:mm:ss' }}</span>
+          </span>
+        }
+
+        @if (evidenceState() === 'required' && item().evidenceRequired; as kind) {
+          <span class="evidence-required" [title]="'Preuve exigée : ' + evidenceKindLabels[kind]">
+            @switch (kind) {
+              @case ('photo') { <svg lucideCamera [size]="14"></svg> }
+              @case ('comment') { <svg lucideMessageSquare [size]="14"></svg> }
+              @case ('link') { <svg lucideLink [size]="14"></svg> }
+              @default { <svg lucideFile [size]="14"></svg> }
+            }
+            <span class="sr-only">Preuve exigée : {{ evidenceKindLabels[kind] }}</span>
           </span>
         }
       </div>
@@ -41,130 +71,130 @@
       @if (item().help) {
         <p class="item-help">{{ item().help }}</p>
       }
-
-      @if (item().extraField; as extra) {
-        <div class="extra-input-wrapper">
-          <input 
-            type="text"
-            [value]="(answer()?.extra && answer()?.extra![extra.id]) || ''"
-            [placeholder]="extra.placeholder || ''"
-            [disabled]="readonly()"
-            (input)="onExtraChange(extra.id, $event)"
-            class="extra-input">
-        </div>
-      }
-    </div>
-
-    <!-- Contrôles segmented buttons / choix / Trombone (Preuves) -->
-    <div class="item-controls">
-      @if (item().controlType === 'choice') {
-        <!-- Boutons de choix dynamiques -->
-        <div class="choice-buttons-group">
-          @for (c of item().customChoices; track c.id) {
-            <button
-              type="button"
-              [class]="'btn-choice tone-' + c.tone"
-              [class.active]="answer()?.selectedChoice === c.id"
-              [class.blocking]="c.isBlocking"
-              [disabled]="readonly()"
-              (click)="choiceChange.emit(c.id)">
-              <span class="choice-dot"></span>
-              {{ c.label }}
-            </button>
-          }
-        </div>
-      } @else if (item().controlType !== 'checkbox') {
-        <!-- Mode Statut classique OK / KO / NA -->
-        <button 
-          type="button"
-          [disabled]="readonly()"
-          (click)="statusChange.emit('OK')"
-          [class.active-ok]="answer()?.status === 'OK'"
-          class="btn-status">
-          <span class="status-dot dot-ok"></span>
-          OK
-        </button>
-
-        <button 
-          type="button"
-          [disabled]="readonly()"
-          (click)="statusChange.emit('KO')"
-          [class.active-ko]="answer()?.status === 'KO'"
-          class="btn-status">
-          <span class="status-dot dot-ko"></span>
-          KO
-        </button>
-
-        <button 
-          type="button"
-          [disabled]="readonly()"
-          (click)="statusChange.emit('NA')"
-          [class.active-na]="answer()?.status === 'NA'"
-          class="btn-status">
-          <span class="status-dot dot-na"></span>
-          N/A
-        </button>
-      }
-
-      <!-- Bouton Preuves -->
-      <button 
-        type="button"
-        (click)="openEvidence.emit(item().id)"
-        [attr.aria-label]="'Preuves pour ' + item().label + (evidenceCount() > 0 ? ' (' + evidenceCount() + ')' : '')"
-        title="Ajouter ou consulter des preuves"
-        [class.has-content]="evidenceCount() > 0"
-        class="btn-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-        </svg>
-        @if (evidenceCount() > 0) {
-          <span class="evidence-count-badge">
-            {{ evidenceCount() }}
-          </span>
-        }
-      </button>
-
-      <!-- Bouton Commentaire -->
-      <button 
-        type="button"
-        (click)="toggleCommentBox()"
-        [attr.aria-label]="'Observation pour ' + item().label"
-        title="Ajouter une observation ou un commentaire"
-        [class.has-content]="!!answer()?.comment"
-        class="btn-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
-        </svg>
-      </button>
     </div>
   </div>
 
-  <!-- Zone de commentaire / Justification -->
-  @if (isCommentBoxVisible()) {
-    <div class="comment-box">
-      <div class="comment-row">
-        <span 
-          class="comment-label"
-          [class.label-ko]="answer()?.status === 'KO'"
-          [class.label-na]="answer()?.status === 'NA'"
-          [class.label-default]="answer()?.status !== 'KO' && answer()?.status !== 'NA'">
-          @if (answer()?.status === 'KO') {
-            Justification requise (KO) :
-          } @else if (answer()?.status === 'NA') {
-            Motif N/A (optionnel) :
-          } @else {
-            Observation :
-          }
-        </span>
-        <input 
-          type="text"
-          [value]="answer()?.comment || ''"
-          [placeholder]="answer()?.status === 'KO' ? 'Expliquer la cause du blocage ou la dérogation accordée...' : 'Préciser une note ou une observation...'"
-          [disabled]="readonly()"
-          (input)="onCommentChange($event)"
-          [class.error-required]="answer()?.status === 'KO' && !answer()?.comment"
-          class="comment-input">
-      </div>
+  @if (evidenceState() === 'pending') {
+    <div class="evidence-status evidence-pending">
+      <svg lucideCircleAlert [size]="14"></svg>
+      <span>Fait · preuve à compléter</span>
+      @if (!readonly()) {
+        <button
+          type="button"
+          class="btn-link"
+          [attr.tabindex]="innerTabindex()"
+          (click)="controller.completeEvidence(item().id)">
+          Compléter
+        </button>
+      }
+    </div>
+  } @else if (evidenceState() === 'missing') {
+    <div class="evidence-status evidence-missing">
+      <svg lucideTriangleAlert [size]="14"></svg>
+      <span>Preuve manquante</span>
+      @if (!readonly()) {
+        <button
+          type="button"
+          class="btn-link"
+          [attr.tabindex]="innerTabindex()"
+          (click)="controller.completeEvidence(item().id)">
+          Compléter
+        </button>
+      }
     </div>
   }
+
+  @if (item().extraField; as extra) {
+    <div class="extra-input-wrapper">
+      <input
+        type="text"
+        class="extra-input"
+        [value]="answer()?.extra?.[extra.id] || ''"
+        [placeholder]="extra.placeholder || extra.label"
+        [attr.aria-label]="extra.label"
+        [attr.tabindex]="innerTabindex()"
+        [disabled]="readonly()"
+        (input)="onExtraInput(extra.id, $event)" />
+    </div>
+  }
+
+  <!-- Commandes secondaires : compteurs, choix, KO discret, trombone -->
+  <div class="item-actions">
+    @if (!drawerOpen()) {
+      @if (hasNote()) {
+        <span class="counter" title="Note renseignée">
+          <svg lucideMessageSquare [size]="14"></svg>
+          <span class="sr-only">Note renseignée</span>
+        </span>
+      }
+      @if (proofCount() > 0) {
+        <span class="counter" [title]="proofCount() + ' preuve(s)'">
+          <svg lucidePaperclip [size]="14"></svg>
+          <span>{{ proofCount() }}</span>
+          <span class="sr-only">preuve(s)</span>
+        </span>
+      }
+    }
+
+    @if (type() === 'choice') {
+      <div class="choice-buttons-group">
+        @for (c of item().customChoices; track c.id) {
+          <button
+            type="button"
+            [class]="'btn-choice tone-' + c.tone"
+            [class.active]="answer()?.selectedChoice === c.id"
+            [class.is-anomaly]="c.isBlocking"
+            [attr.aria-pressed]="answer()?.selectedChoice === c.id"
+            [attr.tabindex]="innerTabindex()"
+            [title]="c.isBlocking ? c.label + ' (anomalie)' : c.label"
+            [disabled]="readonly() || isNa()"
+            (click)="controller.choose(item().id, c.id)">
+            <span class="choice-dot"></span>
+            {{ c.label }}
+            @if (c.isBlocking) {
+              <span class="choice-anomaly">anomalie</span>
+            }
+          </button>
+        }
+      </div>
+    }
+
+    @if (type() === 'status' && !readonly()) {
+      <button
+        type="button"
+        class="btn-ko"
+        [class.active]="isKoStatus()"
+        [attr.aria-pressed]="isKoStatus()"
+        [attr.aria-label]="'Mettre en KO : ' + item().label"
+        [attr.tabindex]="innerTabindex()"
+        title="Mettre en KO (touche K)"
+        [disabled]="isNa()"
+        (click)="controller.ko(item().id)">
+        <svg lucideCircleX [size]="14"></svg>
+        <span>KO</span>
+      </button>
+    }
+
+    <button
+      type="button"
+      class="btn-drawer"
+      [class.is-visible]="drawerOpen() || hasNote() || proofCount() > 0"
+      [class.is-hint]="hint()"
+      [attr.aria-expanded]="drawerOpen()"
+      [attr.aria-controls]="'drawer-' + item().id"
+      [attr.aria-label]="'Note et preuves : ' + item().label"
+      [attr.tabindex]="innerTabindex()"
+      title="Note, preuves et non applicable (touche A)"
+      (click)="controller.toggleDrawer(item().id)">
+      @if (drawerOpen()) {
+        <svg lucideChevronUp [size]="16"></svg>
+      } @else {
+        <svg lucidePaperclip [size]="16"></svg>
+      }
+    </button>
+  </div>
 </div>
+
+@if (drawerOpen()) {
+  <app-item-drawer [item]="item()" [answer]="answer()" [readonly]="readonly()"></app-item-drawer>
+}

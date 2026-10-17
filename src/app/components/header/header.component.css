@@ -1,20 +1,33 @@
 /* HEADER COMPONENT */
 
+/*
+ * L'hôte porte le `sticky` : sur l'élément interne, il ne collerait que dans un hôte de même hauteur.
+ * Sur écran étroit, l'en-tête défile avec la page (voir --sticky-header-offset).
+ */
+:host {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  :host {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+}
+
 .app-header {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background-color: var(--header-bg, #ffffff);
+  background-color: var(--header-bg);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xs);
 }
 
 .header-container {
   max-width: 80rem;
   margin: 0 auto;
   padding: 0 1.5rem;
-  height: 4rem;
+  height: var(--app-header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -32,29 +45,24 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 8px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-700));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-}
-
-.brand-icon-box svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  color: var(--text-on-accent);
 }
 
 .brand-title {
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--text-main, #0f172a);
+  color: var(--text-main);
   margin: 0;
   line-height: 1.2;
 }
 
 .brand-subtitle {
   font-size: 0.75rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   margin: 0;
 }
 
@@ -71,7 +79,7 @@
   padding: 0.5rem 0.85rem;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   text-decoration: none;
   border-radius: 6px;
   transition: all 0.15s ease;
@@ -101,14 +109,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--bg-hover, #f1f5f9);
-  border: 1px solid var(--border-color, #e2e8f0);
-  color: var(--text-main, #334155);
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
   cursor: pointer;
   padding: 0;
-}
-
-.btn-theme-toggle svg {
-  width: 1rem;
-  height: 1rem;
 }

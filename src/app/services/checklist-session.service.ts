@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import {
+  ChecklistItemTemplate,
   ChecklistSession,
   ControlStatus,
   ChecklistTemplate,
@@ -16,14 +17,19 @@ import {
   applicableItems,
   CompletionIssue,
   computeMetrics,
+  criticalityOf,
   defaultContextValues,
   diffTemplates,
   hasTemplateUpdate,
+  isAnswered,
+  isKo,
   rebaseSessionOnTemplate,
   TemplateDiff,
-  validateForCompletion
+  validateForCompletion,
+  withoutEvidenceRemovedEvent
 } from '../domain/session-rules';
 import { computeStepFlow, StepFlow } from '../domain/flow-rules';
+import { EvidenceSummary, isEvidenceSatisfied, isSafeHttpUrl, NO_EVIDENCE } from '../domain/quick-check';
 
 export type FilterType = 'all' | 'pending' | 'ko';
 export type SessionLoadState = 'loading' | 'ready' | 'not-found';
@@ -37,6 +43,29 @@ export interface TemplateUpdatePreview {
 }
 
 const EMPTY_ANSWER: ItemAnswer = { status: null, comment: '', extra: {} };
+
+/** Options de la réponse conforme donnée par la saisie rapide (validation ou report de la preuve). */
+export interface ResolveItemOptions {
+  /** Choix retenu, pour un contrôle de type choix. */
+  choiceId?: string;
+  /** Vrai : réponse donnée avec « Plus tard » ; faux ou absent : la preuve est fournie, l'indicateur est retiré. */
+  pending?: boolean;
+  /** Lien de preuve validé en même temps que la réponse. */
+  link?: string;
+}
+
+export interface MarkRemainingResult {
+  modified: number;
+  /** Bloquants laissés sans réponse parce que leur preuve exigée manque. */
+  skippedForEvidence: number;
+}
+
+/** Retire l'indicateur « preuve à compléter » en l'historisant ; ne change rien s'il n'est pas posé. */
+function withoutPending(answer: ItemAnswer, at: string): ItemAnswer {
+  if (!answer.evidencePending) return answer;
+  const { evidencePending: _pending, ...rest } = answer;
+  return appendItemEvent(rest, { at, kind: 'evidence-pending', pending: false });
+}
 
 @Injectable({
   providedIn: 'root'
@@ -155,28 +184,116 @@ export class ChecklistSessionService {
   }
 
   // Chaque changement d'état est historisé ; les saisies de texte (commentaire, champ additionnel) ne le sont pas.
+  // L'indicateur « preuve à compléter » ne survit qu'à une réponse conforme : il est retiré avec elle.
 
   updateAnswerStatus(itemId: string, status: ControlStatus): Promise<void> {
     return this.mutateAnswer(itemId, ans => {
+      const at = new Date().toISOString();
       const next = ans.status === status ? null : status;
-      return appendItemEvent({ ...ans, status: next }, { at: new Date().toISOString(), kind: 'status', status: next });
+      const answer = appendItemEvent({ ...ans, status: next }, { at, kind: 'status', status: next });
+      return next === 'OK' ? answer : withoutPending(answer, at);
     });
   }
 
   updateAnswerCheckbox(itemId: string, checked: boolean, withTimestamp: boolean): Promise<void> {
     const now = new Date().toISOString();
     const checkedAt = checked && withTimestamp ? now : undefined;
-    return this.mutateAnswer(itemId, ans => appendItemEvent({ ...ans, checked, checkedAt }, { at: now, kind: 'checked', checked }));
+    return this.mutateAnswer(itemId, ans => {
+      const answer = appendItemEvent({ ...ans, checked, checkedAt }, { at: now, kind: 'checked', checked });
+      return checked ? answer : withoutPending(answer, now);
+    });
   }
 
   updateAnswerChoice(itemId: string, choiceId: string): Promise<void> {
+    const item = this.findItem(itemId);
     return this.mutateAnswer(itemId, ans => {
+      const at = new Date().toISOString();
       const next = ans.selectedChoice === choiceId ? undefined : choiceId;
-      return appendItemEvent(
-        { ...ans, selectedChoice: next },
-        { at: new Date().toISOString(), kind: 'choice', choiceId: next ?? null }
-      );
+      const answer = appendItemEvent({ ...ans, selectedChoice: next }, { at, kind: 'choice', choiceId: next ?? null });
+      const conforming = !!next && !!item && !isKo(item, answer);
+      return conforming ? answer : withoutPending(answer, at);
     });
+  }
+
+  /**
+   * Pose ou retire le N/A, quel que soit le type du contrôle (ADR 0009). Le poser retire la coche,
+   * le choix et la preuve en attente ; le lien de preuve éventuel est conservé.
+   */
+  toggleNa(itemId: string): Promise<void> {
+    return this.mutateAnswer(itemId, ans => {
+      const at = new Date().toISOString();
+      if (ans.status === 'NA') {
+        return appendItemEvent({ ...ans, status: null }, { at, kind: 'status', status: null });
+      }
+      const { checked: _checked, checkedAt: _checkedAt, selectedChoice: _choice, ...rest } = ans;
+      return withoutPending(appendItemEvent({ ...rest, status: 'NA' }, { at, kind: 'status', status: 'NA' }), at);
+    });
+  }
+
+  /**
+   * Donne la réponse conforme d'un contrôle (case cochée, `OK`, ou choix `choiceId`), avec, en une
+   * seule écriture, le lien de preuve et la pose (« Plus tard ») ou le retrait de la preuve en attente.
+   */
+  resolveItem(itemId: string, options: ResolveItemOptions = {}): Promise<void> {
+    const item = this.findItem(itemId);
+    // Un bloquant ne reçoit jamais de réponse sans sa preuve : « Plus tard » lui est refusé (ADR 0009).
+    if (!item || (options.pending && criticalityOf(item) === 'blocking')) return Promise.resolve();
+    return this.mutateAnswer(itemId, ans => {
+      const at = new Date().toISOString();
+      let next = ans;
+      const link = options.link?.trim();
+      if (link && isSafeHttpUrl(link) && link !== next.evidenceLink) {
+        next = appendItemEvent({ ...next, evidenceLink: link }, { at, kind: 'evidence-link', url: link });
+      }
+
+      switch (item.controlType ?? 'status') {
+        case 'checkbox':
+          if (!next.checked) {
+            const checkedAt = item.withTimestamp ? at : undefined;
+            next = appendItemEvent({ ...next, checked: true, checkedAt }, { at, kind: 'checked', checked: true });
+          }
+          break;
+        case 'choice':
+          if (options.choiceId && next.selectedChoice !== options.choiceId) {
+            next = appendItemEvent({ ...next, selectedChoice: options.choiceId }, { at, kind: 'choice', choiceId: options.choiceId });
+          }
+          break;
+        default:
+          if (next.status !== 'OK') {
+            next = appendItemEvent({ ...next, status: 'OK' }, { at, kind: 'status', status: 'OK' });
+          }
+      }
+
+      if (!options.pending) return withoutPending(next, at);
+      if (next.evidencePending) return next;
+      return appendItemEvent({ ...next, evidencePending: true }, { at, kind: 'evidence-pending', pending: true });
+    });
+  }
+
+  /** Renseigne (adresse http ou https uniquement) ou retire le lien de preuve d'un contrôle. */
+  setEvidenceLink(itemId: string, url: string | null): Promise<void> {
+    const value = url?.trim() || undefined;
+    if (value && !isSafeHttpUrl(value)) return Promise.resolve();
+    return this.mutateAnswer(itemId, ans => {
+      if (value === ans.evidenceLink) return ans;
+      const { evidenceLink: _link, ...rest } = ans;
+      const next: ItemAnswer = value ? { ...rest, evidenceLink: value } : rest;
+      return appendItemEvent(next, { at: new Date().toISOString(), kind: 'evidence-link', url: value ?? null });
+    });
+  }
+
+  /** Retire l'indicateur « preuve à compléter » (preuve fournie depuis le tiroir). */
+  clearEvidencePending(itemId: string): Promise<void> {
+    return this.mutateAnswer(itemId, ans => withoutPending(ans, new Date().toISOString()));
+  }
+
+  /**
+   * Annulation de la suppression d'une preuve : retire l'événement de suppression ajouté au moment
+   * de l'action (ADR 0007, point 5). Ignoré si `sessionId` n'est plus la session affichée.
+   */
+  removeEvidenceRemovedEvent(sessionId: string, itemId: string, evidenceId: string): Promise<void> {
+    if (this.currentSession()?.id !== sessionId) return Promise.resolve();
+    return this.mutateAnswer(itemId, ans => withoutEvidenceRemovedEvent(ans, evidenceId));
   }
 
   /**
@@ -225,48 +342,60 @@ export class ChecklistSessionService {
     });
   }
 
-  async markRemainingAsOk(): Promise<number> {
+  /**
+   * Donne une réponse conforme à chaque contrôle applicable encore sans réponse (N/A de tout type
+   * compris comme une réponse). Un bloquant dont la preuve exigée manque est laissé sans réponse ;
+   * un non bloquant dans ce cas reçoit sa réponse avec « preuve à compléter » (ADR 0009).
+   * `evidence` : résumé des preuves de la session, par identifiant d'item.
+   */
+  async markRemainingAsOk(evidence: Record<string, EvidenceSummary> = {}): Promise<MarkRemainingResult> {
     let modified = 0;
+    let skippedForEvidence = 0;
     await this.mutate(session => {
+      modified = 0;
+      skippedForEvidence = 0;
       const answers = { ...session.answers };
       const now = new Date().toISOString();
 
       for (const item of applicableItems(session.templateSnapshot, session.contextValues)) {
         const current = answers[item.id];
-        // L'historique existant est conservé : on lui ajoute un événement par contrôle modifié.
-        const keep = {
-          comment: current?.comment ?? '',
-          extra: current?.extra ?? {},
-          ...(current?.history ? { history: current.history } : {})
-        };
-        const type = item.controlType ?? 'status';
+        if (isAnswered(item, current)) continue;
 
-        if (type === 'checkbox') {
-          if (!current?.checked) {
-            answers[item.id] = appendItemEvent(
-              { ...keep, status: null, checked: true, checkedAt: item.withTimestamp ? now : undefined },
+        const satisfied = isEvidenceSatisfied(item, current, evidence[item.id] ?? NO_EVIDENCE);
+        if (!satisfied && criticalityOf(item) === 'blocking') {
+          skippedForEvidence++;
+          continue;
+        }
+
+        // La réponse existante (commentaire, champ additionnel, lien, historique) est conservée.
+        const base: ItemAnswer = current ? { ...current, status: null } : { status: null, comment: '', extra: {} };
+        let next: ItemAnswer;
+        switch (item.controlType ?? 'status') {
+          case 'checkbox':
+            next = appendItemEvent(
+              { ...base, checked: true, checkedAt: item.withTimestamp ? now : undefined },
               { at: now, kind: 'checked', checked: true }
             );
-            modified++;
-          }
-        } else if (type === 'choice') {
-          if (!current?.selectedChoice && item.customChoices && item.customChoices.length > 0) {
-            // Premier choix non bloquant
+            break;
+          case 'choice': {
+            if (!item.customChoices?.length) continue;
+            // Premier choix sans anomalie
             const validChoice = item.customChoices.find(c => !c.isBlocking) ?? item.customChoices[0];
-            answers[item.id] = appendItemEvent(
-              { ...keep, status: null, selectedChoice: validChoice.id },
-              { at: now, kind: 'choice', choiceId: validChoice.id }
-            );
-            modified++;
+            next = appendItemEvent({ ...base, selectedChoice: validChoice.id }, { at: now, kind: 'choice', choiceId: validChoice.id });
+            break;
           }
-        } else if (!current?.status) {
-          answers[item.id] = appendItemEvent({ ...keep, status: 'OK' }, { at: now, kind: 'status', status: 'OK' });
-          modified++;
+          default:
+            next = appendItemEvent({ ...base, status: 'OK' }, { at: now, kind: 'status', status: 'OK' });
         }
+        if (!satisfied) {
+          next = appendItemEvent({ ...next, evidencePending: true }, { at: now, kind: 'evidence-pending', pending: true });
+        }
+        answers[item.id] = next;
+        modified++;
       }
       return modified > 0 ? { ...session, answers } : null;
     });
-    return modified;
+    return { modified, skippedForEvidence };
   }
 
   /**
@@ -441,15 +570,26 @@ export class ChecklistSessionService {
     }
   }
 
+  /** Modifie la réponse d'un item ; si `change` renvoie la réponse telle quelle, rien n'est écrit. */
   private mutateAnswer(
     itemId: string,
     change: (answer: ItemAnswer) => ItemAnswer,
     options: { debounce?: boolean } = {}
   ): Promise<void> {
-    return this.mutate(
-      s => ({ ...s, answers: { ...s.answers, [itemId]: change(s.answers[itemId] ?? EMPTY_ANSWER) } }),
-      options
-    );
+    return this.mutate(s => {
+      const current = s.answers[itemId] ?? EMPTY_ANSWER;
+      const next = change(current);
+      return next === current ? null : { ...s, answers: { ...s.answers, [itemId]: next } };
+    }, options);
+  }
+
+  /** Item de la copie figée de la session courante, qu'il soit applicable ou non. */
+  private findItem(itemId: string): ChecklistItemTemplate | undefined {
+    for (const section of this.currentSession()?.templateSnapshot.sections ?? []) {
+      const item = section.items.find(i => i.id === itemId);
+      if (item) return item;
+    }
+    return undefined;
   }
 
   /**

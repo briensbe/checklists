@@ -3,8 +3,11 @@ import {
   duplicateItem,
   duplicateSection,
   findVisibleIfOrphans,
+  nextCriticality,
   removeSectionFromDependencies,
   reorderArray,
+  setItemCriticality,
+  setItemEvidence,
   transferItemBetweenLists,
   validateTemplateIntegrity
 } from './template-builder.helpers';
@@ -250,5 +253,48 @@ describe('template-builder.helpers', () => {
       expect(res.source).toEqual(['A', 'C']);
       expect(res.target).toEqual(['X', 'B', 'Y']);
     });
+  });
+});
+
+describe('criticité et preuve exigée (quick-check-and-drawer)', () => {
+  const template = (): ChecklistTemplate => ({
+    id: 'tpl',
+    name: 'Modèle',
+    description: '',
+    version: '1',
+    updatedAt: '',
+    contextSchema: [],
+    sections: [
+      { id: 's1', title: 'S1', items: [{ id: 'a', label: 'A', controlType: 'checkbox', criticality: 'optional' }] },
+      { id: 's2', title: 'S2', items: [{ id: 'b', label: 'B' }] }
+    ]
+  });
+
+  it('fait tourner la criticité : bloquant → important → optionnel → bloquant', () => {
+    expect(nextCriticality('optional')).toBe('blocking');
+    expect(nextCriticality('blocking')).toBe('important');
+    expect(nextCriticality('important')).toBe('optional');
+  });
+
+  it('change la criticité d’un item sans muter le modèle ni recréer les autres sections', () => {
+    const before = template();
+    const after = setItemCriticality(before, 'a', 'blocking');
+    expect(after.sections[0].items[0].criticality).toBe('blocking');
+    expect(before.sections[0].items[0].criticality).toBe('optional');
+    expect(after.sections[1]).toBe(before.sections[1]);
+  });
+
+  it('enregistre la preuve exigée et sa consigne, puis les retire avec « aucune »', () => {
+    const withEvidence = setItemEvidence(template(), 'a', 'photo', 'Capture du rapport de tests');
+    expect(withEvidence.sections[0].items[0]).toMatchObject({ evidenceRequired: 'photo', evidenceHint: 'Capture du rapport de tests' });
+
+    const without = setItemEvidence(withEvidence, 'a', null, 'Capture du rapport de tests');
+    expect('evidenceRequired' in without.sections[0].items[0]).toBe(false);
+    expect('evidenceHint' in without.sections[0].items[0]).toBe(false);
+  });
+
+  it('n’écrit pas de consigne vide', () => {
+    const t = setItemEvidence(template(), 'b', 'link', '   ');
+    expect(t.sections[1].items[0]).toEqual({ id: 'b', label: 'B', evidenceRequired: 'link' });
   });
 });
