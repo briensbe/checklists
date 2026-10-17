@@ -146,6 +146,56 @@ describe('StepGraphComponent', () => {
     expect(nodeEl('Build').getAttribute('transform')).toMatch(/^translate\(\d+(\.\d+)? \d+(\.\d+)?\)$/);
   });
 
+  describe('variante « structure » (aperçu du builder)', () => {
+    const renderStructure = (nodes = RELEASE) => {
+      fixture.componentRef.setInput('variant', 'structure');
+      render(nodes, null);
+    };
+
+    it('la variante par défaut reste celle du runner', () => {
+      render();
+      expect(nodeEl('Tests').classList.contains('is-locked')).toBe(true);
+      expect(el().querySelectorAll('.node-caption')).toHaveLength(0);
+    });
+
+    it('ni anneau, ni cadenas, ni coche, ni badge de jonction ; icône fournie et liens pleins neutres', () => {
+      renderStructure();
+      expect(el().querySelectorAll('.ring-value, .ring-track, .join-badge')).toHaveLength(0);
+      expect(el().querySelectorAll('svg.lucide-lock, svg.lucide-check')).toHaveLength(0);
+      expect(nodeEl('Préparation').querySelector('svg.lucide-clipboard-list')).not.toBeNull();
+      expect(nodeEl('Tests').querySelector('svg.lucide-list-checks')).not.toBeNull();
+      const edges = [...el().querySelectorAll('path.edge')];
+      expect(edges.every(e => e.classList.contains('is-structure') && !e.classList.contains('is-open'))).toBe(true);
+    });
+
+    it('affiche la légende sous le libellé, sans chevaucher le nœud placé en dessous', () => {
+      const captioned = RELEASE.map(n => ({ ...n, caption: '3 items · 2 bloq.' }));
+      renderStructure(captioned);
+      const build = nodeEl('Build');
+      expect(build.querySelector('.node-caption')!.textContent!.trim()).toBe('3 items · 2 bloq.');
+
+      // « Build » et « Documentation » partagent une colonne : la légende du premier finit avant le nœud du second.
+      const y = (n: SVGGElement) => Number(n.getAttribute('transform')!.match(/ (\d+(\.\d+)?)\)$/)![1]);
+      const [top, bottom] = [nodeEl('Build'), nodeEl('Documentation')].sort((a, b) => y(a) - y(b));
+      const captionBottom = y(top) + Number(top.querySelector('.node-caption')!.getAttribute('y')) + 4;
+      expect(captionBottom).toBeLessThan(y(bottom) - 28);
+    });
+
+    it('annonce le nom accessible fourni à la place du nom calculé', () => {
+      renderStructure(RELEASE.map(n => (n.id === 'prep' ? { ...n, ariaLabel: 'Préparation : étape de départ, 3 items dont 2 bloquants' } : n)));
+      expect(nodeEl('Préparation').getAttribute('aria-label')).toBe('Préparation : étape de départ, 3 items dont 2 bloquants');
+    });
+
+    it('sélectionne une étape au clavier', () => {
+      renderStructure();
+      const selected: string[] = [];
+      fixture.componentInstance.select.subscribe(id => selected.push(id));
+      nodeEl('Tests').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      nodeEl('Build').dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+      expect(selected).toEqual(['tests', 'build']);
+    });
+  });
+
   it('libellé raccourci sous le nœud, complet dans le titre', () => {
     const long = 'Binaires, Livrables & Checksums de la livraison';
     render([node('bin', { label: long })], null);

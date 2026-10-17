@@ -1,19 +1,102 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addItem,
   duplicateItem,
   duplicateSection,
   findVisibleIfOrphans,
+  insertItemAt,
+  moveItemBetween,
+  moveItemWithin,
   nextCriticality,
+  removeItemAt,
   removeSectionFromDependencies,
   reorderArray,
   setItemCriticality,
   setItemEvidence,
   transferItemBetweenLists,
+  updateContextField,
+  updateItem,
+  updateSection,
+  updateTemplate,
   validateTemplateIntegrity
 } from './template-builder.helpers';
 import { ChecklistItemTemplate, ChecklistSectionTemplate, ChecklistTemplate, ContextFieldSchema } from '../../models/checklist.model';
 
 describe('template-builder.helpers', () => {
+  describe('mises à jour immuables', () => {
+    const base = (): ChecklistTemplate => ({
+      id: 't',
+      name: 'Modèle',
+      description: '',
+      version: '1.0.0',
+      updatedAt: '',
+      contextSchema: [
+        { id: 'env', label: 'Environnement', type: 'text' },
+        { id: 'ver', label: 'Version', type: 'text' }
+      ],
+      sections: [
+        { id: 's1', title: 'Un', items: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }, { id: 'c', label: 'C' }] },
+        { id: 's2', title: 'Deux', items: [{ id: 'd', label: 'D' }] }
+      ]
+    });
+    const ids = (t: ChecklistTemplate, sectionIndex: number) => t.sections[sectionIndex].items.map(i => i.id);
+
+    it('updateTemplate remplace les propriétés de premier niveau sans toucher aux sections', () => {
+      const t = base();
+      const next = updateTemplate(t, { name: 'Autre' });
+      expect(next).not.toBe(t);
+      expect(next.name).toBe('Autre');
+      expect(next.sections).toBe(t.sections);
+      expect(t.name).toBe('Modèle');
+    });
+
+    it('updateSection ne recrée que la section visée', () => {
+      const t = base();
+      const next = updateSection(t, 's2', s => ({ ...s, title: 'Deux bis' }));
+      expect(next.sections[1].title).toBe('Deux bis');
+      expect(next.sections[0]).toBe(t.sections[0]);
+      expect(t.sections[1].title).toBe('Deux');
+    });
+
+    it('updateItem ne recrée que l’item et sa section', () => {
+      const t = base();
+      const next = updateItem(t, 'b', i => ({ ...i, label: 'B modifié' }));
+      expect(next.sections[0].items[1].label).toBe('B modifié');
+      expect(next.sections[0].items[0]).toBe(t.sections[0].items[0]);
+      expect(next.sections[1]).toBe(t.sections[1]);
+      expect(t.sections[0].items[1].label).toBe('B');
+    });
+
+    it('updateContextField ne recrée que le champ visé et ignore un index hors bornes', () => {
+      const t = base();
+      const next = updateContextField(t, 1, f => ({ ...f, label: 'Version livrée' }));
+      expect(next.contextSchema[1].label).toBe('Version livrée');
+      expect(next.contextSchema[0]).toBe(t.contextSchema[0]);
+      expect(updateContextField(t, 5, f => f)).toBe(t);
+    });
+
+    it('ajoute, insère et retire des items', () => {
+      const t = base();
+      expect(ids(addItem(t, 's2', { id: 'e', label: 'E' }), 1)).toEqual(['d', 'e']);
+      expect(ids(insertItemAt(t, 's1', 1, { id: 'x', label: 'X' }), 0)).toEqual(['a', 'x', 'b', 'c']);
+      expect(ids(insertItemAt(t, 's1', 99, { id: 'x', label: 'X' }), 0)).toEqual(['a', 'b', 'c', 'x']);
+      expect(ids(removeItemAt(t, 's1', 1), 0)).toEqual(['a', 'c']);
+      expect(removeItemAt(t, 's1', 7)).toBe(t);
+      expect(ids(t, 0)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('déplace un item dans sa section ou vers une autre section', () => {
+      const t = base();
+      expect(ids(moveItemWithin(t, 's1', 0, 2), 0)).toEqual(['b', 'c', 'a']);
+      const moved = moveItemBetween(t, 's1', 's2', 1, 0);
+      expect(ids(moved, 0)).toEqual(['a', 'c']);
+      expect(ids(moved, 1)).toEqual(['b', 'd']);
+      expect(ids(moveItemBetween(t, 's1', 's1', 2, 0), 0)).toEqual(['c', 'a', 'b']);
+      expect(ids(t, 0)).toEqual(['a', 'b', 'c']);
+      expect(ids(t, 1)).toEqual(['d']);
+    });
+  });
+
   describe('duplicateItem', () => {
     it('devrait dupliquer un item avec un nouvel UUID distinct', () => {
       const original: ChecklistItemTemplate = {

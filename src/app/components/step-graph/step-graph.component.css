@@ -29,6 +29,12 @@
   stroke-dasharray: none;
 }
 
+/* Variante « structure » (aperçu du builder) : liens pleins et neutres, aucun état de porte */
+.edge.is-structure {
+  stroke: var(--graph-link-structure);
+  stroke-dasharray: none;
+}
+
 /* Nœuds */
 .node {
   cursor: pointer;
@@ -117,6 +123,11 @@
 .node-label {
   fill: var(--graph-label);
   font-size: 12px;
+}
+
+.node-caption {
+  fill: var(--graph-caption);
+  font-size: 11px;
 }
 
 .node.is-selected .node-label {

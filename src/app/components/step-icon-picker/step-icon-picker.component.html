@@ -1,0 +1,29 @@
+<button
+  #trigger
+  type="button"
+  class="icon-trigger"
+  [attr.aria-expanded]="open()"
+  [attr.aria-controls]="panelId"
+  [attr.aria-label]="triggerLabel()"
+  [title]="triggerLabel()"
+  (click)="toggle()"
+  (keydown.escape)="close()">
+  <svg [lucideIcon]="current()" [size]="18"></svg>
+</button>
+
+@if (open()) {
+  <div class="icon-panel" [id]="panelId" role="group" aria-label="Icônes d'étape" (keydown.escape)="close()">
+    @for (name of names; track name) {
+      <button
+        type="button"
+        class="icon-option"
+        [class.is-current]="name === current()"
+        [attr.aria-pressed]="name === current()"
+        [attr.aria-label]="labels[name]"
+        [title]="labels[name]"
+        (click)="choose(name)">
+        <svg [lucideIcon]="name" [size]="18"></svg>
+      </button>
+    }
+  </div>
+}

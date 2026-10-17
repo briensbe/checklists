@@ -1,4 +1,4 @@
-import { Component, computed, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, DOCUMENT, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TemplateService } from '../../services/template.service';
 import { ToastService } from '../../services/toast.service';
@@ -8,15 +8,21 @@ import {
   ChecklistSectionTemplate,
   ChecklistItemTemplate,
   ChoiceTone,
+  CompletionPolicy,
   Criticality,
   EVIDENCE_KINDS,
   EvidenceKind,
   ItemControlType,
   ContextFieldSchema,
-  ContextFieldType
+  ContextFieldType,
+  CustomChoiceOption,
+  ExtraFieldSchema,
+  GateKind,
+  JoinMode,
+  VisibilityCondition
 } from '../../models/checklist.model';
 import { FormsModule } from '@angular/forms';
-import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import {
   LucideArrowDown,
   LucideArrowLeft,
@@ -36,14 +42,38 @@ import {
   LucideX
 } from '@lucide/angular';
 import { criticalityOf } from '../../domain/session-rules';
+import { StepIconName } from '../../domain/step-icons';
+import { FlowPreviewComponent } from '../../components/flow-preview/flow-preview.component';
+import { SectionFlowSettingsComponent } from '../../components/section-flow-settings/section-flow-settings.component';
+import { StepIconPickerComponent } from '../../components/step-icon-picker/step-icon-picker.component';
 import {
+  dependencyChips,
+  newSectionDependencies,
+  sectionsWithDependents,
+  setCompletionPolicy,
+  setSectionGate,
+  setSectionIcon,
+  setSectionJoinMode,
+  toggleDependency
+} from './flow-editor.helpers';
+import {
+  addItem,
   duplicateItem,
   duplicateSection,
   findVisibleIfOrphans,
+  insertItemAt,
+  moveItemBetween,
+  moveItemWithin,
   nextCriticality,
+  removeItemAt,
   removeSectionFromDependencies,
+  reorderArray,
   setItemCriticality,
   setItemEvidence,
+  updateContextField,
+  updateItem,
+  updateSection,
+  updateTemplate,
   validateTemplateIntegrity
 } from './template-builder.helpers';
 
@@ -67,6 +97,9 @@ const EVIDENCE_LABELS: Record<EvidenceKind, string> = {
     RouterLink,
     FormsModule,
     DragDropModule,
+    FlowPreviewComponent,
+    SectionFlowSettingsComponent,
+    StepIconPickerComponent,
     LucideArrowDown,
     LucideArrowLeft,
     LucideArrowUp,
@@ -93,11 +126,17 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
   private dialogService = inject(DialogService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private document = inject(DOCUMENT);
 
   isEditing = signal<boolean>(false);
   existingItemIds = signal<Set<string>>(new Set());
   initialSnapshot = signal<string>('');
 
+  /**
+   * Modèle en cours d'édition. Il n'est JAMAIS modifié en place : chaque modification passe par
+   * `template.update()` et un helper immuable, sinon les `computed` qui le lisent (`isDirty`,
+   * aperçu du graphe) ne verraient pas le changement (design D1 de builder-flow-editor).
+   */
   template = signal<ChecklistTemplate>({
     id: '',
     name: 'Nouveau modèle de checklist',
@@ -119,6 +158,19 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
   });
 
   advancedOpen = signal<Record<string, boolean>>({});
+
+  /** Puces « Après : » de chaque section, recalculées à chaque modification du modèle. */
+  protected readonly chipsBySection = computed(() => {
+    const t = this.template();
+    return Object.fromEntries(t.sections.map(s => [s.id, dependencyChips(t, s.id)]));
+  });
+  /** Sections dont au moins une autre dépend : seules celles-là proposent le choix de la porte. */
+  protected readonly sectionsWithDependents = computed(() => sectionsWithDependents(this.template()));
+
+  readonly completionPolicies: { value: CompletionPolicy; label: string; hint: string }[] = [
+    { value: 'blocking', label: 'Seuls les bloquants', hint: 'Seuls les contrôles bloquants empêchent de terminer.' },
+    { value: 'all', label: 'Une réponse partout', hint: 'Chaque contrôle applicable doit avoir une réponse pour terminer.' }
+  ];
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnload(event: BeforeUnloadEvent): void {
@@ -182,6 +234,8 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
       version: '1.0.0',
       updatedAt: '',
       contextSchema: [],
+      // Nouveau modèle : seuls les bloquants empêchent de terminer (valeur écrite explicitement, ADR 0007).
+      completionPolicy: 'blocking',
       sections: [
         {
           id: `sec-${Date.now()}`,
@@ -212,10 +266,74 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
     return this.isEditing() && this.existingItemIds().has(itemId);
   }
 
+  // --- Champs du formulaire : chaque saisie produit un nouveau modèle (design D1) ---
+  patchTemplate(patch: Partial<ChecklistTemplate>): void {
+    this.template.update(t => updateTemplate(t, patch));
+  }
+
+  patchSection(sectionId: string, patch: Partial<ChecklistSectionTemplate>): void {
+    this.template.update(t => updateSection(t, sectionId, s => ({ ...s, ...patch })));
+  }
+
+  patchItem(itemId: string, patch: Partial<ChecklistItemTemplate>): void {
+    this.template.update(t => updateItem(t, itemId, i => ({ ...i, ...patch })));
+  }
+
+  patchChoice(itemId: string, choiceId: string, patch: Partial<CustomChoiceOption>): void {
+    this.template.update(t =>
+      updateItem(t, itemId, i => ({
+        ...i,
+        customChoices: (i.customChoices ?? []).map(c => (c.id === choiceId ? { ...c, ...patch } : c))
+      }))
+    );
+  }
+
+  patchExtraField(itemId: string, patch: Partial<ExtraFieldSchema>): void {
+    this.template.update(t => updateItem(t, itemId, i => (i.extraField ? { ...i, extraField: { ...i.extraField, ...patch } } : i)));
+  }
+
+  patchContextField(index: number, patch: Partial<ContextFieldSchema>): void {
+    this.template.update(t => updateContextField(t, index, f => ({ ...f, ...patch })));
+  }
+
+  // --- Enchaînement des étapes (change builder-flow-editor) ---
+  onCompletionPolicyChange(policy: CompletionPolicy): void {
+    this.template.update(t => setCompletionPolicy(t, policy));
+  }
+
+  onToggleDependency(sectionId: string, dependencyId: string): void {
+    this.template.update(t => toggleDependency(t, sectionId, dependencyId));
+  }
+
+  onGateChange(sectionId: string, gate: GateKind): void {
+    this.template.update(t => setSectionGate(t, sectionId, gate));
+  }
+
+  onJoinModeChange(sectionId: string, joinMode: JoinMode): void {
+    this.template.update(t => setSectionJoinMode(t, sectionId, joinMode));
+  }
+
+  onIconPick(sectionId: string, icon: StepIconName): void {
+    this.template.update(t => setSectionIcon(t, sectionId, icon));
+  }
+
+  dependencyCount(section: ChecklistSectionTemplate): number {
+    return Array.isArray(section.dependsOn) ? section.dependsOn.length : 0;
+  }
+
+  /** Nœud choisi dans l'aperçu : on amène la carte de la section à l'écran et on donne le focus à son titre. */
+  focusSection(sectionId: string): void {
+    const card = this.document.getElementById(`section-${sectionId}`);
+    if (!card) return;
+    const reduceMotion = this.document.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    // Centrée, la carte ne passe pas sous l'en-tête fixe de l'application.
+    card.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+    card.querySelector<HTMLInputElement>('.section-title-input')?.focus({ preventScroll: true });
+  }
+
   // --- Gestion du schéma de contexte ---
   addContextField(): void {
-    const t = this.template();
-    const count = (t.contextSchema || []).length + 1;
+    const count = (this.template().contextSchema || []).length + 1;
     const newField: ContextFieldSchema = {
       id: `field_${Date.now().toString(36)}`,
       label: `Champ ${count}`,
@@ -224,8 +342,7 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
       defaultValue: '',
       placeholder: ''
     };
-    const contextSchema = [...(t.contextSchema || []), newField];
-    this.template.update(cur => ({ ...cur, contextSchema }));
+    this.template.update(cur => ({ ...cur, contextSchema: [...(cur.contextSchema || []), newField] }));
   }
 
   async removeContextField(index: number): Promise<void> {
@@ -254,56 +371,73 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
       if (!confirmed) return;
     }
 
-    const contextSchema = [...t.contextSchema];
-    contextSchema.splice(index, 1);
-    this.template.update(cur => ({ ...cur, contextSchema }));
+    // Retrait par identité : le schéma a pu changer pendant la confirmation.
+    this.template.update(cur => ({ ...cur, contextSchema: cur.contextSchema.filter(f => f !== field) }));
   }
 
-  onContextFieldTypeChange(field: ContextFieldSchema, type: ContextFieldType): void {
-    field.type = type;
-    if (type === 'select' && (!field.options || field.options.length === 0)) {
-      field.options = [
-        { label: 'Option 1', value: 'opt_1' },
-        { label: 'Option 2', value: 'opt_2' }
-      ];
-      field.defaultValue = 'opt_1';
-    }
+  onContextFieldTypeChange(index: number, type: ContextFieldType): void {
+    this.template.update(t =>
+      updateContextField(t, index, field =>
+        type === 'select' && (!field.options || field.options.length === 0)
+          ? {
+              ...field,
+              type,
+              options: [
+                { label: 'Option 1', value: 'opt_1' },
+                { label: 'Option 2', value: 'opt_2' }
+              ],
+              defaultValue: 'opt_1'
+            }
+          : { ...field, type }
+      )
+    );
   }
 
-  addContextFieldOption(field: ContextFieldSchema): void {
-    if (!field.options) field.options = [];
-    const idx = field.options.length + 1;
-    const label = `Option ${idx}`;
-    field.options.push({
-      label,
-      value: `opt_${Date.now().toString(36)}_${idx}`
-    });
+  addContextFieldOption(index: number): void {
+    this.template.update(t =>
+      updateContextField(t, index, field => {
+        const idx = (field.options?.length ?? 0) + 1;
+        return { ...field, options: [...(field.options ?? []), { label: `Option ${idx}`, value: `opt_${Date.now().toString(36)}_${idx}` }] };
+      })
+    );
   }
 
-  onContextOptionLabelChange(opt: { label: string; value: string }, newLabel: string): void {
-    const oldVal = opt.value;
-    opt.label = newLabel;
-    // Si la valeur technique était auto-générée ou synchronisée, la synchroniser harmonieusement
-    if (!oldVal || oldVal.startsWith('opt_') || oldVal === '') {
-      opt.value = newLabel.trim().toLowerCase().replace(/[\s\W-]+/g, '_') || `opt_${Date.now().toString(36)}`;
-    }
+  onContextOptionLabelChange(index: number, optIdx: number, newLabel: string): void {
+    this.template.update(t =>
+      updateContextField(t, index, field => ({
+        ...field,
+        options: (field.options ?? []).map((opt, i) => {
+          if (i !== optIdx) return opt;
+          // Une valeur technique auto-générée suit le libellé, pour rester lisible.
+          const synced = !opt.value || opt.value.startsWith('opt_');
+          const value = synced
+            ? newLabel.trim().toLowerCase().replace(/[\s\W-]+/g, '_') || `opt_${Date.now().toString(36)}`
+            : opt.value;
+          return { label: newLabel, value };
+        })
+      }))
+    );
   }
 
-  removeContextFieldOption(field: ContextFieldSchema, optIdx: number): void {
-    field.options?.splice(optIdx, 1);
+  removeContextFieldOption(index: number, optIdx: number): void {
+    this.template.update(t =>
+      updateContextField(t, index, field => ({ ...field, options: (field.options ?? []).filter((_, i) => i !== optIdx) }))
+    );
   }
 
   // --- Gestion des sections ---
   addSection(): void {
     const t = this.template();
+    // Dans un modèle déjà enchaîné, la nouvelle section suit la dernière de la liste.
+    const dependsOn = newSectionDependencies(t);
     const newSection: ChecklistSectionTemplate = {
       id: `sec-${crypto.randomUUID()}`,
       title: `Nouvelle Section ${(t.sections || []).length + 1}`,
       icon: '',
-      items: []
+      items: [],
+      ...(dependsOn ? { dependsOn } : {})
     };
-    const sections = [...(t.sections || []), newSection];
-    this.template.update(cur => ({ ...cur, sections }));
+    this.template.update(cur => ({ ...cur, sections: [...(cur.sections || []), newSection] }));
   }
 
   duplicateSection(index: number): void {
@@ -345,20 +479,14 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
   }
 
   moveSection(index: number, direction: 'up' | 'down'): void {
-    const t = this.template();
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= t.sections.length) return;
-    const sections = [...t.sections];
-    const [sec] = sections.splice(index, 1);
-    sections.splice(targetIndex, 0, sec);
-    this.template.update(cur => ({ ...cur, sections }));
+    if (targetIndex < 0 || targetIndex >= this.template().sections.length) return;
+    this.template.update(cur => ({ ...cur, sections: reorderArray(cur.sections, index, targetIndex) }));
   }
 
   onSectionDrop(event: CdkDragDrop<ChecklistSectionTemplate[]>): void {
     if (event.previousIndex === event.currentIndex) return;
-    const sections = [...this.template().sections];
-    moveItemInArray(sections, event.previousIndex, event.currentIndex);
-    this.template.update(cur => ({ ...cur, sections }));
+    this.template.update(cur => ({ ...cur, sections: reorderArray(cur.sections, event.previousIndex, event.currentIndex) }));
   }
 
   // --- Gestion des items ---
@@ -371,8 +499,7 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
       criticality: 'optional',
       withTimestamp: false
     };
-    section.items.push(newItem);
-    this.template.update(cur => ({ ...cur }));
+    this.template.update(t => addItem(t, section.id, newItem));
   }
 
   // --- Criticité et preuve exigée (mises à jour immuables, ADR 0006) ---
@@ -400,14 +527,14 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
     const item = section.items[itemIndex];
     if (!item) return;
     const copy = duplicateItem(item);
-    section.items.splice(itemIndex + 1, 0, copy);
-    this.template.update(cur => ({ ...cur }));
+    this.template.update(t => insertItemAt(t, section.id, itemIndex + 1, copy));
     this.toastService.info(`Contrôle « ${copy.label} » dupliqué.`);
   }
 
   removeItem(section: ChecklistSectionTemplate, itemIndex: number): void {
-    const [removed] = section.items.splice(itemIndex, 1);
-    this.template.update(cur => ({ ...cur }));
+    const removed = section.items[itemIndex];
+    if (!removed) return;
+    this.template.update(t => removeItemAt(t, section.id, itemIndex));
 
     this.toastService.showDeferred({
       message: `Contrôle « ${removed.label} » supprimé`,
@@ -415,8 +542,7 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
       undoLabel: 'Annuler',
       onCommit: () => {},
       onUndo: () => {
-        section.items.splice(itemIndex, 0, removed);
-        this.template.update(cur => ({ ...cur }));
+        this.template.update(t => insertItemAt(t, section.id, itemIndex, removed));
       }
     });
   }
@@ -424,50 +550,48 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
   moveItem(section: ChecklistSectionTemplate, index: number, direction: 'up' | 'down'): void {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= section.items.length) return;
-    const items = [...section.items];
-    const [item] = items.splice(index, 1);
-    items.splice(targetIndex, 0, item);
-    section.items = items;
-    this.template.update(cur => ({ ...cur }));
+    this.template.update(t => moveItemWithin(t, section.id, index, targetIndex));
   }
 
   onItemDrop(event: CdkDragDrop<ChecklistItemTemplate[]>, targetSection: ChecklistSectionTemplate): void {
-    if (event.previousContainer === event.container) {
-      if (event.previousIndex === event.currentIndex) return;
-      const items = [...targetSection.items];
-      moveItemInArray(items, event.previousIndex, event.currentIndex);
-      targetSection.items = items;
-      this.template.update(cur => ({ ...cur }));
-    } else {
-      const sourceItems = event.previousContainer.data;
-      const targetItems = event.container.data;
-      transferArrayItem(sourceItems, targetItems, event.previousIndex, event.currentIndex);
-      this.template.update(cur => ({ ...cur }));
-    }
+    // Les listes CDK sont liées aux tableaux du modèle courant : la section source se retrouve par identité.
+    const source = this.template().sections.find(s => s.items === event.previousContainer.data);
+    if (!source) return;
+    if (source.id === targetSection.id && event.previousIndex === event.currentIndex) return;
+    this.template.update(t => moveItemBetween(t, source.id, targetSection.id, event.previousIndex, event.currentIndex));
   }
 
   onControlTypeChange(item: ChecklistItemTemplate, type: ItemControlType): void {
-    item.controlType = type;
-    if (type === 'choice' && (!item.customChoices || item.customChoices.length === 0)) {
-      item.customChoices = [
-        { id: `opt-${crypto.randomUUID()}`, label: 'Option 1', tone: 'success' },
-        { id: `opt-${crypto.randomUUID()}`, label: 'Option 2', tone: 'danger', isBlocking: true }
-      ];
-    }
+    this.template.update(t =>
+      updateItem(t, item.id, i =>
+        type === 'choice' && (!i.customChoices || i.customChoices.length === 0)
+          ? {
+              ...i,
+              controlType: type,
+              customChoices: [
+                { id: `opt-${crypto.randomUUID()}`, label: 'Option 1', tone: 'success' },
+                { id: `opt-${crypto.randomUUID()}`, label: 'Option 2', tone: 'danger', isBlocking: true }
+              ]
+            }
+          : { ...i, controlType: type }
+      )
+    );
   }
 
   addChoiceOption(item: ChecklistItemTemplate): void {
-    if (!item.customChoices) item.customChoices = [];
-    item.customChoices.push({
-      id: `opt-${crypto.randomUUID()}`,
-      label: `Option ${item.customChoices.length + 1}`,
-      tone: 'neutral',
-      isBlocking: false
-    });
+    this.template.update(t =>
+      updateItem(t, item.id, i => ({
+        ...i,
+        customChoices: [
+          ...(i.customChoices ?? []),
+          { id: `opt-${crypto.randomUUID()}`, label: `Option ${(i.customChoices?.length ?? 0) + 1}`, tone: 'neutral', isBlocking: false }
+        ]
+      }))
+    );
   }
 
   removeChoiceOption(item: ChecklistItemTemplate, index: number): void {
-    item.customChoices?.splice(index, 1);
+    this.template.update(t => updateItem(t, item.id, i => ({ ...i, customChoices: (i.customChoices ?? []).filter((_, k) => k !== index) })));
   }
 
   // --- Options avancées par item ---
@@ -483,43 +607,39 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
   }
 
   toggleExtraField(item: ChecklistItemTemplate, enabled: boolean): void {
-    if (enabled) {
-      item.extraField = {
-        id: `extra_${Date.now().toString(36)}`,
-        label: 'Observation ou détail additionnel',
-        placeholder: 'Saisissez ici...'
-      };
-    } else {
-      delete item.extraField;
-    }
+    this.template.update(t =>
+      updateItem(t, item.id, i => {
+        const { extraField: _extra, ...rest } = i;
+        if (!enabled) return rest;
+        return {
+          ...rest,
+          extraField: { id: `extra_${Date.now().toString(36)}`, label: 'Observation ou détail additionnel', placeholder: 'Saisissez ici...' }
+        };
+      })
+    );
   }
 
   toggleVisibleIf(item: ChecklistItemTemplate, enabled: boolean): void {
-    if (enabled) {
-      const firstField = (this.template().contextSchema || [])[0];
-      const defaultFieldId = firstField ? firstField.id : '';
-      const defaultEquals =
-        firstField && firstField.type === 'select' && firstField.options?.[0]
-          ? [firstField.options[0].value]
-          : [];
-      item.visibleIf = {
-        fieldId: defaultFieldId,
-        equals: defaultEquals
-      };
-    } else {
-      delete item.visibleIf;
-    }
+    const firstField = (this.template().contextSchema || [])[0];
+    this.template.update(t =>
+      updateItem(t, item.id, i => {
+        const { visibleIf: _condition, ...rest } = i;
+        if (!enabled) return rest;
+        const equals = firstField && firstField.type === 'select' && firstField.options?.[0] ? [firstField.options[0].value] : [];
+        return { ...rest, visibleIf: { fieldId: firstField ? firstField.id : '', equals } };
+      })
+    );
+  }
+
+  /** Modifie la condition d'affichage d'un item (sans effet s'il n'en a pas). */
+  private updateVisibleIf(itemId: string, change: (condition: VisibilityCondition) => VisibilityCondition): void {
+    this.template.update(t => updateItem(t, itemId, i => (i.visibleIf ? { ...i, visibleIf: change(i.visibleIf) } : i)));
   }
 
   onVisibleIfFieldChange(item: ChecklistItemTemplate, fieldId: string): void {
-    if (!item.visibleIf) return;
-    item.visibleIf.fieldId = fieldId;
     const field = (this.template().contextSchema || []).find(f => f.id === fieldId);
-    if (field && field.type === 'select' && field.options && field.options.length > 0) {
-      item.visibleIf.equals = [field.options[0].value];
-    } else {
-      item.visibleIf.equals = [];
-    }
+    const equals = field && field.type === 'select' && field.options && field.options.length > 0 ? [field.options[0].value] : [];
+    this.updateVisibleIf(item.id, () => ({ fieldId, equals }));
   }
 
   isOptionSelectedInVisibleIf(item: ChecklistItemTemplate, val: string): boolean {
@@ -527,19 +647,20 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
   }
 
   toggleVisibleIfOption(item: ChecklistItemTemplate, val: string): void {
-    if (!item.visibleIf) return;
-    const current = new Set(item.visibleIf.equals || []);
-    if (current.has(val)) {
-      current.delete(val);
-    } else {
-      current.add(val);
-    }
-    item.visibleIf.equals = Array.from(current);
+    this.updateVisibleIf(item.id, condition => {
+      const current = condition.equals || [];
+      return { ...condition, equals: current.includes(val) ? current.filter(v => v !== val) : [...current, val] };
+    });
   }
 
   onVisibleIfTextChange(item: ChecklistItemTemplate, rawText: string): void {
-    if (!item.visibleIf) return;
-    item.visibleIf.equals = rawText.split(',').map(s => s.trim()).filter(Boolean);
+    this.updateVisibleIf(item.id, condition => ({
+      ...condition,
+      equals: rawText
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean)
+    }));
   }
 
   getFieldOptions(fieldId: string): { label: string; value: string }[] {
@@ -586,9 +707,11 @@ export class TemplateBuilderComponent implements OnInit, OnDestroy {
       return;
     }
 
-    t.updatedAt = new Date().toISOString();
-    await this.templateService.saveTemplate(t);
-    this.initialSnapshot.set(JSON.stringify(t));
+    // Copie horodatée : l'objet du signal n'est jamais modifié en place.
+    const saved: ChecklistTemplate = { ...t, updatedAt: new Date().toISOString() };
+    await this.templateService.saveTemplate(saved);
+    this.template.set(saved);
+    this.initialSnapshot.set(JSON.stringify(saved));
     this.toastService.success('Modèle enregistré avec succès.');
     this.router.navigate(['/templates']);
   }

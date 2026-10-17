@@ -464,6 +464,13 @@ describe('diffTemplates et rebaseSessionOnTemplate', () => {
     expect(diffTemplates(after, reordered, session(), new Set()).structureChanges.some(c => c.startsWith('Dépendances'))).toBe(false);
   });
 
+  it('ne signale ni un changement d’icône seul, ni une liste de dépendances vidée (builder)', () => {
+    const before = template();
+    const after = template({ updatedAt: '2026-10-05T00:00:00.000Z' });
+    after.sections[0] = { ...after.sections[0], icon: 'flask-conical', dependsOn: [] };
+    expect(diffTemplates(before, after, session(), new Set()).structureChanges).toEqual([]);
+  });
+
   it('Application : historique conservé, même sur une réponse réinitialisée, et portes forcées purgées', () => {
     const history = [{ at: '2026-10-02T00:00:00.000Z', kind: 'status' as const, status: 'OK' as const }];
     const s = session({

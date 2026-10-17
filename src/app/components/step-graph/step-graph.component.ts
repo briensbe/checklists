@@ -1,7 +1,7 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output, signal } from '@angular/core';
 import { LucideCheck, LucideDynamicIcon, LucideLock } from '@lucide/angular';
 import { StepVisual } from '../../domain/flow-rules';
-import { GRAPH_LAYOUT, GraphStructureNode, layoutStepGraph, StepGraphNode } from '../../domain/step-graph-layout';
+import { GRAPH_LAYOUT, GraphLayoutOptions, GraphStructureNode, layoutStepGraph, StepGraphNode, truncateLabel } from '../../domain/step-graph-layout';
 import { ringGeometry, ringToneOf, RingTone } from '../progress-ring/ring-geometry';
 
 const STATE_LABELS: Record<StepVisual, string> = {
@@ -15,6 +15,18 @@ const STATE_LABELS: Record<StepVisual, string> = {
 const RING_STROKE = 4;
 /** Taille des icônes au centre d'un nœud, en pixels. */
 const ICON_SIZE = 22;
+
+/**
+ * Placement quand des nœuds portent une légende : une ligne de plus sous le libellé, et des nœuds
+ * un peu plus écartés pour que la légende ne touche pas le nœud placé en dessous.
+ */
+const CAPTION_LAYOUT: GraphLayoutOptions = { ...GRAPH_LAYOUT, labelSpace: GRAPH_LAYOUT.labelSpace + 16, rowGap: GRAPH_LAYOUT.rowGap + 12 };
+
+/**
+ * `progress` : état d'une session (runner). `structure` : forme du chemin seule (aperçu du builder) :
+ * ni anneau, ni cadenas, ni coche, ni badge de jonction, liens pleins et neutres.
+ */
+export type StepGraphVariant = 'progress' | 'structure';
 
 /** Deux structures identiques ne relancent pas le placement (seul l'état des étapes a changé). */
 function sameStructure(a: readonly GraphStructureNode[], b: readonly GraphStructureNode[]): boolean {
@@ -38,7 +50,8 @@ function sameStructure(a: readonly GraphStructureNode[], b: readonly GraphStruct
  * Graphe des étapes (ADR 0010, point 1) : un seul `<svg>`, positions en pixels calculées par
  * `layoutStepGraph` à partir de la largeur mesurée du composant. Composant présentationnel :
  * il n'injecte aucun service, reçoit ses nœuds et émet l'étape choisie. Le runner l'alimente
- * depuis les états d'étape ; l'aperçu du builder pourra l'alimenter depuis le seul modèle.
+ * depuis les états d'étape (variante `progress`) ; l'aperçu du builder l'alimente depuis le seul
+ * modèle (variante `structure`), avec une légende et un nom accessible par nœud.
  */
 @Component({
   selector: 'app-step-graph',
@@ -53,6 +66,9 @@ export class StepGraphComponent {
   readonly selectedId = input<string | null>(null);
   /** Étapes qui viennent de se débloquer : leur nœud joue une courte animation d'ouverture. */
   readonly pulseIds = input<readonly string[]>([]);
+  readonly variant = input<StepGraphVariant>('progress');
+
+  protected readonly isStructure = computed(() => this.variant() === 'structure');
 
   readonly select = output<string>();
 
@@ -72,12 +88,15 @@ export class StepGraphComponent {
     () => this.nodes().map(({ id, label, column, parents, order }) => ({ id, label, column, parents, order })),
     { equal: sameStructure }
   );
-  protected readonly layout = computed(() => layoutStepGraph(this.structure(), this.width()));
+  private readonly hasCaptions = computed(() => this.nodes().some(n => !!n.caption));
+  private readonly layoutOptions = computed(() => (this.hasCaptions() ? CAPTION_LAYOUT : GRAPH_LAYOUT));
+  protected readonly layout = computed(() => layoutStepGraph(this.structure(), this.width(), this.layoutOptions()));
 
   protected readonly view = computed(() => {
     const layout = this.layout();
     const selected = this.selectedId();
     const pulse = new Set(this.pulseIds());
+    const captionChars = (layout.columnWidth - 8) / this.layoutOptions().charWidth;
     return this.nodes()
       .filter(node => layout.positions[node.id])
       .map(node => {
@@ -89,19 +108,21 @@ export class StepGraphComponent {
           node,
           transform: `translate(${x} ${y})`,
           label: layout.labels[node.id] ?? node.label,
+          caption: node.caption ? truncateLabel(node.caption, captionChars) : null,
           dashOffset: geometry.dashOffset,
           tone,
           selected: node.id === selected,
           pulse: pulse.has(node.id),
           joinReady: !!node.join && node.join.ready === node.join.total,
-          ariaLabel: this.ariaLabel(node)
+          ariaLabel: node.ariaLabel ?? this.ariaLabel(node)
         };
       });
   });
 
   protected readonly edges = computed(() => {
     const passed = new Map(this.nodes().map(n => [n.id, n.passed]));
-    return this.layout().edges.map(edge => ({ ...edge, open: !!passed.get(edge.from) }));
+    const structure = this.isStructure();
+    return this.layout().edges.map(edge => ({ ...edge, open: !structure && !!passed.get(edge.from) }));
   });
 
   constructor() {

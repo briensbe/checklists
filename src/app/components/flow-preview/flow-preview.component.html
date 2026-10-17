@@ -1,0 +1,35 @@
+<section class="flow-preview" aria-labelledby="flow-preview-title">
+  <div class="flow-preview-header">
+    <h3 id="flow-preview-title" class="flow-preview-title">Aperçu du chemin</h3>
+    @if (summary().hasFlow) {
+      <div class="flow-banner" role="status">
+        @for (error of summary().errors; track $index) {
+          <p class="flow-banner-line is-error">
+            <svg lucideCircleX [size]="16"></svg>
+            <span>{{ error.message }}</span>
+          </p>
+        } @empty {
+          <p class="flow-banner-line is-ok">
+            <svg lucideCircleCheck [size]="16"></svg>
+            <span>{{ okText() }}</span>
+          </p>
+        }
+        @if (summary().emptySections.length > 0) {
+          <p class="flow-banner-line is-warning">
+            <svg lucideTriangleAlert [size]="16"></svg>
+            <span>{{ emptyText() }}</span>
+          </p>
+        }
+      </div>
+    }
+  </div>
+
+  @if (summary().hasFlow) {
+    <app-step-graph [nodes]="nodes()" variant="structure" (select)="selectSection.emit($event)" />
+  } @else {
+    <p class="flow-preview-empty">
+      Aucune dépendance : toutes les étapes sont ouvertes dès le début. Utilisez les puces « Après : » de chaque section pour
+      les enchaîner.
+    </p>
+  }
+</section>

@@ -111,15 +111,29 @@
         <div class="form-grid">
           <div class="form-group">
             <label for="template-name">Nom du modèle *</label>
-            <input id="template-name" type="text" class="form-input" [(ngModel)]="template().name" placeholder="Ex: Déploiement Vendredi Soir" />
+            <input id="template-name" type="text" class="form-input" [ngModel]="template().name" (ngModelChange)="patchTemplate({ name: $event })" placeholder="Ex: Déploiement Vendredi Soir" />
           </div>
           <div class="form-group">
             <label for="template-version">Version</label>
-            <input id="template-version" type="text" class="form-input" [(ngModel)]="template().version" placeholder="1.0.0" />
+            <input id="template-version" type="text" class="form-input" [ngModel]="template().version" (ngModelChange)="patchTemplate({ version: $event })" placeholder="1.0.0" />
           </div>
+          <fieldset class="full-width completion-policy">
+            <legend>Pour terminer une session</legend>
+            @for (policy of completionPolicies; track policy.value) {
+              <label class="checkbox-label" [title]="policy.hint">
+                <input
+                  type="radio"
+                  name="completion-policy"
+                  [value]="policy.value"
+                  [checked]="(template().completionPolicy ?? 'all') === policy.value"
+                  (change)="onCompletionPolicyChange(policy.value)" />
+                <span>{{ policy.label }}</span>
+              </label>
+            }
+          </fieldset>
           <div class="form-group full-width">
             <label for="template-desc">Description</label>
-            <textarea id="template-desc" class="form-textarea" rows="2" [(ngModel)]="template().description" placeholder="À quoi sert cette checklist..."></textarea>
+            <textarea id="template-desc" class="form-textarea" rows="2" [ngModel]="template().description" (ngModelChange)="patchTemplate({ description: $event })" placeholder="À quoi sert cette checklist..."></textarea>
           </div>
         </div>
       </div>
@@ -147,11 +161,11 @@
                 <div class="context-field-main">
                   <div class="form-group">
                     <label>Nom de la variable *</label>
-                    <input type="text" class="form-input" [(ngModel)]="field.label" placeholder="Ex: Environnement" />
+                    <input type="text" class="form-input" [ngModel]="field.label" (ngModelChange)="patchContextField(fIdx, { label: $event })" placeholder="Ex: Environnement" />
                   </div>
                   <div class="form-group">
                     <label>Type de variable</label>
-                    <select class="form-select" [ngModel]="field.type" (ngModelChange)="onContextFieldTypeChange(field, $event)">
+                    <select class="form-select" [ngModel]="field.type" (ngModelChange)="onContextFieldTypeChange(fIdx, $event)">
                       @for (t of contextTypes; track t.value) {
                         <option [value]="t.value">{{ t.label }}</option>
                       }
@@ -159,15 +173,15 @@
                   </div>
                   <div class="form-group">
                     <label>Placeholder / Exemple</label>
-                    <input type="text" class="form-input" [(ngModel)]="field.placeholder" placeholder="Ex: v1.4.2" />
+                    <input type="text" class="form-input" [ngModel]="field.placeholder" (ngModelChange)="patchContextField(fIdx, { placeholder: $event })" placeholder="Ex: v1.4.2" />
                   </div>
                   <div class="form-group">
                     <label>Valeur par défaut</label>
-                    <input type="text" class="form-input" [(ngModel)]="field.defaultValue" placeholder="Optionnel" />
+                    <input type="text" class="form-input" [ngModel]="field.defaultValue" (ngModelChange)="patchContextField(fIdx, { defaultValue: $event })" placeholder="Optionnel" />
                   </div>
                   <div class="form-group context-required-group">
                     <label class="checkbox-label">
-                      <input type="checkbox" [(ngModel)]="field.required" />
+                      <input type="checkbox" [ngModel]="field.required" (ngModelChange)="patchContextField(fIdx, { required: $event })" />
                       <span>Obligatoire</span>
                     </label>
                   </div>
@@ -194,19 +208,19 @@
                             type="text"
                             class="form-input form-input-sm"
                             [ngModel]="opt.label"
-                            (ngModelChange)="onContextOptionLabelChange(opt, $event)"
+                            (ngModelChange)="onContextOptionLabelChange(fIdx, optIdx, $event)"
                             placeholder="Nom de l'option..." />
                           <button
                             type="button"
                             class="btn-remove-choice"
-                            (click)="removeContextFieldOption(field, optIdx)"
+                            (click)="removeContextFieldOption(fIdx, optIdx)"
                             aria-label="Supprimer cette option"
                             title="Supprimer cette option">
                             <svg lucideX [size]="14"></svg>
                           </button>
                         </div>
                       }
-                      <button type="button" class="btn-add-choice" (click)="addContextFieldOption(field)">+ Ajouter une option</button>
+                      <button type="button" class="btn-add-choice" (click)="addContextFieldOption(fIdx)">+ Ajouter une option</button>
                     </div>
                   </div>
                 }
@@ -216,6 +230,9 @@
         }
       </div>
 
+      <!-- Aperçu du chemin : se redessine à chaque modification -->
+      <app-flow-preview [template]="template()" (selectSection)="focusSection($event)" />
+
       <!-- Sections & Items avec Drag & Drop CDK -->
       <div
         class="sections-builder"
@@ -224,14 +241,15 @@
         [cdkDropListData]="template().sections"
         (cdkDropListDropped)="onSectionDrop($event)">
         @for (sec of template().sections; track sec.id; let sIdx = $index) {
-          <div class="card section-card" cdkDrag>
+          <div class="card section-card" cdkDrag [id]="'section-' + sec.id">
             <div class="section-card-header">
               <div class="section-header-left">
                 <span class="drag-handle" cdkDragHandle title="Glisser pour réordonner la section" aria-label="Glisser pour déplacer la section">
                   <svg lucideGripVertical [size]="16"></svg>
                 </span>
+                <app-step-icon-picker [icon]="sec.icon" (pick)="onIconPick(sec.id, $event)" />
                 <div class="section-title-inputs">
-                  <input type="text" class="section-title-input" [(ngModel)]="sec.title" placeholder="Titre de la section" />
+                  <input type="text" class="section-title-input" aria-label="Titre de la section" [ngModel]="sec.title" (ngModelChange)="patchSection(sec.id, { title: $event })" placeholder="Titre de la section" />
                 </div>
               </div>
 
@@ -273,6 +291,17 @@
               </div>
             </div>
 
+            <app-section-flow-settings
+              [sectionId]="sec.id"
+              [chips]="chipsBySection()[sec.id] ?? []"
+              [dependencyCount]="dependencyCount(sec)"
+              [hasDependents]="sectionsWithDependents().has(sec.id)"
+              [gate]="sec.gate"
+              [joinMode]="sec.joinMode"
+              (toggleDependency)="onToggleDependency(sec.id, $event)"
+              (gateChange)="onGateChange(sec.id, $event)"
+              (joinModeChange)="onJoinModeChange(sec.id, $event)" />
+
             <!-- Liste des items de la section avec Drop List CDK connectée -->
             <div
               class="items-list"
@@ -288,7 +317,7 @@
                       <svg lucideGripVertical [size]="14"></svg>
                     </span>
 
-                    <input type="text" class="form-input item-label-input" [(ngModel)]="it.label" placeholder="Libellé de la tâche / contrôle *" />
+                    <input type="text" class="form-input item-label-input" [ngModel]="it.label" (ngModelChange)="patchItem(it.id, { label: $event })" placeholder="Libellé de la tâche / contrôle *" />
 
                     <!-- Criticité : la pastille tourne au clic (bloquant → important → optionnel) -->
                     <button
@@ -348,7 +377,7 @@
 
                   <!-- Options spécifiques selon le type -->
                   <div class="item-extra-options">
-                    <input type="text" class="form-input item-help-input" [(ngModel)]="it.help" placeholder="Aide ou consigne optionnelle..." />
+                    <input type="text" class="form-input item-help-input" [ngModel]="it.help" (ngModelChange)="patchItem(it.id, { help: $event })" placeholder="Aide ou consigne optionnelle..." />
 
                     <!-- Preuve exigée au moment de valider le contrôle, et sa consigne -->
                     <div class="evidence-config">
@@ -376,7 +405,7 @@
 
                     @if (it.controlType === 'checkbox') {
                       <label class="checkbox-option-toggle">
-                        <input type="checkbox" [(ngModel)]="it.withTimestamp" />
+                        <input type="checkbox" [ngModel]="it.withTimestamp" (ngModelChange)="patchItem(it.id, { withTimestamp: $event })" />
                         <svg lucideClock [size]="16"></svg>
                         <span>Activer l'horodatage automatique au clic</span>
                       </label>
@@ -387,15 +416,15 @@
                         <span class="choices-title">Options de choix configurables :</span>
                         @for (opt of it.customChoices; track opt.id; let optIdx = $index) {
                           <div class="choice-option-pill">
-                            <input type="text" class="choice-label-input" [(ngModel)]="opt.label" placeholder="Nom du choix (ex: Jaune)" />
+                            <input type="text" class="choice-label-input" [ngModel]="opt.label" (ngModelChange)="patchChoice(it.id, opt.id, { label: $event })" placeholder="Nom du choix (ex: Jaune)" />
                             <span class="choice-tone-dot" [class]="'choice-tone-dot tone-' + opt.tone"></span>
-                            <select class="choice-color-select" [(ngModel)]="opt.tone" aria-label="Ton du choix">
+                            <select class="choice-color-select" [ngModel]="opt.tone" (ngModelChange)="patchChoice(it.id, opt.id, { tone: $event })" aria-label="Ton du choix">
                               @for (tone of tones; track tone.value) {
                                 <option [value]="tone.value">{{ tone.label }}</option>
                               }
                             </select>
                             <label class="choice-blocking" title="Ce choix signale une anomalie (non conforme) s'il est sélectionné">
-                              <input type="checkbox" [(ngModel)]="opt.isBlocking" />
+                              <input type="checkbox" [ngModel]="opt.isBlocking" (ngModelChange)="patchChoice(it.id, opt.id, { isBlocking: $event })" />
                               <span>Anomalie</span>
                             </label>
                             <button
@@ -445,11 +474,11 @@
                               <div class="extra-field-config">
                                 <div class="form-group">
                                   <label>Libellé du champ additionnel</label>
-                                  <input type="text" class="form-input" [(ngModel)]="it.extraField.label" placeholder="Ex: Version constatée" />
+                                  <input type="text" class="form-input" [ngModel]="it.extraField.label" (ngModelChange)="patchExtraField(it.id, { label: $event })" placeholder="Ex: Version constatée" />
                                 </div>
                                 <div class="form-group">
                                   <label>Texte indicatif (placeholder)</label>
-                                  <input type="text" class="form-input" [(ngModel)]="it.extraField.placeholder" placeholder="Ex: 1.0.4-rc2" />
+                                  <input type="text" class="form-input" [ngModel]="it.extraField.placeholder" (ngModelChange)="patchExtraField(it.id, { placeholder: $event })" placeholder="Ex: 1.0.4-rc2" />
                                 </div>
                               </div>
                             }

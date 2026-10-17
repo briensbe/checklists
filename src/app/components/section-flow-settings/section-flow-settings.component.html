@@ -1,0 +1,53 @@
+<div class="flow-settings">
+  <div class="after-row" role="group" [attr.aria-labelledby]="ids().after">
+    <span class="after-label" [id]="ids().after">Après :</span>
+    @for (chip of chips(); track chip.id) {
+      <button
+        type="button"
+        class="dep-chip"
+        [class.is-on]="chip.selected"
+        [attr.aria-pressed]="chip.selected"
+        [disabled]="chip.disabled"
+        [attr.aria-describedby]="chip.disabled ? ids().loop : null"
+        [title]="chip.disabled ? 'Créerait une boucle' : chip.selected ? 'Retirer cette dépendance' : 'Faire dépendre de cette étape'"
+        (click)="toggleDependency.emit(chip.id)">
+        {{ chip.title }}
+      </button>
+    }
+    @if (dependencyCount() === 0) {
+      <span class="start-hint">· étape de départ</span>
+    }
+    <span class="sr-only" [id]="ids().loop">Créerait une boucle</span>
+  </div>
+
+  @if (hasDependents() || dependencyCount() >= 2) {
+    <div class="flow-options">
+      @if (hasDependents()) {
+        <fieldset class="flow-choice">
+          <legend>Porte</legend>
+          <label title="Les contrôles bloquants doivent être résolus pour passer">
+            <input type="radio" [name]="ids().gate" value="hard" [checked]="currentGate() === 'hard'" (change)="gateChange.emit('hard')" />
+            Stricte
+          </label>
+          <label title="Le passage peut être forcé avec une justification">
+            <input type="radio" [name]="ids().gate" value="soft" [checked]="currentGate() === 'soft'" (change)="gateChange.emit('soft')" />
+            Souple
+          </label>
+        </fieldset>
+      }
+      @if (dependencyCount() >= 2) {
+        <fieldset class="flow-choice">
+          <legend>Jonction</legend>
+          <label>
+            <input type="radio" [name]="ids().join" value="all" [checked]="currentJoin() === 'all'" (change)="joinModeChange.emit('all')" />
+            Toutes les étapes précédentes
+          </label>
+          <label>
+            <input type="radio" [name]="ids().join" value="any" [checked]="currentJoin() === 'any'" (change)="joinModeChange.emit('any')" />
+            Au moins une
+          </label>
+        </fieldset>
+      }
+    </div>
+  }
+</div>

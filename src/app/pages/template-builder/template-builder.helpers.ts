@@ -19,8 +19,93 @@ export function nextCriticality(current: Criticality): Criticality {
   return CRITICALITY_CYCLE[current];
 }
 
+// --- Mises à jour immuables (ADR 0006, design D1 de builder-flow-editor) -----------------
+// Chaque helper recrée uniquement le chemin modifié (modèle → section → item) : les autres
+// références sont conservées, et tout `computed` qui lit le modèle (modifications non
+// enregistrées, aperçu du graphe) se recalcule.
+
+/** Copie du modèle avec les propriétés de premier niveau remplacées (nom, version, description…). */
+export function updateTemplate(template: ChecklistTemplate, patch: Partial<ChecklistTemplate>): ChecklistTemplate {
+  return { ...template, ...patch };
+}
+
+/** Copie immuable du modèle où seule la section `sectionId` est recréée. */
+export function updateSection(
+  template: ChecklistTemplate,
+  sectionId: string,
+  change: (section: ChecklistSectionTemplate) => ChecklistSectionTemplate
+): ChecklistTemplate {
+  return {
+    ...template,
+    sections: template.sections.map(section => (section.id === sectionId ? change(section) : section))
+  };
+}
+
+/** Copie immuable du modèle où seul le champ de contexte d'index `index` est recréé. */
+export function updateContextField(
+  template: ChecklistTemplate,
+  index: number,
+  change: (field: ContextFieldSchema) => ContextFieldSchema
+): ChecklistTemplate {
+  const schema = template.contextSchema ?? [];
+  if (index < 0 || index >= schema.length) return template;
+  return { ...template, contextSchema: schema.map((field, i) => (i === index ? change(field) : field)) };
+}
+
+/** Ajoute un item à la fin de la section. */
+export function addItem(template: ChecklistTemplate, sectionId: string, item: ChecklistItemTemplate): ChecklistTemplate {
+  return updateSection(template, sectionId, section => ({ ...section, items: [...section.items, item] }));
+}
+
+/** Insère un item à la position `index` de la section (bornée à la longueur de la liste). */
+export function insertItemAt(
+  template: ChecklistTemplate,
+  sectionId: string,
+  index: number,
+  item: ChecklistItemTemplate
+): ChecklistTemplate {
+  return updateSection(template, sectionId, section => {
+    const items = [...section.items];
+    items.splice(Math.max(0, Math.min(index, items.length)), 0, item);
+    return { ...section, items };
+  });
+}
+
+/** Retire l'item de position `index` de la section (index hors bornes : modèle inchangé). */
+export function removeItemAt(template: ChecklistTemplate, sectionId: string, index: number): ChecklistTemplate {
+  const section = template.sections.find(s => s.id === sectionId);
+  if (!section || index < 0 || index >= section.items.length) return template;
+  return updateSection(template, sectionId, s => ({ ...s, items: s.items.filter((_, i) => i !== index) }));
+}
+
+/** Déplace un item à l'intérieur de sa section. */
+export function moveItemWithin(template: ChecklistTemplate, sectionId: string, fromIndex: number, toIndex: number): ChecklistTemplate {
+  return updateSection(template, sectionId, section => ({ ...section, items: reorderArray(section.items, fromIndex, toIndex) }));
+}
+
+/** Déplace un item d'une section à une autre (même section : déplacement interne). */
+export function moveItemBetween(
+  template: ChecklistTemplate,
+  fromSectionId: string,
+  toSectionId: string,
+  fromIndex: number,
+  toIndex: number
+): ChecklistTemplate {
+  if (fromSectionId === toSectionId) return moveItemWithin(template, fromSectionId, fromIndex, toIndex);
+  const source = template.sections.find(s => s.id === fromSectionId);
+  const target = template.sections.find(s => s.id === toSectionId);
+  if (!source || !target) return template;
+  const moved = transferItemBetweenLists(source.items, target.items, fromIndex, toIndex);
+  return {
+    ...template,
+    sections: template.sections.map(s =>
+      s.id === fromSectionId ? { ...s, items: moved.source } : s.id === toSectionId ? { ...s, items: moved.target } : s
+    )
+  };
+}
+
 /** Copie immuable du modèle où seul l'item `itemId` (et sa section) est recréé. */
-function updateItem(
+export function updateItem(
   template: ChecklistTemplate,
   itemId: string,
   change: (item: ChecklistItemTemplate) => ChecklistItemTemplate

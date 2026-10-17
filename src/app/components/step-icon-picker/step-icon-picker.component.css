@@ -1,0 +1,72 @@
+:host {
+  position: relative;
+  display: inline-flex;
+}
+
+.icon-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--input-bg);
+  color: var(--text-heading);
+  cursor: pointer;
+}
+
+.icon-trigger:hover,
+.icon-trigger[aria-expanded='true'] {
+  border-color: var(--primary);
+}
+
+/* Panneau sous le bouton, au-dessus du reste de la carte : il reste dans l'ordre de tabulation. */
+.icon-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(8, 2.25rem);
+  gap: 0.3rem;
+  padding: 0.6rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--shadow-md);
+}
+
+.icon-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.icon-option:hover {
+  background: var(--bg-hover);
+}
+
+.icon-option.is-current {
+  background: var(--icon-picker-current-bg);
+  border-color: var(--icon-picker-current-border);
+}
+
+.icon-trigger:focus-visible,
+.icon-option:focus-visible {
+  outline: 2px solid var(--graph-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .icon-panel {
+    grid-template-columns: repeat(6, 2.25rem);
+  }
+}

@@ -39,6 +39,10 @@ export interface StepGraphNode extends GraphStructureNode {
   anomaly: boolean;
   /** Progression d'une jonction (au moins deux dépendances), sinon `null`. */
   join: { ready: number; total: number } | null;
+  /** Seconde ligne affichée sous le libellé (aperçu du builder : « 3 items · 2 bloq. »). */
+  caption?: string;
+  /** Nom accessible fourni par l'appelant ; remplace le nom calculé à partir de l'état de l'étape. */
+  ariaLabel?: string;
 }
 
 export interface GraphLayoutOptions {

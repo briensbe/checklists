@@ -1,6 +1,6 @@
 import deliveryAudit from '../../assets/templates/delivery-audit.json';
 import releaseFlow from '../../assets/templates/release-flow.json';
-import { DEFAULT_STEP_ICON, LEGACY_STEP_ICONS, resolveStepIcon, STEP_ICON_NAMES } from './step-icons';
+import { DEFAULT_STEP_ICON, LEGACY_STEP_ICONS, resolveStepIcon, STEP_ICON_LABELS, STEP_ICON_NAMES } from './step-icons';
 
 describe('resolveStepIcon', () => {
   it('garde un nom de la liste fermée', () => {
@@ -38,5 +38,14 @@ describe('resolveStepIcon', () => {
     for (const icon of icons) {
       expect(resolveStepIcon(icon), icon).not.toBe(DEFAULT_STEP_ICON);
     }
+  });
+});
+
+describe('STEP_ICON_LABELS', () => {
+  it('donne un libellé français, non vide et unique, à chaque icône de la liste fermée', () => {
+    const labels = STEP_ICON_NAMES.map(name => STEP_ICON_LABELS[name]);
+    expect(Object.keys(STEP_ICON_LABELS).sort()).toEqual([...STEP_ICON_NAMES].sort());
+    expect(labels.every(label => label.trim().length > 0)).toBe(true);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

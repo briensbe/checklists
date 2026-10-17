@@ -45,6 +45,43 @@ export const STEP_ICON_NAMES = [
 
 export type StepIconName = (typeof STEP_ICON_NAMES)[number];
 
+/** Libellés français des icônes, pour la palette du builder et les noms accessibles. */
+export const STEP_ICON_LABELS: Readonly<Record<StepIconName, string>> = {
+  'list-checks': 'Liste de contrôles',
+  'clipboard-list': 'Presse-papiers',
+  'clipboard-check': 'Presse-papiers validé',
+  flag: 'Drapeau',
+  goal: 'Arrivée',
+  'git-merge': 'Jonction',
+  'git-branch': 'Branche',
+  hammer: 'Marteau',
+  wrench: 'Clé',
+  'book-open': 'Livre ouvert',
+  'file-text': 'Document',
+  'flask-conical': 'Fiole',
+  bug: 'Anomalie',
+  gavel: 'Décision',
+  rocket: 'Fusée',
+  ticket: 'Ticket',
+  box: 'Boîte',
+  package: 'Paquet',
+  archive: 'Archive',
+  code: 'Code',
+  terminal: 'Terminal',
+  database: 'Base de données',
+  server: 'Serveur',
+  cloud: 'Nuage',
+  globe: 'Globe',
+  'shield-check': 'Bouclier',
+  lock: 'Cadenas',
+  users: 'Équipe',
+  'message-square': 'Message',
+  mail: 'Courriel',
+  calendar: 'Calendrier',
+  settings: 'Réglages',
+  search: 'Recherche'
+};
+
 /** Icône d'une étape sans icône ou à l'icône inconnue (celle de l'en-tête de section historique). */
 export const DEFAULT_STEP_ICON: StepIconName = 'list-checks';
 

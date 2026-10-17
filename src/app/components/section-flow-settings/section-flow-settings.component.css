@@ -1,0 +1,93 @@
+:host {
+  display: block;
+}
+
+.flow-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: -0.5rem 0 1.1rem;
+}
+
+.after-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.after-label {
+  font-weight: 600;
+}
+
+.dep-chip {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--flow-chip-border);
+  border-radius: 999px;
+  background: var(--flow-chip-bg);
+  color: var(--flow-chip-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.dep-chip:hover:not(:disabled) {
+  border-color: var(--flow-chip-on-border);
+}
+
+.dep-chip.is-on {
+  background: var(--flow-chip-on-bg);
+  border-color: var(--flow-chip-on-border);
+  color: var(--flow-chip-on-text);
+  font-weight: 600;
+}
+
+/* Puce qui créerait une boucle : grisée, désactivée, expliquée au survol et aux lecteurs d'écran */
+.dep-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.dep-chip:focus-visible {
+  outline: 2px solid var(--graph-focus);
+  outline-offset: 2px;
+}
+
+.start-hint {
+  font-style: italic;
+}
+
+.flow-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}
+
+.flow-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.85rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: 0.825rem;
+  color: var(--text-main);
+}
+
+.flow-choice legend {
+  float: left;
+  margin-right: 0.35rem;
+  padding: 0;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.flow-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
