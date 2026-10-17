@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coche rapide + ajouts facultatifs</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#faf9f5;--surface-1:#f1efe8;--surface-2:#ffffff;
+  --border:rgba(31,30,29,.14);--border-strong:rgba(31,30,29,.32);--border-accent:#534AB7;
+  --text-primary:#1f1e1d;--text-secondary:#5f5e5a;--text-muted:#8c8a85;
+  --text-success:#0F6E56;--text-danger:#A32D2D;--text-warning:#854F0B;--text-accent:#3C3489;
+  --bg-success:#E1F5EE;--bg-danger:#FCEBEB;--bg-warning:#FAEEDA;--bg-accent:#EEEDFE;
+  --radius:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-0:#1c1b1a;--surface-1:#262624;--surface-2:#30302e;
+    --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.32);--border-accent:#AFA9EC;
+    --text-primary:#f1efe8;--text-secondary:#b4b2a9;--text-muted:#88877f;
+    --text-success:#5DCAA5;--text-danger:#F09595;--text-warning:#EF9F27;--text-accent:#CECBF6;
+    --bg-success:#04342C;--bg-danger:#501313;--bg-warning:#412402;--bg-accent:#26215C;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px 16px 48px}
+header.mk{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);padding:8px 0 12px;margin-bottom:8px}
+header.mk h1{font-size:18px;font-weight:600;margin:0}
+header.mk a{font-size:13px;color:var(--text-accent);text-decoration:none}
+header.mk p{flex-basis:100%;margin:4px 0 0;font-size:13px;color:var(--text-secondary)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button{font:inherit;font-size:13px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:5px 12px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea{font:inherit;font-size:14px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:6px 10px}
+</style>
+</head>
+<body>
+<main>
+<header class="mk"><h1>Coche rapide + ajouts facultatifs</h1><a href="index.html">← toutes les maquettes</a><p>Comportement par défaut : toute la ligne coche instantanément ; note, photo, fichier et N/A derrière le trombone. Clavier : ↑/↓, Espace, A.</p></header>
+<style>
+.row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;user-select:none;font-size:14px;transition:background .15s}
+.row:hover{background:var(--surface-1)}
+.row:focus-visible{outline:2px solid var(--border-accent)}
+.ck{font-size:22px;display:flex;transition:transform .15s}
+.row.done .lbl{color:var(--text-muted);text-decoration:line-through}
+.row.na .lbl{color:var(--text-muted)}
+.add{background:transparent;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;display:flex;padding:4px;border-radius:var(--radius);opacity:0;transition:opacity .15s}
+.row:hover .add,.add.on,.row.hint .add{opacity:1}
+@media (hover:none){.add{opacity:.45}}
+.row.hint .add{color:var(--text-accent);animation:pl 1s 2}
+@keyframes pl{50%{transform:scale(1.25)}}
+@keyframes pop{50%{transform:scale(1.3)}}
+.bdg{font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:2px}
+.dr{margin:0 0 6px 42px;padding:10px 12px;background:var(--surface-1);border-radius:var(--radius)}
+.tb{display:flex;gap:6px;flex-wrap:wrap}
+.tb button,.tb label{font-size:12px;display:flex;align-items:center;gap:4px;padding:5px 10px;cursor:pointer}
+.tb label{border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface-2)}
+.att{display:flex;align-items:center;gap:8px;font-size:12px;margin-top:8px;color:var(--text-secondary)}
+.th{width:40px;height:40px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border)}
+.x{background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:0;display:flex;margin-left:auto}
+textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;min-height:48px;margin-top:8px}
+</style>
+<div style="display:flex;align-items:center;gap:8px;padding:.5rem 0;font-size:13px;color:var(--text-secondary)"><i class="ti ti-server" aria-hidden="true"></i>Réal. Back<span style="color:var(--text-muted)">/</span><span style="color:var(--text-primary);font-weight:500">Intégration</span><span style="margin-left:auto" id="cnt"></span></div>
+<div id="list"></div>
+<div style="font-size:12px;color:var(--text-muted);margin-top:10px">Clavier : flèches pour naviguer, espace pour cocher, A pour ouvrir les ajouts</div>
+<script>
+const I=["Tests d'intégration au vert","Plan de rollback rédigé","Doc OpenAPI publiée","Alertes de monitoring","Tests de charge"].map(t=>({t,s:"todo",open:false,notes:[],photos:[],files:[],na:"",naEdit:false,draft:null}));
+I[1].s="done";I[1].notes=["Procédure dans le wiki ops, testée sur la préprod"];
+let hint=-1,ht=null,focusI=null;
+const esc=t=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+function render(){let h="";
+I.forEach((x,i)=>{const n=x.notes.length,p=x.photos.length,f=x.files.length,done=x.s==="done",na=x.s==="na";
+h+=`<div class="row ${done?'done':''} ${na?'na':''} ${hint===i?'hint':''}" tabindex="0" data-i="${i}" onclick="tog(${i})" onkeydown="key(event,${i})">
+<span class="ck" id="ck${i}"><i class="ti ${done?'ti-circle-check':na?'ti-circle-off':'ti-circle'}" style="color:${done?'var(--text-success)':'var(--text-muted)'}" aria-hidden="true"></i></span>
+<span class="lbl" style="flex:1">${x.t}</span>
+${n?`<span class="bdg"><i class="ti ti-message" aria-hidden="true"></i>${n}</span>`:''}${p?`<span class="bdg"><i class="ti ti-photo" aria-hidden="true"></i>${p}</span>`:''}${f?`<span class="bdg"><i class="ti ti-paperclip" aria-hidden="true"></i>${f}</span>`:''}
+<button class="add ${x.open?'on':''}" onclick="event.stopPropagation();drw(${i})" aria-label="Ajouter une note, photo ou fichier"><i class="ti ${x.open?'ti-chevron-up':'ti-paperclip'}"></i></button></div>`;
+if(x.open){h+=`<div class="dr"><div class="tb">
+<button onclick="I[${i}].draft='';render();setTimeout(()=>document.getElementById('ta${i}')?.focus(),0)"><i class="ti ti-message" aria-hidden="true"></i>Note</button>
+<label><i class="ti ti-camera" aria-hidden="true"></i>Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="ph(${i},this)"></label>
+<label><i class="ti ti-file" aria-hidden="true"></i>Fichier<input type="file" style="display:none" onchange="fl(${i},this)"></label>
+<button onclick="I[${i}].naEdit=true;render()" style="margin-left:auto"><i class="ti ti-circle-off" aria-hidden="true"></i>Non applicable</button></div>`;
+if(x.draft!==null)h+=`<textarea id="ta${i}" placeholder="Ta note… (Entrée pour enregistrer)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveN(${i},this.value)}if(event.key==='Escape'){I[${i}].draft=null;render()}"></textarea>`;
+if(x.naEdit)h+=`<textarea id="na${i}" placeholder="Pourquoi ne s'applique-t-il pas ? (Entrée pour valider)" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&this.value.trim()){event.preventDefault();I[${i}].na=this.value.trim();I[${i}].s='na';I[${i}].naEdit=false;render()}"></textarea>`;
+if(na)h+=`<div class="att"><i class="ti ti-circle-off" aria-hidden="true"></i>Non applicable : ${esc(x.na)}<button class="x" onclick="I[${i}].s='todo';I[${i}].na='';render()" aria-label="Annuler"><i class="ti ti-x"></i></button></div>`;
+x.notes.forEach((t,k)=>h+=`<div class="att"><i class="ti ti-message" aria-hidden="true"></i><span style="color:var(--text-primary)">${esc(t)}</span><button class="x" onclick="I[${i}].notes.splice(${k},1);render()" aria-label="Supprimer"><i class="ti ti-x"></i></button></div>`);
+if(p)h+=`<div class="att">${x.photos.map((s,k)=>`<img class="th" src="${s}" alt="Photo ${k+1}">`).join("")}<button class="x" onclick="I[${i}].photos=[];render()" aria-label="Supprimer les photos"><i class="ti ti-x"></i></button></div>`;
+x.files.forEach((fi,k)=>h+=`<div class="att"><i class="ti ti-file" aria-hidden="true"></i><span style="color:var(--text-primary)">${esc(fi.n)}</span><span>${fi.s}</span><button class="x" onclick="I[${i}].files.splice(${k},1);render()" aria-label="Supprimer"><i class="ti ti-x"></i></button></div>`);
+h+=`</div>`}});
+document.getElementById("list").innerHTML=h;
+document.getElementById("cnt").textContent=I.filter(x=>x.s!=="todo").length+"/"+I.length;
+if(focusI!==null){document.querySelector(`.row[data-i="${focusI}"]`)?.focus();focusI=null}}
+function tog(i){const x=I[i];if(x.s==="na")return;x.s=x.s==="done"?"todo":"done";
+clearTimeout(ht);hint=x.s==="done"&&!x.notes.length&&!x.photos.length&&!x.files.length?i:-1;focusI=i;render();
+const c=document.getElementById("ck"+i);if(c&&x.s==="done")c.style.animation="pop .25s";
+ht=setTimeout(()=>{hint=-1;document.querySelectorAll(".row.hint").forEach(r=>r.classList.remove("hint"))},2500)}
+function drw(i){I[i].open=!I[i].open;hint=-1;render()}
+function key(e,i){if(e.target.tagName==="BUTTON")return;if(e.key===" "){e.preventDefault();tog(i)}else if(e.key==="a"||e.key==="A"){drw(i);focusI=i;render()}else if(e.key==="ArrowDown"){document.querySelector(`.row[data-i="${i+1}"]`)?.focus();e.preventDefault()}else if(e.key==="ArrowUp"){document.querySelector(`.row[data-i="${i-1}"]`)?.focus();e.preventDefault()}}
+function saveN(i,v){if(v.trim())I[i].notes.push(v.trim());I[i].draft=null;render()}
+function ph(i,inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{I[i].photos.push(e.target.result);render()};r.readAsDataURL(f)}
+function fl(i,inp){const f=inp.files[0];if(!f)return;const s=f.size>1e6?(f.size/1e6).toFixed(1)+" Mo":Math.max(1,Math.round(f.size/1e3))+" Ko";I[i].files.push({n:f.name,s});render()}
+render();
+</script>
+
+</main>
+</body>
+</html>

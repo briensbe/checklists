@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preuve obligatoire (option du template)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#faf9f5;--surface-1:#f1efe8;--surface-2:#ffffff;
+  --border:rgba(31,30,29,.14);--border-strong:rgba(31,30,29,.32);--border-accent:#534AB7;
+  --text-primary:#1f1e1d;--text-secondary:#5f5e5a;--text-muted:#8c8a85;
+  --text-success:#0F6E56;--text-danger:#A32D2D;--text-warning:#854F0B;--text-accent:#3C3489;
+  --bg-success:#E1F5EE;--bg-danger:#FCEBEB;--bg-warning:#FAEEDA;--bg-accent:#EEEDFE;
+  --radius:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-0:#1c1b1a;--surface-1:#262624;--surface-2:#30302e;
+    --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.32);--border-accent:#AFA9EC;
+    --text-primary:#f1efe8;--text-secondary:#b4b2a9;--text-muted:#88877f;
+    --text-success:#5DCAA5;--text-danger:#F09595;--text-warning:#EF9F27;--text-accent:#CECBF6;
+    --bg-success:#04342C;--bg-danger:#501313;--bg-warning:#412402;--bg-accent:#26215C;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px 16px 48px}
+header.mk{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);padding:8px 0 12px;margin-bottom:8px}
+header.mk h1{font-size:18px;font-weight:600;margin:0}
+header.mk a{font-size:13px;color:var(--text-accent);text-decoration:none}
+header.mk p{flex-basis:100%;margin:4px 0 0;font-size:13px;color:var(--text-secondary)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button{font:inherit;font-size:13px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:5px 12px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea{font:inherit;font-size:14px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:6px 10px}
+</style>
+</head>
+<body>
+<main>
+<header class="mk"><h1>Preuve obligatoire (option du template)</h1><a href="index.html">← toutes les maquettes</a><p>Cas particulier : la preuve est demandée au cochage. Bloquant = preuve requise ; sinon « Plus tard ». Non applicable justifié.</p></header>
+<style>
+.card{border:0.5px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--surface-2)}
+.card.open{border:1.5px solid var(--border-accent)}
+.hd{display:flex;align-items:center;gap:10px;font-size:14px}
+.ck{background:transparent;border:none;cursor:pointer;font-size:22px;padding:0;display:flex}
+.pill{font-size:11px;padding:2px 8px;border-radius:var(--radius);white-space:nowrap}
+.ib{background:transparent;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:2px;display:flex}
+.pz{margin:10px 0 2px 32px}
+.hint{font-size:12px;color:var(--text-secondary);margin-bottom:6px}
+.meta{margin:6px 0 0 32px;font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lk{background:transparent;border:none;color:var(--text-accent);cursor:pointer;font-size:12px;padding:0}
+.thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;border:0.5px solid var(--border)}
+.drop{border:1.5px dashed var(--border-strong);border-radius:var(--radius);padding:14px;text-align:center;font-size:13px;color:var(--text-secondary)}
+textarea{width:100%;box-sizing:border-box;min-height:56px;font:inherit;font-size:13px}
+.acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+</style>
+<div style="display:flex;align-items:center;gap:8px;padding:.5rem 0;font-size:13px;color:var(--text-secondary)"><i class="ti ti-server" aria-hidden="true"></i>Réal. Back<span style="color:var(--text-muted)">/</span><span style="color:var(--text-primary);font-weight:500">Intégration</span></div>
+<div id="list"></div>
+<div id="gate" style="background:var(--surface-1);border-radius:var(--radius);padding:10px 12px;font-size:13px;margin-top:4px"></div>
+<script>
+const P={none:[null,""],photo:["ti-camera","photo"],comment:["ti-message","commentaire"],link:["ti-link","lien"]};
+const CR={b:["bloquant","var(--bg-danger)","var(--text-danger)"],i:["important","var(--bg-warning)","var(--text-warning)"],o:["optionnel","var(--surface-1)","var(--text-secondary)"]};
+const I=[
+{t:"Tests d'intégration au vert",c:"b",p:"photo",hint:"Capture du rapport de tests"},
+{t:"Plan de rollback rédigé",c:"b",p:"comment",hint:"Résume la procédure ou indique où elle se trouve"},
+{t:"Doc OpenAPI publiée",c:"i",p:"link",hint:"Lien vers la documentation"},
+{t:"Alertes de monitoring",c:"o",p:"none"},
+{t:"Tests de charge",c:"o",p:"comment",hint:"Résultats obtenus (temps de réponse, charge max)"}
+].map(x=>({...x,s:"todo",v:"",d:"",na:"",who:""}));
+const now=()=>{const d=new Date();return "Toi · "+d.getHours()+"h"+String(d.getMinutes()).padStart(2,"0")};
+const esc=t=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+function stIcon(x){return {todo:["ti-circle","var(--text-muted)"],open:["ti-circle-dot","var(--text-accent)"],done:["ti-circle-check","var(--text-success)"],pending:["ti-alert-circle","var(--text-warning)"],na:["ti-circle-off","var(--text-muted)"],naopen:["ti-circle-off","var(--text-accent)"]}[x.s]}
+function proofView(x){if(x.p==="photo")return `<img class="thumb" src="${x.v}" alt="Preuve photo">`;
+if(x.p==="comment")return `<span style="font-style:italic;color:var(--text-primary)">« ${esc(x.v.length>60?x.v.slice(0,60)+"…":x.v)} »</span>`;
+if(x.p==="link")return `<span class="pill" style="background:var(--bg-accent);color:var(--text-accent)"><i class="ti ti-link" aria-hidden="true"></i> ${esc(x.v.replace(/^https?:\/\//,"").slice(0,32))}</span>`;return ""}
+function input(x,i){
+if(x.p==="photo")return x.d?`<div style="display:flex;align-items:center;gap:10px"><img class="thumb" src="${x.d}" alt="Aperçu"><button class="lk" onclick="I[${i}].d='';render()">Changer</button></div>`
+:`<label class="drop" style="display:block;cursor:pointer"><i class="ti ti-camera" style="font-size:22px" aria-hidden="true"></i><br>Prendre une photo ou choisir un fichier<input type="file" accept="image/*" capture="environment" style="display:none" onchange="pic(${i},this)"></label><button class="lk" style="margin-top:6px" onclick="sample(${i})">Utiliser une image d'exemple</button>`;
+if(x.p==="comment")return `<textarea placeholder="Ton commentaire…" oninput="I[${i}].d=this.value;en(${i})">${esc(x.d)}</textarea>`;
+if(x.p==="link")return `<input type="url" style="width:100%;box-sizing:border-box" placeholder="https://…" value="${esc(x.d)}" oninput="I[${i}].d=this.value;en(${i})">`}
+function render(){let h="";
+I.forEach((x,i)=>{const [ic,col]=stIcon(x),c=CR[x.c],p=P[x.p],off=x.s==="na";
+h+=`<div class="card ${x.s==="open"||x.s==="naopen"?'open':''}" style="${off?'opacity:.6':''}"><div class="hd"><button class="ck" onclick="tap(${i})" aria-label="Cocher"><i class="ti ${ic}" style="color:${col}"></i></button>
+<span style="flex:1;${x.s==="done"||off?'color:var(--text-secondary)':''}">${x.t}</span>
+${p[0]&&x.s!=="done"&&!off?`<i class="ti ${p[0]}" title="Preuve : ${p[1]}" style="color:var(--text-muted);font-size:16px" aria-label="Preuve requise : ${p[1]}"></i>`:''}
+<span class="pill" style="background:${c[1]};color:${c[2]}">${c[0]}</span>
+${x.s==="todo"?`<button class="ib" onclick="I[${i}].s='naopen';render()" title="Non applicable" aria-label="Marquer non applicable"><i class="ti ti-dots"></i></button>`:''}</div>`;
+if(x.s==="open"){const ok=x.d.trim().length>0;
+h+=`<div class="pz"><div class="hint"><i class="ti ${p[0]}" aria-hidden="true"></i> ${x.hint}</div>${input(x,i)}<div class="acts"><button id="ok${i}" onclick="val(${i})" ${ok?'':'disabled'}>Valider</button>${x.c!=="b"?`<button onclick="later(${i})">Plus tard</button>`:''}<button class="lk" onclick="I[${i}].s='todo';render()">Annuler</button></div>${x.c==="b"?'<div class="hint" style="margin-top:6px">Item bloquant : la preuve est nécessaire pour ouvrir l\'étape suivante.</div>':''}</div>`}
+if(x.s==="naopen")h+=`<div class="pz"><div class="hint">Pourquoi cet item ne s'applique pas ?</div><textarea placeholder="Justification…" oninput="I[${i}].na=this.value;document.getElementById('na${i}').disabled=!this.value.trim()">${esc(x.na)}</textarea><div class="acts"><button id="na${i}" onclick="I[${i}].s='na';I[${i}].who=now();render()" ${x.na.trim()?'':'disabled'}>Marquer non applicable</button><button class="lk" onclick="I[${i}].s='todo';render()">Annuler</button></div></div>`;
+if(x.s==="done")h+=`<div class="meta">${proofView(x)}<span>${x.who}</span>${x.p!=="none"?`<button class="lk" onclick="I[${i}].d=I[${i}].v;I[${i}].s='open';render()">modifier</button>`:''}</div>`;
+if(x.s==="pending")h+=`<div class="meta" style="color:var(--text-warning)"><span>Fait · preuve à compléter</span><button class="lk" onclick="I[${i}].s='open';render()">Compléter</button></div>`;
+if(off)h+=`<div class="meta"><span>Non applicable : ${esc(x.na)}</span><span>${x.who}</span><button class="lk" onclick="I[${i}].s='todo';render()">annuler</button></div>`;
+h+=`</div>`});
+document.getElementById("list").innerHTML=h;
+const bl=I.filter(x=>x.c==="b"&&!["done","na"].includes(x.s)).length,pend=I.filter(x=>x.s==="pending").length,na=I.filter(x=>x.s==="na").length;
+document.getElementById("gate").innerHTML=`<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center"><span style="color:${bl?'var(--text-danger)':'var(--text-success)'};display:flex;gap:6px;align-items:center"><i class="ti ${bl?'ti-lock':'ti-lock-open'}" aria-hidden="true"></i>${bl?bl+' bloquant(s) avant la porte':'Porte ouverte vers Recette'}</span>${pend?`<span style="color:var(--text-warning)"><i class="ti ti-alert-circle" aria-hidden="true"></i> ${pend} preuve(s) à compléter</span>`:''}${na?`<span style="color:var(--text-secondary)"><i class="ti ti-circle-off" aria-hidden="true"></i> ${na} non applicable(s)</span>`:''}</div>`}
+function tap(i){const x=I[i];if(x.s==="todo"){if(x.p==="none"){x.s="done";x.who=now()}else{x.s="open";x.d=""}}else if(x.s==="done"||x.s==="pending"){x.s="todo";x.v="";x.d=""}else if(x.s==="open"||x.s==="naopen")x.s="todo";render()}
+function en(i){const b=document.getElementById("ok"+i);if(b)b.disabled=!I[i].d.trim()}
+function val(i){const x=I[i];x.v=x.d;x.s="done";x.who=now();render()}
+function later(i){I[i].s="pending";I[i].who=now();render()}
+function pic(i,inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{I[i].d=e.target.result;render()};r.readAsDataURL(f)}
+function sample(i){const c=document.createElement("canvas");c.width=c.height=88;const g=c.getContext("2d");g.fillStyle="#E1F5EE";g.fillRect(0,0,88,88);g.fillStyle="#1D9E75";for(let k=0;k<5;k++){g.fillRect(12,14+k*13,k===2?40:62,6)}g.fillStyle="#0F6E56";g.fillRect(64,62,14,14);I[i].d=c.toDataURL();render()}
+render();
+</script>
+
+</main>
+</body>
+</html>

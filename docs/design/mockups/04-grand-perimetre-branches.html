@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grand périmètre — phases parallèles et zoom</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#faf9f5;--surface-1:#f1efe8;--surface-2:#ffffff;
+  --border:rgba(31,30,29,.14);--border-strong:rgba(31,30,29,.32);--border-accent:#534AB7;
+  --text-primary:#1f1e1d;--text-secondary:#5f5e5a;--text-muted:#8c8a85;
+  --text-success:#0F6E56;--text-danger:#A32D2D;--text-warning:#854F0B;--text-accent:#3C3489;
+  --bg-success:#E1F5EE;--bg-danger:#FCEBEB;--bg-warning:#FAEEDA;--bg-accent:#EEEDFE;
+  --radius:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-0:#1c1b1a;--surface-1:#262624;--surface-2:#30302e;
+    --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.32);--border-accent:#AFA9EC;
+    --text-primary:#f1efe8;--text-secondary:#b4b2a9;--text-muted:#88877f;
+    --text-success:#5DCAA5;--text-danger:#F09595;--text-warning:#EF9F27;--text-accent:#CECBF6;
+    --bg-success:#04342C;--bg-danger:#501313;--bg-warning:#412402;--bg-accent:#26215C;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px 16px 48px}
+header.mk{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);padding:8px 0 12px;margin-bottom:8px}
+header.mk h1{font-size:18px;font-weight:600;margin:0}
+header.mk a{font-size:13px;color:var(--text-accent);text-decoration:none}
+header.mk p{flex-basis:100%;margin:4px 0 0;font-size:13px;color:var(--text-secondary)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button{font:inherit;font-size:13px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:5px 12px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea{font:inherit;font-size:14px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:6px 10px}
+</style>
+</head>
+<body>
+<main>
+<header class="mk"><h1>Grand périmètre — phases parallèles et zoom</h1><a href="index.html">← toutes les maquettes</a><p>Carte du projet en phases (Front ∥ Back → Recette). Clique sur une phase pour zoomer ; « Réal. Back » contient des étapes parallèles. Bloc « Laissés en route ».</p></header>
+<style>
+.tile{position:absolute;transform:translate(-50%,-50%);width:112px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;box-sizing:border-box}
+.tile:hover{border-color:var(--border-strong)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin:0 2px}
+.pill{font-size:11px;padding:2px 8px;border-radius:var(--radius)}
+.bd{position:absolute;top:-9px;right:-8px;font-size:11px;padding:1px 6px;border-radius:var(--radius);border:0.5px solid var(--border)}
+.it{display:flex;align-items:center;gap:10px;padding:8px 10px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:14px;margin-bottom:8px;background:var(--surface-2);cursor:pointer}
+.it.done{color:var(--text-muted);text-decoration:line-through}
+.sn{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--surface-2)}
+.lb{position:absolute;transform:translateX(-50%);font-size:12px;white-space:nowrap;color:var(--text-secondary)}
+.stat{background:var(--surface-1);border-radius:var(--radius);padding:10px 12px;flex:1;min-width:0}
+.dep{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0}
+</style>
+<div id="app" style="padding-top:.5rem"></div>
+<script>
+const R={
+cad:{n:"Cadrage",ic:"ti-target",dep:[],s:{bes:{n:"Besoin",dep:[],it:[["Objectifs signés",1,1],["Périmètre",1,1]]},bud:{n:"Budget",dep:["bes"],it:[["Budget validé",1,1],["Planning",1,1]]},eq:{n:"Équipe",dep:["bud"],it:[["Rôles définis",1,1],["Kick-off",0,0]]}}},
+con:{n:"Conception",ic:"ti-pencil",dep:["cad"],s:{maq:{n:"Maquettes",dep:[],it:[["Wireframes",1,1],["Maquettes HD",1,1]]},arc:{n:"Architecture",dep:["maq"],it:[["Archi validée",1,1],["Hébergement",1,1]]},sec:{n:"Sécurité",dep:["arc"],it:[["Analyse de risques",1,1],["Registre RGPD",0,0]]}}},
+fro:{n:"Réal. Front",ic:"ti-layout",dep:["con"],s:{pag:{n:"Pages clés",dep:[],it:[["Accueil",1,1],["Parcours achat",1,0]]},res:{n:"Responsive",dep:["pag"],it:[["Mobile",1,0],["Accessibilité",0,0]]}}},
+bac:{n:"Réal. Back",ic:"ti-server",dep:["con"],s:{soc:{n:"Socle",dep:[],it:[["Repo et CI",1,1],["Environnements",1,1]]},api:{n:"API",dep:["soc"],it:[["Endpoints catalogue",1,1],["Endpoints commande",1,0],["Doc OpenAPI",0,0]]},mig:{n:"Migration",dep:["soc"],it:[["Script de migration",1,0],["Jeu de test",1,0]]},int:{n:"Intégration",dep:["api","mig"],it:[["Tests d'intégration",1,0],["Monitoring",0,0]]}}},
+rec:{n:"Recette",ic:"ti-flask",dep:["fro","bac"],s:{tst:{n:"Tests",dep:[],it:[["Plan de test",1,0],["Tests auto",1,0]]},met:{n:"Recette PO",dep:["tst"],it:[["Validation PO",1,0]]}}},
+lan:{n:"Lancement",ic:"ti-rocket",dep:["rec"],s:{go:{n:"Go / no-go",dep:[],it:[["Décision",1,0]]},prd:{n:"Prod",dep:["go"],it:[["Mise en prod",1,0],["Smoke tests",1,0]]},com:{n:"Comm",dep:["go"],it:[["Annonce",0,0],["Formation",0,0]]}}}};
+const RK=Object.keys(R);const st={};RK.forEach(r=>{st[r]={};for(const s in R[r].s)st[r][s]=R[r].s[s].it.map(i=>!!i[2])});
+let zoom=null,selS=null,lastW=0;
+const sBlk=(r,s)=>R[r].s[s].it.every((x,j)=>!x[1]||st[r][s][j]);
+const rBlk=r=>Object.keys(R[r].s).every(s=>sBlk(r,s));
+const rUnl=r=>R[r].dep.every(d=>rUnl(d)&&rBlk(d));
+const sUnl=(r,s)=>rUnl(r)&&R[r].s[s].dep.every(d=>sUnl(r,d)&&sBlk(r,d));
+const rPct=r=>{const a=Object.values(st[r]).flat();return a.filter(Boolean).length/a.length};
+const rBlkLeft=r=>Object.keys(R[r].s).reduce((n,s)=>n+R[r].s[s].it.filter((x,j)=>x[1]&&!st[r][s][j]).length,0);
+// Layout : colonne = plus long chemin depuis un départ ; répartition verticale dans la colonne
+function layout(M,H,gap){const dp={};const d=k=>dp[k]??(dp[k]=M[k].dep.length?1+Math.max(...M[k].dep.map(d)):0);const K=Object.keys(M);K.forEach(d);
+const nc=Math.max(...Object.values(dp))+1,cols={};K.forEach(k=>(cols[dp[k]]=cols[dp[k]]||[]).push(k));const P={};
+for(const c in cols)cols[c].forEach((k,i)=>{const n=cols[c].length;P[k]={x:(+c+.5)/nc*100,y:H/2+(i-(n-1)/2)*gap}});return P}
+function edges(M,P,W,okFn){let t="";for(const k in M)M[k].dep.forEach(d=>{const ax=P[d].x*W/100,bx=P[k].x*W/100,ay=P[d].y,by=P[k].y,mx=(ax+bx)/2,ok=okFn(d);
+t+=`<path d="M${ax} ${ay} C${mx} ${ay},${mx} ${by},${bx} ${by}" fill="none" stroke="${ok?'#1D9E75':'var(--border-strong)'}" stroke-width="${ok?4:2}" stroke-dasharray="${ok?'0':'6 6'}"/>`});return t}
+function ring(p,c,sz,w){const r=(sz-w)/2,C=2*Math.PI*r,h=sz/2;return `<svg width="${sz}" height="${sz}" style="position:absolute;inset:0"><circle cx="${h}" cy="${h}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${w}"/><circle cx="${h}" cy="${h}" r="${r}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-p)}" transform="rotate(-90 ${h} ${h})" style="transition:stroke-dashoffset .4s"/></svg>`}
+function joinBadge(deps,okFn){const n=deps.filter(okFn).length,all=n===deps.length;return `<span class="bd" style="background:${all?'var(--bg-success)':'var(--surface-1)'};color:${all?'var(--text-success)':'var(--text-secondary)'}"><i class="ti ti-git-merge" aria-hidden="true"></i> ${n}/${deps.length}</span>`}
+function firstOpen(r){const S=Object.keys(R[r].s);return S.find(s=>sUnl(r,s)&&!sBlk(r,s))||S.find(s=>!sUnl(r,s))||S[0]}
+const rOk=d=>rUnl(d)&&rBlk(d);
+function overview(W){
+const all=RK.flatMap(r=>Object.values(st[r]).flat()),done=all.filter(Boolean).length,bl=RK.reduce((n,r)=>n+rBlkLeft(r),0);
+const cur=RK.filter(r=>rUnl(r)&&!rBlk(r)).map(r=>R[r].n);
+const debt=[];RK.forEach(r=>{if(rOk(r))for(const s in R[r].s)R[r].s[s].it.forEach((x,j)=>{if(!x[1]&&!st[r][s][j])debt.push([x[0],r,s])})});
+const H=300,P=layout(R,H,145);
+let h=`<div style="display:flex;gap:8px;margin-bottom:.5rem">
+<div class="stat"><div style="font-size:12px;color:var(--text-secondary)">Avancement</div><div style="font-size:22px;font-weight:500">${Math.round(done/all.length*100)}%</div></div>
+<div class="stat"><div style="font-size:12px;color:var(--text-secondary)">En cours</div><div style="font-size:15px;font-weight:500;padding-top:4px">${cur.join(" · ")||"Terminé"}</div></div>
+<div class="stat"><div style="font-size:12px;color:var(--text-secondary)">Bloquants restants</div><div style="font-size:22px;font-weight:500">${bl}</div></div></div>
+<div style="position:relative;height:${H}px"><svg style="position:absolute;left:0;top:0;width:100%;height:${H}px;overflow:visible">${edges(R,P,W,rOk)}</svg>`;
+RK.forEach(r=>{const g=R[r],u=rUnl(r),p=rPct(r),full=rBlk(r)&&u,c=full?'#1D9E75':'#7F77DD',b=rBlkLeft(r);
+const dots=Object.keys(g.s).map(s=>{const ok=sUnl(r,s)&&sBlk(r,s),o=sUnl(r,s);return `<span class="dot" style="background:${ok?'#1D9E75':o?'#7F77DD':'transparent'};border:1px solid ${ok?'#1D9E75':o?'#7F77DD':'var(--border-strong)'}"></span>`}).join("");
+h+=`<div class="tile" onclick="zoom='${r}';selS=firstOpen('${r}');render()" style="left:${P[r].x}%;top:${P[r].y}px;${u&&!rBlk(r)?'border:2px solid var(--border-accent);':''}${u?'':'opacity:.7'}">
+${g.dep.length>1?joinBadge(g.dep,rOk):''}
+<div style="position:relative;width:44px;height:44px;margin:0 auto;display:flex;align-items:center;justify-content:center">${u?ring(p,c,44,4):''}<i class="ti ${u?(full?'ti-check':g.ic):'ti-lock'}" style="font-size:18px;color:${u?(full?'var(--text-success)':'var(--text-primary)'):'var(--text-muted)'}" aria-hidden="true"></i></div>
+<div style="font-size:12px;font-weight:500;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.n}</div>
+<div style="margin:4px 0">${dots}</div>
+<div style="font-size:11px;color:${!u?'var(--text-muted)':b?'var(--text-danger)':'var(--text-success)'}">${!u?'verrouillée':b?b+' bloquant'+(b>1?'s':''):'porte ouverte'}</div></div>`});
+h+=`</div>`;
+if(debt.length)h+=`<div style="background:var(--bg-warning);border-radius:var(--radius);padding:10px 12px;margin-top:.5rem"><div style="font-size:13px;color:var(--text-warning);display:flex;gap:6px;align-items:center;margin-bottom:6px"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Laissés en route dans les phases franchies</div>`+debt.map(d=>`<div style="font-size:13px;padding:2px 0;cursor:pointer" onclick="zoom='${d[1]}';selS='${d[2]}';render()">· ${d[0]} <span style="color:var(--text-secondary)">(${R[d[1]].n})</span></div>`).join("")+`</div>`;
+return h}
+function region(W){const r=zoom,g=R[r],ru=rUnl(r),H=180,P=layout(g.s,H,90),sOk=d=>sUnl(r,d)&&sBlk(r,d);
+let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:.5rem;font-size:14px"><button onclick="zoom=null;render()" style="display:flex;align-items:center;gap:4px"><i class="ti ti-arrow-left" aria-hidden="true"></i>Projet</button><span style="color:var(--text-muted)">/</span><i class="ti ${g.ic}" aria-hidden="true"></i><span style="font-weight:500">${g.n}</span>${ru?'':'<span class="pill" style="background:var(--surface-1);color:var(--text-secondary)"><i class="ti ti-lock" aria-hidden="true"></i> phase verrouillée</span>'}<span style="margin-left:auto;color:var(--text-secondary);font-size:13px">${Math.round(rPct(r)*100)}%</span></div>
+<div style="position:relative;height:${H}px;margin-bottom:.5rem"><svg style="position:absolute;left:0;top:0;width:100%;height:${H}px;overflow:visible">${edges(g.s,P,W,sOk)}</svg>`;
+for(const s in g.s){const n=g.s[s],u=sUnl(r,s),a=st[r][s],p=a.filter(Boolean).length/a.length,full=p===1,c=full?'#1D9E75':'#7F77DD';
+h+=`<div class="sn" onclick="selS='${s}';render()" style="left:${P[s].x}%;top:${P[s].y}px;border:${s===selS?'2px solid var(--border-accent)':'0.5px solid var(--border)'}">${u?ring(p,c,48,4):''}${n.dep.length>1?joinBadge(n.dep,sOk):''}<i class="ti ${u?(full?'ti-check':'ti-point'):'ti-lock'}" style="font-size:20px;color:${u?(full?'var(--text-success)':'var(--text-primary)'):'var(--text-muted)'}" aria-hidden="true"></i></div>
+<div class="lb" style="left:${P[s].x}%;top:${P[s].y+28}px">${n.n}</div>`}
+h+=`</div>`;
+const n=g.s[selS],u=sUnl(r,selS),a=st[r][selS];
+h+=`<div style="background:var(--surface-1);border-radius:12px;padding:1rem 1.25rem"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:15px;font-weight:500">${n.n}</span>${n.dep.length>1?'<span class="pill" style="background:var(--bg-accent);color:var(--text-accent)">jonction</span>':''}<span style="margin-left:auto;font-size:13px;color:var(--text-secondary)">${a.filter(Boolean).length}/${a.length}</span></div>`;
+if(!u){const deps=!ru?g.dep.map(d=>[R[d].n,rOk(d),rUnl(d)]):n.dep.map(d=>[g.s[d].n,sOk(d),sUnl(r,d)]);
+h+=`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">${!ru?'La phase attend :':'Cette étape attend :'}</div>`+deps.map(d=>`<div class="dep"><i class="ti ${d[1]?'ti-circle-check':'ti-hourglass'}" style="font-size:16px;color:${d[1]?'var(--text-success)':'var(--text-warning)'}" aria-hidden="true"></i>${d[0]}<span style="margin-left:auto;font-size:12px;color:var(--text-secondary)">${d[1]?'prête':d[2]?'bloquants en cours':'pas encore ouverte'}</span></div>`).join("")
++`<div style="font-size:13px;color:var(--text-muted);margin-top:10px">Les items restent visibles en lecture seule :</div>`+n.it.map(x=>`<div style="font-size:13px;color:var(--text-muted);padding:2px 0">· ${x[0]}</div>`).join("")}
+else h+=n.it.map((x,j)=>{const d=a[j];return `<div class="it ${d?'done':''}" onclick="tg(${j})"><i class="ti ${d?'ti-circle-check':'ti-circle'}" style="font-size:20px;color:${d?'var(--text-success)':'var(--text-muted)'}" aria-hidden="true"></i>${x[0]}<span class="pill" style="margin-left:auto;background:${x[1]&&!d?'var(--bg-danger)':'var(--surface-2)'};color:${x[1]&&!d?'var(--text-danger)':'var(--text-secondary)'}">${x[1]?'bloquant':'optionnel'}</span></div>`}).join("");
+return h+`</div>`}
+function render(){const app=document.getElementById("app");lastW=app.clientWidth;app.innerHTML=zoom===null?overview(lastW):region(lastW)}
+function tg(j){st[zoom][selS][j]=!st[zoom][selS][j];render()}
+render();
+new ResizeObserver(()=>{const w=document.getElementById("app").clientWidth;if(w!==lastW)render()}).observe(document.getElementById("app"));
+</script>
+
+</main>
+</body>
+</html>

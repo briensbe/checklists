@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chemin à étapes — linéaire</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#faf9f5;--surface-1:#f1efe8;--surface-2:#ffffff;
+  --border:rgba(31,30,29,.14);--border-strong:rgba(31,30,29,.32);--border-accent:#534AB7;
+  --text-primary:#1f1e1d;--text-secondary:#5f5e5a;--text-muted:#8c8a85;
+  --text-success:#0F6E56;--text-danger:#A32D2D;--text-warning:#854F0B;--text-accent:#3C3489;
+  --bg-success:#E1F5EE;--bg-danger:#FCEBEB;--bg-warning:#FAEEDA;--bg-accent:#EEEDFE;
+  --radius:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-0:#1c1b1a;--surface-1:#262624;--surface-2:#30302e;
+    --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.32);--border-accent:#AFA9EC;
+    --text-primary:#f1efe8;--text-secondary:#b4b2a9;--text-muted:#88877f;
+    --text-success:#5DCAA5;--text-danger:#F09595;--text-warning:#EF9F27;--text-accent:#CECBF6;
+    --bg-success:#04342C;--bg-danger:#501313;--bg-warning:#412402;--bg-accent:#26215C;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px 16px 48px}
+header.mk{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);padding:8px 0 12px;margin-bottom:8px}
+header.mk h1{font-size:18px;font-weight:600;margin:0}
+header.mk a{font-size:13px;color:var(--text-accent);text-decoration:none}
+header.mk p{flex-basis:100%;margin:4px 0 0;font-size:13px;color:var(--text-secondary)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button{font:inherit;font-size:13px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:5px 12px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea{font:inherit;font-size:14px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:6px 10px}
+</style>
+</head>
+<body>
+<main>
+<header class="mk"><h1>Chemin à étapes — linéaire</h1><a href="index.html">← toutes les maquettes</a><p>Petit périmètre. Les étapes se déverrouillent quand les bloquants de l&#x27;étape précédente sont faits. Étape verrouillée : prérequis + liste simple des items.</p></header>
+<style>
+.nd{position:absolute;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--surface-2);transition:transform .2s}
+.nd:hover{transform:translate(-50%,-50%) scale(1.06)}
+.lb{position:absolute;transform:translateX(-50%);font-size:12px;white-space:nowrap;color:var(--text-secondary)}
+.it{display:flex;align-items:center;gap:10px;padding:8px 10px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:14px;cursor:pointer;margin-bottom:8px;background:var(--surface-2)}
+.it.done{color:var(--text-muted);text-decoration:line-through}
+.pill{font-size:11px;padding:2px 8px;border-radius:var(--radius);margin-left:auto}
+@keyframes pop{0%{transform:translate(-50%,-50%) scale(.6)}100%{transform:translate(-50%,-50%) scale(1)}}
+</style>
+<div style="position:relative;height:200px;margin:1rem 0 .5rem" id="map">
+<svg id="trail" style="position:absolute;left:0;top:0;width:100%;height:200px;overflow:visible"></svg>
+</div>
+<div style="background:var(--surface-1);border-radius:12px;padding:1rem 1.25rem" id="panel"></div>
+<script>
+const steps=[
+{n:"Préparation",ic:"ti-clipboard-list",it:[["Ticket validé",1],["Changelog rédigé",0],["Créneau réservé",1]]},
+{n:"Build",ic:"ti-hammer",it:[["Build vert",1],["Version taggée",1]]},
+{n:"Tests",ic:"ti-flask",it:[["Tests auto OK",1],["Recette métier",1],["Tests perf",0]]},
+{n:"Go / no-go",ic:"ti-gavel",it:[["Validation PO",1],["Plan de rollback",1]]},
+{n:"Déploiement",ic:"ti-rocket",it:[["Mise en prod",1],["Smoke tests",1],["Comm envoyée",0]]}];
+const st=steps.map(s=>s.it.map(()=>false));st[0][0]=true;
+const X=[9,29.5,50,70.5,91],Y=[60,140,60,140,60];let sel=0,flash=-1;
+const m=document.getElementById("map");
+const blkDone=i=>steps[i].it.every((x,j)=>!x[1]||st[i][j]);
+const unlocked=i=>i===0||(unlocked(i-1)&&blkDone(i-1));
+const pct=i=>st[i].filter(Boolean).length/st[i].length;
+function ring(p,c){const r=25,C=2*Math.PI*r;return `<svg width="56" height="56" style="position:absolute;inset:0"><circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--border)" stroke-width="4"/><circle cx="28" cy="28" r="${r}" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-p)}" transform="rotate(-90 28 28)" style="transition:stroke-dashoffset .4s"/></svg>`}
+// Liens calculés en pixels à partir de la largeur réelle (même repère que les nœuds)
+function drawTrail(){const W=m.clientWidth,px=x=>x*W/100;let t="";
+for(let i=0;i<4;i++){const ok=unlocked(i+1),ax=px(X[i]),bx=px(X[i+1]),mx=(ax+bx)/2;
+t+=`<path d="M${ax} ${Y[i]} C${mx} ${Y[i]},${mx} ${Y[i+1]},${bx} ${Y[i+1]}" fill="none" stroke="${ok?'#1D9E75':'var(--border-strong)'}" stroke-width="${ok?4:2}" stroke-dasharray="${ok?'0':'6 6'}"/>`}
+document.getElementById("trail").innerHTML=t}
+function render(){
+drawTrail();
+m.querySelectorAll(".nd,.lb").forEach(e=>e.remove());
+steps.forEach((s,i)=>{const u=unlocked(i),p=pct(i),full=p===1,c=full?'#1D9E75':'#7F77DD';
+const d=document.createElement("div");d.className="nd";d.style.left=X[i]+"%";d.style.top=Y[i]+"px";
+d.style.border=i===sel?"2px solid var(--border-accent)":"0.5px solid var(--border)";
+if(i===flash)d.style.animation="pop .4s";
+d.innerHTML=(u?ring(p,c):"")+`<i class="ti ${u?(full?'ti-check':s.ic):'ti-lock'}" style="font-size:22px;color:${u?(full?'var(--text-success)':'var(--text-primary)'):'var(--text-muted)'}" aria-hidden="true"></i>`;
+d.onclick=()=>{sel=i;flash=-1;render()};d.setAttribute("aria-label",s.n);m.appendChild(d);
+const l=document.createElement("div");l.className="lb";l.style.left=X[i]+"%";l.style.top=(Y[i]+34)+"px";l.textContent=s.n;m.appendChild(l)});
+const s=steps[sel],u=unlocked(sel),done=st[sel].filter(Boolean).length,rb=s.it.filter((x,j)=>x[1]&&!st[sel][j]).length;
+let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><i class="ti ${s.ic}" style="font-size:20px" aria-hidden="true"></i><span style="font-size:16px;font-weight:500">Étape ${sel+1} · ${s.n}</span><span style="margin-left:auto;font-size:13px;color:var(--text-secondary)">${done}/${s.it.length}</span></div>`;
+if(!u){h+=`<div style="font-size:14px;color:var(--text-secondary);display:flex;gap:8px;align-items:center"><i class="ti ti-lock" aria-hidden="true"></i>Termine les points bloquants de « ${steps[sel-1].n} » pour ouvrir cette étape.</div><div style="font-size:13px;color:var(--text-muted);margin-top:10px">Les items restent visibles en lecture seule :</div>`+s.it.map(x=>`<div style="font-size:13px;color:var(--text-muted);padding:2px 0">· ${x[0]}</div>`).join("")}
+else{h+=s.it.map((x,j)=>`<div class="it ${st[sel][j]?'done':''}" onclick="tg(${j})"><i class="ti ${st[sel][j]?'ti-circle-check':'ti-circle'}" style="font-size:20px;color:${st[sel][j]?'var(--text-success)':'var(--text-muted)'}" aria-hidden="true"></i>${x[0]}${x[1]?`<span class="pill" style="background:${st[sel][j]?'var(--surface-1)':'var(--bg-danger)'};color:${st[sel][j]?'var(--text-muted)':'var(--text-danger)'}">bloquant</span>`:`<span class="pill" style="background:var(--surface-1);color:var(--text-secondary)">optionnel</span>`}</div>`).join("");
+h+= rb? `<div style="font-size:13px;color:var(--text-secondary);margin-top:4px">${rb} bloquant(s) avant d'ouvrir la suite</div>`
+ : (sel<4?`<div style="font-size:13px;color:var(--text-success);margin-top:4px;display:flex;gap:6px;align-items:center"><i class="ti ti-lock-open" aria-hidden="true"></i>Porte ouverte vers « ${steps[sel+1].n} »${done<s.it.length?" — tu peux y aller, les optionnels restent visibles":""}</div>`:`<div style="font-size:13px;color:var(--text-success);margin-top:4px;display:flex;gap:6px;align-items:center"><i class="ti ti-trophy" aria-hidden="true"></i>Process terminé</div>`)}
+document.getElementById("panel").innerHTML=h}
+function tg(j){const was=blkDone(sel);st[sel][j]=!st[sel][j];flash=(!was&&blkDone(sel)&&sel<4)?sel+1:-1;render()}
+render();
+new ResizeObserver(drawTrail).observe(m);
+</script>
+
+</main>
+</body>
+</html>

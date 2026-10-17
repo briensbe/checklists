@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Template builder</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#faf9f5;--surface-1:#f1efe8;--surface-2:#ffffff;
+  --border:rgba(31,30,29,.14);--border-strong:rgba(31,30,29,.32);--border-accent:#534AB7;
+  --text-primary:#1f1e1d;--text-secondary:#5f5e5a;--text-muted:#8c8a85;
+  --text-success:#0F6E56;--text-danger:#A32D2D;--text-warning:#854F0B;--text-accent:#3C3489;
+  --bg-success:#E1F5EE;--bg-danger:#FCEBEB;--bg-warning:#FAEEDA;--bg-accent:#EEEDFE;
+  --radius:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-0:#1c1b1a;--surface-1:#262624;--surface-2:#30302e;
+    --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.32);--border-accent:#AFA9EC;
+    --text-primary:#f1efe8;--text-secondary:#b4b2a9;--text-muted:#88877f;
+    --text-success:#5DCAA5;--text-danger:#F09595;--text-warning:#EF9F27;--text-accent:#CECBF6;
+    --bg-success:#04342C;--bg-danger:#501313;--bg-warning:#412402;--bg-accent:#26215C;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px 16px 48px}
+header.mk{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);padding:8px 0 12px;margin-bottom:8px}
+header.mk h1{font-size:18px;font-weight:600;margin:0}
+header.mk a{font-size:13px;color:var(--text-accent);text-decoration:none}
+header.mk p{flex-basis:100%;margin:4px 0 0;font-size:13px;color:var(--text-secondary)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button{font:inherit;font-size:13px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:5px 12px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea{font:inherit;font-size:14px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:6px 10px}
+</style>
+</head>
+<body>
+<main>
+<header class="mk"><h1>Template builder</h1><a href="index.html">← toutes les maquettes</a><p>Édition en liste (« Après : … », criticité, preuve) avec aperçu du graphe en direct et anti-cycle à la saisie.</p></header>
+<style>
+.card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px}
+.chip{font-size:12px;padding:3px 10px;border-radius:999px;border:0.5px solid var(--border);cursor:pointer;background:transparent;color:var(--text-secondary)}
+.chip.on{background:var(--bg-accent);color:var(--text-accent);border-color:transparent}
+.chip.off{opacity:.4;cursor:not-allowed}
+.row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.row input{flex:1;min-width:0}
+.crit{font-size:11px;padding:3px 8px;border-radius:var(--radius);cursor:pointer;border:none;width:74px}
+.ib{background:transparent;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:2px 4px;display:flex}
+.ib:hover{color:var(--text-primary)}
+.pn{position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-2);border:0.5px solid var(--border)}
+.pl{position:absolute;transform:translateX(-50%);font-size:11px;white-space:nowrap;color:var(--text-secondary);text-align:center;line-height:1.3}
+</style>
+<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);padding-top:.5rem"><i class="ti ti-template" aria-hidden="true"></i>Mise en ligne site<span style="color:var(--text-muted)">/</span><span style="color:var(--text-primary);font-weight:500">Réal. Back</span></div>
+<div style="background:var(--surface-1);border-radius:12px;padding:8px 12px 4px;margin:.5rem 0 1rem">
+<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary)"><span>Aperçu</span><span id="valid"></span></div>
+<div id="pv" style="position:relative;height:170px"></div>
+</div>
+<div id="ed"></div>
+<button onclick="addStep()" style="display:flex;align-items:center;gap:6px"><i class="ti ti-plus" aria-hidden="true"></i>Ajouter une étape</button>
+<script>
+let uid=10;
+let S=[
+{id:"s1",n:"Socle",dep:[],it:[{t:"Repo et CI",c:"b",p:"none"},{t:"Environnements",c:"b",p:"none"}]},
+{id:"s2",n:"API",dep:["s1"],it:[{t:"Endpoints catalogue",c:"b",p:"none"},{t:"Endpoints commande",c:"b",p:"none"},{t:"Doc OpenAPI",c:"o",p:"comment"}]},
+{id:"s3",n:"Migration",dep:["s1"],it:[{t:"Script de migration",c:"b",p:"none"},{t:"Jeu de test",c:"i",p:"none"}]},
+{id:"s4",n:"Intégration",dep:["s2","s3"],it:[{t:"Tests d'intégration",c:"b",p:"photo"},{t:"Monitoring",c:"o",p:"none"}]}];
+const CR={b:["bloquant","var(--bg-danger)","var(--text-danger)"],i:["important","var(--bg-warning)","var(--text-warning)"],o:["optionnel","var(--surface-1)","var(--text-secondary)"]};
+const PR={none:["ti-paperclip","Pas de preuve obligatoire"],comment:["ti-message","Commentaire obligatoire"],photo:["ti-camera","Photo obligatoire"]};
+const by=id=>S.find(s=>s.id===id);
+const esc=t=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+function anc(id,seen=new Set()){by(id).dep.forEach(d=>{if(!seen.has(d)){seen.add(d);anc(d,seen)}});return seen}
+// Ajouter "d" comme dépendance de "id" crée une boucle si id est déjà un ancêtre de d
+const cyc=(id,d)=>d===id||anc(d).has(id);
+function preview(){
+const pv=document.getElementById("pv"),W=pv.clientWidth,H=170;const dp={};
+const depth=k=>dp[k]??(dp[k]=by(k).dep.length?1+Math.max(...by(k).dep.map(depth)):0);S.forEach(s=>depth(s.id));
+const nc=Math.max(0,...Object.values(dp))+1,cols={};S.forEach(s=>(cols[dp[s.id]]=cols[dp[s.id]]||[]).push(s.id));const P={};
+for(const c in cols)cols[c].forEach((k,i)=>{const n=cols[c].length;P[k]={x:(+c+.5)/nc*W,y:H/2-10+(i-(n-1)/2)*72}});
+const ends=S.filter(s=>!S.some(o=>o.dep.includes(s.id)));
+let svg=`<svg style="position:absolute;left:0;top:0;width:100%;height:${H}px;overflow:visible">`;
+S.forEach(s=>s.dep.forEach(d=>{const a=P[d],b=P[s.id],mx=(a.x+b.x)/2;svg+=`<path d="M${a.x} ${a.y} C${mx} ${a.y},${mx} ${b.y},${b.x} ${b.y}" fill="none" stroke="var(--border-strong)" stroke-width="2"/>`}));
+let h=svg+"</svg>";
+S.forEach(s=>{const p=P[s.id],start=!s.dep.length,join=s.dep.length>1,end=ends.includes(s);const ic=start?'ti-flag':join?'ti-git-merge':end?'ti-flag-check':'ti-point';
+const nb=s.it.filter(i=>i.c==="b").length;
+h+=`<div class="pn" style="left:${p.x}px;top:${p.y}px"><i class="ti ${ic}" style="font-size:16px" aria-hidden="true"></i></div><div class="pl" style="left:${p.x}px;top:${p.y+22}px">${esc(s.n||"Sans nom")}<br><span style="color:var(--text-muted)">${s.it.length} items · ${nb} bloq.</span></div>`});
+pv.innerHTML=h;
+const starts=S.filter(s=>!s.dep.length).length,empty=S.filter(s=>!s.it.length).length;
+document.getElementById("valid").innerHTML=empty?`<span style="color:var(--text-warning)"><i class="ti ti-alert-triangle" aria-hidden="true"></i> ${empty} étape(s) sans item</span>`:`<span style="color:var(--text-success)"><i class="ti ti-circle-check" aria-hidden="true"></i> ${starts} départ(s), ${ends.length} fin(s), pas de cycle</span>`}
+function editor(){let h="";
+S.forEach(s=>{const others=S.filter(o=>o.id!==s.id);
+h+=`<div class="card"><div class="row" style="margin-bottom:10px"><i class="ti ti-grip-vertical" style="color:var(--text-muted)" aria-hidden="true"></i><input value="${esc(s.n)}" oninput="by('${s.id}').n=this.value;preview()" style="font-weight:500" aria-label="Nom de l'étape"><button class="ib" onclick="delStep('${s.id}')" aria-label="Supprimer l'étape"><i class="ti ti-trash"></i></button></div>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:10px;font-size:12px;color:var(--text-secondary)">Après :${others.map(o=>{const on=s.dep.includes(o.id),bad=!on&&cyc(s.id,o.id);return `<button class="chip ${on?'on':''} ${bad?'off':''}" ${bad?'disabled title="Créerait une boucle"':''} onclick="togDep('${s.id}','${o.id}')">${esc(o.n||"Sans nom")}</button>`}).join("")}${!s.dep.length?'<span style="color:var(--text-muted)">· étape de départ</span>':''}</div>`;
+s.it.forEach((it,j)=>{const c=CR[it.c],p=PR[it.p];
+h+=`<div class="row"><input value="${esc(it.t)}" placeholder="Nouvel item" oninput="by('${s.id}').it[${j}].t=this.value" onkeydown="if(event.key==='Enter'){addItem('${s.id}')}" aria-label="Libellé de l'item"><button class="crit" style="background:${c[1]};color:${c[2]}" onclick="cyc2('${s.id}',${j})" title="Cliquer pour changer">${c[0]}</button><button class="ib" onclick="pr('${s.id}',${j})" title="${p[1]}" aria-label="${p[1]}" style="${it.p!=='none'?'color:var(--text-accent)':''}"><i class="ti ${p[0]}"></i></button><button class="ib" onclick="delItem('${s.id}',${j})" aria-label="Supprimer l'item"><i class="ti ti-x"></i></button></div>`});
+h+=`<button class="ib" style="font-size:13px;gap:4px;margin-top:4px" onclick="addItem('${s.id}')"><i class="ti ti-plus" aria-hidden="true"></i>Item</button></div>`});
+document.getElementById("ed").innerHTML=h;preview()}
+function togDep(a,b){const s=by(a);if(s.dep.includes(b))s.dep=s.dep.filter(x=>x!==b);else if(!cyc(a,b))s.dep.push(b);editor()}
+function cyc2(id,j){const o=["b","i","o"],it=by(id).it[j];it.c=o[(o.indexOf(it.c)+1)%3];editor()}
+function pr(id,j){const o=["none","comment","photo"],it=by(id).it[j];it.p=o[(o.indexOf(it.p)+1)%3];editor()}
+function addItem(id){by(id).it.push({t:"",c:"o",p:"none"});editor();const r=[...document.querySelectorAll(`#ed .card`)][S.findIndex(s=>s.id===id)].querySelectorAll(".row input");r[r.length-1].focus()}
+function delItem(id,j){by(id).it.splice(j,1);editor()}
+function addStep(){const last=S[S.length-1];S.push({id:"s"+(++uid),n:"Nouvelle étape",dep:last?[last.id]:[],it:[{t:"",c:"o",p:"none"}]});editor()}
+function delStep(id){S=S.filter(s=>s.id!==id);S.forEach(s=>s.dep=s.dep.filter(d=>d!==id));editor()}
+editor();
+new ResizeObserver(preview).observe(document.getElementById("pv"));
+</script>
+
+</main>
+</body>
+</html>

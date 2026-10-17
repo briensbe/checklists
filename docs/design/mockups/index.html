@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checklists — maquettes</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --surface-0:#faf9f5;--surface-1:#f1efe8;--surface-2:#ffffff;
+  --border:rgba(31,30,29,.14);--border-strong:rgba(31,30,29,.32);--border-accent:#534AB7;
+  --text-primary:#1f1e1d;--text-secondary:#5f5e5a;--text-muted:#8c8a85;
+  --text-success:#0F6E56;--text-danger:#A32D2D;--text-warning:#854F0B;--text-accent:#3C3489;
+  --bg-success:#E1F5EE;--bg-danger:#FCEBEB;--bg-warning:#FAEEDA;--bg-accent:#EEEDFE;
+  --radius:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-0:#1c1b1a;--surface-1:#262624;--surface-2:#30302e;
+    --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.32);--border-accent:#AFA9EC;
+    --text-primary:#f1efe8;--text-secondary:#b4b2a9;--text-muted:#88877f;
+    --text-success:#5DCAA5;--text-danger:#F09595;--text-warning:#EF9F27;--text-accent:#CECBF6;
+    --bg-success:#04342C;--bg-danger:#501313;--bg-warning:#412402;--bg-accent:#26215C;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:16px 16px 48px}
+header.mk{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border);padding:8px 0 12px;margin-bottom:8px}
+header.mk h1{font-size:18px;font-weight:600;margin:0}
+header.mk a{font-size:13px;color:var(--text-accent);text-decoration:none}
+header.mk p{flex-basis:100%;margin:4px 0 0;font-size:13px;color:var(--text-secondary)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button{font:inherit;font-size:13px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:5px 12px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea{font:inherit;font-size:14px;color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:var(--radius);padding:6px 10px}
+</style>
+</head>
+<body>
+<main>
+<header class="mk"><h1>Checklists — maquettes</h1><p>Index des maquettes de conception</p></header>
+<style>.c{display:flex;gap:14px;align-items:flex-start;padding:12px 14px;margin-bottom:8px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;color:var(--text-primary);text-decoration:none}.c:hover{border-color:var(--border-accent)}.c small{color:var(--text-secondary);font-size:13px}.n{font-size:13px;color:var(--text-accent);background:var(--bg-accent);border-radius:var(--radius);padding:2px 8px;flex-shrink:0}</style>
+<p style="font-size:14px;color:var(--text-secondary)">Maquettes interactives de référence. Décisions détaillées dans <code>../checklist-ux.md</code>.</p><a class="c" href="01-anneaux-categories.html"><span class="n">01</span><span><b>Vue anneaux par catégorie</b><br><small>Vue d&#x27;ensemble simple : un anneau par catégorie, score global, bloquants restants. Clique sur les items.</small></span></a><a class="c" href="02-chemin-lineaire.html"><span class="n">02</span><span><b>Chemin à étapes — linéaire</b><br><small>Petit périmètre. Les étapes se déverrouillent quand les bloquants de l&#x27;étape précédente sont faits. Étape verrouillée : prérequis + liste simple des items.</small></span></a><a class="c" href="03-chemin-branches.html"><span class="n">03</span><span><b>Chemin à étapes — branches parallèles</b><br><small>Build et Documentation avancent en parallèle ; le go/no-go est une jonction (badge n/m) qui attend les deux branches.</small></span></a><a class="c" href="04-grand-perimetre-branches.html"><span class="n">04</span><span><b>Grand périmètre — phases parallèles et zoom</b><br><small>Carte du projet en phases (Front ∥ Back → Recette). Clique sur une phase pour zoomer ; « Réal. Back » contient des étapes parallèles. Bloc « Laissés en route ».</small></span></a><a class="c" href="05-template-builder.html"><span class="n">05</span><span><b>Template builder</b><br><small>Édition en liste (« Après : … », criticité, preuve) avec aperçu du graphe en direct et anti-cycle à la saisie.</small></span></a><a class="c" href="06-preuve-obligatoire.html"><span class="n">06</span><span><b>Preuve obligatoire (option du template)</b><br><small>Cas particulier : la preuve est demandée au cochage. Bloquant = preuve requise ; sinon « Plus tard ». Non applicable justifié.</small></span></a><a class="c" href="07-coche-rapide-ajouts.html"><span class="n">07</span><span><b>Coche rapide + ajouts facultatifs</b><br><small>Comportement par défaut : toute la ligne coche instantanément ; note, photo, fichier et N/A derrière le trombone. Clavier : ↑/↓, Espace, A.</small></span></a>
+</main>
+</body>
+</html>
