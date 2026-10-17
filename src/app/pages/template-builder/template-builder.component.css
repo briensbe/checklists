@@ -54,7 +54,6 @@
 .drag-handle:active { cursor: grabbing; }
 .item-drag-handle { margin-right: 0.25rem; }
 .section-title-inputs { display: flex; gap: 0.625rem; flex: 1; max-width: 550px; }
-.icon-input { width: 80px; text-align: center; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-main); border-radius: var(--radius-md, 6px); font-size: 0.875rem; padding: 0.4rem 0.5rem; }
 .section-title-input { flex: 1; font-size: 1.1rem; font-weight: 700; color: var(--text-heading); border: 1px solid var(--input-border); background: var(--input-bg); border-radius: var(--radius-md, 6px); padding: 0.4rem 0.75rem; }
 .section-actions { display: flex; gap: 0.4rem; }
 
