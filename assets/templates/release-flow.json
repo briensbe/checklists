@@ -1,0 +1,103 @@
+{
+  "id": "release-flow-example",
+  "name": "Mise en production (exemple à étapes)",
+  "description": "Exemple de checklist à étapes : Build et Documentation avancent en parallèle, le go / no-go attend les deux branches. La documentation a une porte souple.",
+  "version": "1.0.0",
+  "updatedAt": "2026-10-17T00:00:00.000Z",
+  "completionPolicy": "blocking",
+  "contextSchema": [
+    {
+      "id": "version",
+      "label": "Version livrée",
+      "type": "text",
+      "required": true,
+      "placeholder": "ex: 2026.4.0"
+    },
+    {
+      "id": "date",
+      "label": "Date de mise en production",
+      "type": "date",
+      "required": true
+    }
+  ],
+  "sections": [
+    {
+      "id": "rf-prep",
+      "title": "Préparation",
+      "icon": "clipboard-list",
+      "items": [
+        { "id": "rf-prep-ticket", "label": "Ticket de mise en production validé", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-prep-slot", "label": "Créneau de déploiement réservé", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-prep-changelog", "label": "Changelog rédigé", "controlType": "checkbox" }
+      ]
+    },
+    {
+      "id": "rf-build",
+      "title": "Build",
+      "icon": "hammer",
+      "dependsOn": ["rf-prep"],
+      "items": [
+        { "id": "rf-build-green", "label": "Build vert sur la branche de release", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-build-tag", "label": "Version taggée", "controlType": "checkbox", "criticality": "blocking" }
+      ]
+    },
+    {
+      "id": "rf-doc",
+      "title": "Documentation",
+      "icon": "book-open",
+      "dependsOn": ["rf-prep"],
+      "gate": "soft",
+      "items": [
+        { "id": "rf-doc-user", "label": "Documentation utilisateur à jour", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-doc-runbook", "label": "Runbook d'exploitation", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-doc-faq", "label": "FAQ du support", "controlType": "checkbox" }
+      ]
+    },
+    {
+      "id": "rf-tests",
+      "title": "Tests",
+      "icon": "flask-conical",
+      "dependsOn": ["rf-build"],
+      "items": [
+        {
+          "id": "rf-tests-auto",
+          "label": "Tests automatisés au vert",
+          "controlType": "checkbox",
+          "criticality": "blocking",
+          "evidenceRequired": "photo",
+          "evidenceHint": "Capture du rapport de tests"
+        },
+        { "id": "rf-tests-acceptance", "label": "Recette métier validée", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-tests-perf", "label": "Tests de performance", "controlType": "checkbox", "criticality": "important" }
+      ]
+    },
+    {
+      "id": "rf-go",
+      "title": "Go / no-go",
+      "icon": "gavel",
+      "dependsOn": ["rf-tests", "rf-doc"],
+      "items": [
+        { "id": "rf-go-po", "label": "Validation du PO", "controlType": "checkbox", "criticality": "blocking" },
+        {
+          "id": "rf-go-rollback",
+          "label": "Plan de rollback rédigé",
+          "controlType": "checkbox",
+          "criticality": "blocking",
+          "evidenceRequired": "comment",
+          "evidenceHint": "Résume la procédure ou indique où elle se trouve"
+        }
+      ]
+    },
+    {
+      "id": "rf-deploy",
+      "title": "Déploiement",
+      "icon": "rocket",
+      "dependsOn": ["rf-go"],
+      "items": [
+        { "id": "rf-deploy-prod", "label": "Mise en production effectuée", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-deploy-smoke", "label": "Smoke tests passés", "controlType": "checkbox", "criticality": "blocking" },
+        { "id": "rf-deploy-comm", "label": "Communication envoyée", "controlType": "checkbox" }
+      ]
+    }
+  ]
+}
