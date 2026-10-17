@@ -120,12 +120,13 @@
 
         <div class="form-group">
           <label>Choisir un modèle (Template)</label>
-          <select 
-            class="form-select" 
-            [value]="selectedTemplateId()" 
+          <!-- La sélection est portée par les options : un [value] sur le <select> serait posé avant
+               que @for crée ses options, et le navigateur afficherait alors le premier modèle. -->
+          <select
+            class="form-select"
             (change)="selectedTemplateId.set($any($event.target).value)">
             @for (tpl of templateService.availableTemplates(); track tpl.id) {
-              <option [value]="tpl.id">{{ tpl.name }} (v{{ tpl.version }})</option>
+              <option [value]="tpl.id" [selected]="tpl.id === selectedTemplateId()">{{ tpl.name }} (v{{ tpl.version }})</option>
             }
           </select>
         </div>

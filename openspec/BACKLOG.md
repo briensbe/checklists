@@ -49,3 +49,17 @@ Regrouper les étapes en phases éventuellement parallèles, avec une carte du p
 
 - **Pourquoi reportée :** aucun n'est nécessaire pour remplir ou construire un chemin ; leur intérêt se jugera à l'usage.
 - **Déclencheur :** retours d'usage après livraison de `runner-path-view`, ou passage à un usage mobile pour les interactions tactiles.
+
+## Révocation d'une porte forcée
+
+Annuler le forçage d'une porte souple depuis le runner (par exemple un toast d'annulation de 6 s, sur le modèle de l'ADR 0005), au lieu de ne pouvoir l'effacer que par une réinitialisation de la session.
+
+- **Pourquoi reportée :** un forçage est une décision tracée, protégée par une justification saisie ; une erreur se corrige en résolvant les bloquants, et la trace reste lisible dans le pied d'étape (change `runner-path-view`, design D9).
+- **Déclencheur :** des forçages faits par erreur constatés à l'usage.
+
+## Forçages de portes et bloquants N/A dans les rapports
+
+Faire apparaître dans les exports Excel et PDF les portes forcées (date, justification) et les contrôles bloquants passés en N/A, aujourd'hui visibles seulement dans le runner.
+
+- **Pourquoi reportée :** hors du périmètre de `runner-path-view`, qui ne touche pas aux rapports (capacité `audit-persistence-export`).
+- **Déclencheur :** un audit dont le rapport doit justifier les dérogations, ou le change qui enrichira les rapports (voir « Compléments de la vision UX »).

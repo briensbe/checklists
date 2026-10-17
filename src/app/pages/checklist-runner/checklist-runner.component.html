@@ -106,6 +106,7 @@
         [metrics]="sessionService.metrics()"
         [filter]="sessionService.activeFilter()"
         [readonly]="sessionService.isReadonly()"
+        [showCollapse]="!controller.isPathView()"
         (contextChange)="onContextChanged($event.key, $event.value)"
         (filterChange)="sessionService.setFilter($event)"
         (markAllOk)="onMarkAllOk()"
@@ -114,32 +115,96 @@
         (collapseAll)="sessionService.collapseAll($event)">
       </app-audit-summary>
 
+      <!-- Contrôles non bloquants oubliés derrière une porte franchie -->
+      <app-left-behind
+        class="left-behind-block"
+        [entries]="controller.leftBehindEntries()"
+        (select)="controller.focusItem($event, { block: 'center', smooth: true })">
+      </app-left-behind>
+
       <!-- Résumé de progression fixé sous l'en-tête pendant le défilement -->
       <app-runner-progress-bar
         [metrics]="sessionService.metrics()"
         [sections]="controller.sectionProgress()"
         [unresolvedBlocking]="controller.declaresBlocking() ? controller.unresolvedBlocking() : null"
-        [nextDisabled]="!controller.nextToProcess()"
+        [nextState]="controller.nextState()"
         (next)="controller.goToNext()"
         (help)="controller.helpOpen.set(true)"
         (sectionClick)="controller.focusSection($event)">
       </app-runner-progress-bar>
 
-      <!-- Sections dynamiques (issues de la copie figée du modèle) -->
-      <div class="sections-container">
-        @for (section of sessionService.currentTemplate()?.sections; track section.id) {
-          <app-checklist-section
-            [section]="section"
-            [items]="controller.visibleBySection()[section.id] ?? []"
-            [progress]="controller.progressBySection()[section.id]"
-            [answers]="session.answers"
-            [isCollapsed]="!!sessionService.collapsedSections()[section.id]"
-            [readonly]="sessionService.isReadonly()"
-            (toggleCollapse)="sessionService.toggleSection(section.id)">
-          </app-checklist-section>
+      @if (controller.hasFlow()) {
+        <div class="path-toolbar">
+          <div class="view-toggle" role="group" aria-label="Affichage des étapes">
+            <button
+              type="button"
+              class="view-toggle-btn"
+              [class.active]="controller.isPathView()"
+              [attr.aria-pressed]="controller.isPathView()"
+              (click)="controller.setViewMode('path')">
+              <svg lucideRoute [size]="16"></svg>
+              Chemin
+            </button>
+            <button
+              type="button"
+              class="view-toggle-btn"
+              [class.active]="!controller.isPathView()"
+              [attr.aria-pressed]="!controller.isPathView()"
+              (click)="controller.setViewMode('list')">
+              <svg lucideList [size]="16"></svg>
+              Liste
+            </button>
+          </div>
+        </div>
+
+        @if (controller.stepFlow().cycle) {
+          <div class="notice notice-warning" role="status">
+            Le chemin de ce modèle est invalide : des étapes dépendent les unes des autres en boucle. Elles restent ouvertes pour ne pas bloquer la saisie.
+          </div>
         }
-      </div>
+      }
+
+      @if (controller.isPathView()) {
+        <!-- Vue chemin : graphe des étapes, puis panneau de l'étape sélectionnée -->
+        <div class="path-view">
+          <div class="graph-card">
+            <app-step-graph
+              [nodes]="controller.graphNodes()"
+              [selectedId]="controller.selectedStepId()"
+              [pulseIds]="controller.pulseIds()"
+              (select)="controller.selectStep($event)">
+            </app-step-graph>
+          </div>
+          @if (controller.selectedStepView(); as view) {
+            <app-step-panel
+              [view]="view"
+              [items]="controller.visibleBySection()[view.sectionId] ?? []"
+              [answers]="session.answers"
+              [readonly]="sessionService.isReadonly()">
+            </app-step-panel>
+          }
+        </div>
+      } @else {
+        <!-- Sections dynamiques (issues de la copie figée du modèle) -->
+        <div class="sections-container">
+          @for (section of sessionService.currentTemplate()?.sections; track section.id) {
+            <app-checklist-section
+              [section]="section"
+              [items]="controller.visibleBySection()[section.id] ?? []"
+              [progress]="controller.progressBySection()[section.id]"
+              [answers]="session.answers"
+              [isCollapsed]="!!sessionService.collapsedSections()[section.id]"
+              [readonly]="sessionService.isReadonly()"
+              [step]="controller.stepViews()[section.id]"
+              (toggleCollapse)="sessionService.toggleSection(section.id)">
+            </app-checklist-section>
+          }
+        </div>
+      }
     }
+
+    <!-- Annonces polies : porte ouverte, fin du chemin -->
+    <div class="sr-only" role="status" aria-live="polite">{{ controller.announcement() }}</div>
 
     <!-- Aide des raccourcis clavier -->
     @if (controller.helpOpen()) {

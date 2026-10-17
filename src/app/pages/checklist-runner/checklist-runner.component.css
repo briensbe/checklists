@@ -293,3 +293,65 @@
   margin: 0 0 0.5rem;
   color: var(--text-heading);
 }
+
+.notice-warning {
+  display: block;
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-fg);
+  border-color: var(--tone-warning-border);
+}
+
+.left-behind-block {
+  display: block;
+  margin-top: 1rem;
+}
+
+/* Bascule « Chemin / Liste » (modèle à dépendances) */
+.path-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
+
+.view-toggle {
+  display: inline-flex;
+  padding: 0.2rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+}
+
+.view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.view-toggle-btn.active {
+  background-color: var(--primary);
+  color: var(--text-on-accent);
+}
+
+/* Vue chemin : graphe puis panneau de l'étape sélectionnée */
+.path-view {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.graph-card {
+  padding: 0.5rem 0;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+}

@@ -1,0 +1,155 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+/* Au-delà de la largeur minimale des colonnes, le graphe défile au lieu de rétrécir */
+.graph-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.graph {
+  display: block;
+  overflow: visible;
+}
+
+/* Liens : pleins et colorés quand la porte est ouverte, en pointillés gris sinon */
+.edge {
+  fill: none;
+  stroke: var(--graph-link-closed);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  transition: stroke 0.3s ease, stroke-width 0.3s ease;
+}
+
+.edge.is-open {
+  stroke: var(--graph-link-open);
+  stroke-width: 4;
+  stroke-dasharray: none;
+}
+
+/* Nœuds */
+.node {
+  cursor: pointer;
+  outline: none;
+}
+
+.node-disc {
+  fill: var(--graph-node-bg);
+  stroke: var(--graph-node-border);
+  stroke-width: 1;
+}
+
+.node.is-selected .node-disc {
+  stroke: var(--graph-node-selected);
+  stroke-width: 2.5;
+}
+
+.node:hover .node-disc {
+  stroke: var(--graph-node-selected);
+}
+
+.focus-ring {
+  fill: none;
+  stroke: var(--graph-focus);
+  stroke-width: 2;
+  opacity: 0;
+}
+
+.node:focus-visible .focus-ring {
+  opacity: 1;
+}
+
+.ring-track {
+  fill: none;
+  stroke: var(--ring-track);
+}
+
+.ring-value {
+  fill: none;
+  stroke: var(--ring-progress);
+  transition: stroke-dashoffset 0.4s ease-in-out, stroke 0.2s ease-in-out;
+}
+
+.ring-value.is-complete {
+  stroke: var(--ring-complete);
+}
+
+.ring-value.is-anomaly {
+  stroke: var(--ring-anomaly);
+}
+
+.node-icon {
+  color: var(--graph-node-icon);
+  pointer-events: none;
+}
+
+.node.is-locked .node-icon {
+  color: var(--graph-node-locked);
+}
+
+.node.is-done .node-icon {
+  color: var(--graph-node-done);
+}
+
+/* Badge de jonction n/m */
+.join-badge rect {
+  fill: var(--graph-badge-bg);
+  stroke: var(--graph-node-border);
+  stroke-width: 1;
+}
+
+.join-badge text {
+  fill: var(--graph-badge-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.join-badge.is-ready rect {
+  fill: var(--graph-badge-ready-bg);
+}
+
+.join-badge.is-ready text {
+  fill: var(--graph-badge-ready-text);
+}
+
+.node-label {
+  fill: var(--graph-label);
+  font-size: 12px;
+}
+
+.node.is-selected .node-label {
+  fill: var(--text-heading);
+  font-weight: 600;
+}
+
+/* Passage d'une porte : le nœud s'ouvre */
+.node-body.is-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: node-open 0.6s ease-out;
+}
+
+@keyframes node-open {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-body.is-pulse {
+    animation: none;
+  }
+
+  .edge,
+  .ring-value {
+    transition: none;
+  }
+}

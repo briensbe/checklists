@@ -1,7 +1,7 @@
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
-import { LucideArrowLeft, LucideCheck, LucideFileDown, LucidePencil, LucideRotateCcw, LucideSave } from '@lucide/angular';
+import { LucideArrowLeft, LucideCheck, LucideFileDown, LucideList, LucidePencil, LucideRotateCcw, LucideRoute, LucideSave } from '@lucide/angular';
 import { ChecklistSessionService, TemplateUpdatePreview } from '../../services/checklist-session.service';
 import { TemplateService } from '../../services/template.service';
 import { ExportService } from '../../services/export.service';
@@ -9,14 +9,17 @@ import { EvidenceService } from '../../services/evidence.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
 import { EvidenceRecord } from '../../models/checklist.model';
-import { COMPLETION_ISSUE_LABELS, CompletionIssue } from '../../domain/session-rules';
-import { resolveShortcut, ShortcutContext } from '../../domain/quick-check';
+import { COMPLETION_ISSUE_LABELS, CompletionIssue, criticalityOf } from '../../domain/session-rules';
+import { missingEvidenceItems, resolveShortcut, ShortcutContext } from '../../domain/quick-check';
 import { AuditSummaryComponent } from '../../components/audit-summary/audit-summary.component';
 import { ChecklistSectionComponent } from '../../components/checklist-section/checklist-section.component';
 import { JsonDraftModalComponent } from '../../components/json-draft-modal/json-draft-modal.component';
 import { TemplateUpdateModalComponent } from '../../components/template-update-modal/template-update-modal.component';
 import { RunnerProgressBarComponent } from '../../components/runner-progress-bar/runner-progress-bar.component';
 import { ShortcutsHelpComponent } from '../../components/shortcuts-help/shortcuts-help.component';
+import { StepGraphComponent } from '../../components/step-graph/step-graph.component';
+import { StepPanelComponent } from '../../components/step-panel/step-panel.component';
+import { LeftBehindComponent } from '../../components/left-behind/left-behind.component';
 import { RunnerController } from './runner-controller';
 
 @Component({
@@ -31,11 +34,16 @@ import { RunnerController } from './runner-controller';
     TemplateUpdateModalComponent,
     RunnerProgressBarComponent,
     ShortcutsHelpComponent,
+    StepGraphComponent,
+    StepPanelComponent,
+    LeftBehindComponent,
     LucideArrowLeft,
     LucideCheck,
     LucideFileDown,
+    LucideList,
     LucidePencil,
     LucideRotateCcw,
+    LucideRoute,
     LucideSave
   ],
   // Une instance du contrôleur d'interaction par page de runner (état d'interface éphémère).
@@ -113,12 +121,14 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     if (!this.sessionService.currentSession() || event.defaultPrevented) return;
-    const target = event.target instanceof HTMLElement ? event.target : null;
+    // `Element` et non `HTMLElement` : un nœud du graphe des étapes est un élément SVG.
+    const target = event.target instanceof Element ? event.target : null;
     const ctx: ShortcutContext = {
       editable: !!target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'),
       modalOpen: this.isModalOpen() || !!target?.closest('[aria-modal="true"]'),
       readonly: this.sessionService.isReadonly(),
-      onControl: !!target?.closest('button, a[href], summary')
+      // Un nœud du graphe des étapes a le rôle de bouton : Espace le sélectionne, sans geste principal.
+      onControl: !!target?.closest('button, a[href], summary, [role="button"]')
     };
     const action = resolveShortcut(event, ctx);
     if (!action) return;
@@ -160,8 +170,13 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
     if (!current) return;
     const previousAnswers = structuredClone(current.answers);
 
-    const { modified, skippedForEvidence } = await this.sessionService.markRemainingAsOk(this.evidenceService.summaries());
-    const skipped = skippedForEvidence > 0 ? ` ${skippedForEvidence} bloquant(s) laissé(s) sans réponse faute de preuve.` : '';
+    const { modified, skippedForEvidence, skippedLocked } = await this.sessionService.markRemainingAsOk(
+      this.evidenceService.summaries()
+    );
+    const notes: string[] = [];
+    if (skippedForEvidence > 0) notes.push(`${skippedForEvidence} bloquant(s) laissé(s) sans réponse faute de preuve.`);
+    if (skippedLocked > 0) notes.push('Les étapes verrouillées n’ont pas été modifiées.');
+    const skipped = notes.length > 0 ? ` ${notes.join(' ')}` : '';
     if (modified > 0) {
       this.toastService.showDeferred({
         message: `${modified} contrôle(s) passé(s) à OK.${skipped}`,
@@ -172,7 +187,7 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
           await this.sessionService.restoreAnswers(previousAnswers);
         }
       });
-    } else if (skippedForEvidence > 0) {
+    } else if (notes.length > 0) {
       this.toastService.warning(`Aucun contrôle passé à OK :${skipped}`);
     } else {
       this.toastService.info('Aucun contrôle restant à passer à OK.');
@@ -201,8 +216,30 @@ export class ChecklistRunnerComponent implements OnInit, OnDestroy {
     // une fois la session terminée, elles ne pourraient plus être faites.
     if (this.sessionService.completionIssues().length === 0) {
       await this.controller.flushEvidenceDeletions();
+      if (!(await this.confirmMissingEvidence())) return;
     }
     await this.sessionService.completeSession();
+  }
+
+  /**
+   * Preuve exigée disparue après la validation : la clôture n'est pas bloquée (ADR 0009, la validation
+   * ne lit jamais les preuves), mais l'utilisateur confirme en connaissance de cause.
+   */
+  private async confirmMissingEvidence(): Promise<boolean> {
+    const session = this.sessionService.currentSession();
+    if (!session) return true;
+    const missing = missingEvidenceItems(this.sessionService.applicableItems(), session.answers, this.evidenceService.summaries());
+    if (missing.length === 0) return true;
+    const blocking = missing.filter(item => criticalityOf(item) === 'blocking').length;
+    const count = missing.length === 1 ? '1 contrôle répondu a perdu sa preuve exigée' : `${missing.length} contrôles répondus ont perdu leur preuve exigée`;
+    const detail = blocking === 0 ? '' : blocking === 1 ? ', dont 1 bloquant' : `, dont ${blocking} bloquants`;
+    return this.dialogService.confirm({
+      title: 'Preuves manquantes',
+      message: `${count}${detail}. Terminer quand même la checklist ?`,
+      confirmLabel: 'Terminer quand même',
+      cancelLabel: 'Annuler',
+      confirmTone: 'primary'
+    });
   }
 
   async onReopen(): Promise<void> {

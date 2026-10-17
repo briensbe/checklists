@@ -1,0 +1,19 @@
+@if (entries().length > 0) {
+  <section class="left-behind" aria-labelledby="left-behind-title">
+    <h3 id="left-behind-title" class="left-behind-title">
+      <svg lucideFlag [size]="16"></svg>
+      Laissés en route ({{ entries().length }})
+    </h3>
+    <ul class="left-behind-list">
+      @for (entry of entries(); track entry.itemId) {
+        <li>
+          <button type="button" class="left-behind-item" (click)="select.emit(entry.itemId)">
+            <span class="entry-label">{{ entry.label }}</span>
+            <span class="entry-section"><span class="sr-only">, étape </span>{{ entry.sectionTitle }}</span>
+            <span class="entry-reason"><span class="sr-only">, </span>{{ entry.reason }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+}

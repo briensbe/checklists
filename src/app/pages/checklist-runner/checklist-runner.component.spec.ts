@@ -9,7 +9,8 @@ import { EvidenceService } from '../../services/evidence.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
 import { ChecklistSession } from '../../models/checklist.model';
-import { RunnerController } from './runner-controller';
+import { RunnerController, RUNNER_VIEW_STORAGE_KEY } from './runner-controller';
+import { provideStepIcons } from '../../components/step-graph/step-icons';
 
 describe('ChecklistRunnerComponent', () => {
   let component: ChecklistRunnerComponent;
@@ -58,6 +59,7 @@ describe('ChecklistRunnerComponent', () => {
       imports: [ChecklistRunnerComponent],
       providers: [
         provideRouter([]),
+        provideStepIcons(),
         {
           provide: ActivatedRoute,
           useValue: {
@@ -87,9 +89,14 @@ describe('ChecklistRunnerComponent', () => {
     vi.spyOn(TestBed.inject(EvidenceService), 'loadEvidenceCounts').mockResolvedValue();
   });
 
+  afterEach(() => {
+    // Des minuteurs simulés laissés actifs figeraient `fake-indexeddb` dans les fichiers de test suivants.
+    vi.useRealTimers();
+  });
+
   it('devrait permettre d’annuler le passage groupé à OK et restaurer les réponses initiales', async () => {
     const restoreSpy = vi.spyOn(sessionService, 'restoreAnswers').mockResolvedValue();
-    vi.spyOn(sessionService, 'markRemainingAsOk').mockResolvedValue({ modified: 1, skippedForEvidence: 0 });
+    vi.spyOn(sessionService, 'markRemainingAsOk').mockResolvedValue({ modified: 1, skippedForEvidence: 0, skippedLocked: 0 });
 
     await component.onMarkAllOk();
 
@@ -137,9 +144,116 @@ describe('ChecklistRunnerComponent', () => {
   });
 
   it('signale dans le toast les bloquants laissés sans réponse faute de preuve', async () => {
-    vi.spyOn(sessionService, 'markRemainingAsOk').mockResolvedValue({ modified: 2, skippedForEvidence: 1 });
+    vi.spyOn(sessionService, 'markRemainingAsOk').mockResolvedValue({ modified: 2, skippedForEvidence: 1, skippedLocked: 0 });
     await component.onMarkAllOk();
     expect(toastService.toasts()[0].message).toBe('2 contrôle(s) passé(s) à OK. 1 bloquant(s) laissé(s) sans réponse faute de preuve.');
+  });
+
+  it('signale dans le toast que les étapes verrouillées n’ont pas été modifiées', async () => {
+    const mark = vi.spyOn(sessionService, 'markRemainingAsOk');
+    mark.mockResolvedValue({ modified: 3, skippedForEvidence: 0, skippedLocked: 2 });
+    await component.onMarkAllOk();
+    expect(toastService.toasts()[0].message).toBe('3 contrôle(s) passé(s) à OK. Les étapes verrouillées n’ont pas été modifiées.');
+
+    toastService.clear();
+    mark.mockResolvedValue({ modified: 0, skippedForEvidence: 0, skippedLocked: 2 });
+    await component.onMarkAllOk();
+    expect(toastService.toasts()[0].message).toBe('Aucun contrôle passé à OK : Les étapes verrouillées n’ont pas été modifiées.');
+  });
+
+  describe('clôture avec une preuve manquante', () => {
+    const withMissingProof: ChecklistSession = {
+      ...mockSession,
+      templateSnapshot: {
+        ...mockSession.templateSnapshot,
+        sections: [
+          {
+            id: 'sec-1',
+            title: 'Tests',
+            items: [{ id: 'auto', label: 'Tests automatisés au vert', controlType: 'checkbox', criticality: 'blocking', evidenceRequired: 'photo' }]
+          }
+        ]
+      },
+      // Cochée avec sa photo, qui a été supprimée depuis : « preuve manquante »
+      answers: { auto: { status: null, checked: true, comment: '' } }
+    };
+
+    beforeEach(() => {
+      sessionService.currentSession.set(withMissingProof);
+      vi.spyOn(fixture.debugElement.injector.get(RunnerController), 'flushEvidenceDeletions').mockResolvedValue();
+    });
+
+    it('demande confirmation et laisse la session en cours si l’utilisateur annule', async () => {
+      const confirm = vi.spyOn(dialogService, 'confirm').mockResolvedValue(false);
+      const complete = vi.spyOn(sessionService, 'completeSession').mockResolvedValue([]);
+
+      await component.onComplete();
+
+      expect(confirm).toHaveBeenCalledWith(
+        expect.objectContaining({ message: '1 contrôle répondu a perdu sa preuve exigée, dont 1 bloquant. Terminer quand même la checklist ?' })
+      );
+      expect(complete).not.toHaveBeenCalled();
+    });
+
+    it('termine la session si l’utilisateur confirme', async () => {
+      vi.spyOn(dialogService, 'confirm').mockResolvedValue(true);
+      const complete = vi.spyOn(sessionService, 'completeSession').mockResolvedValue([]);
+      await component.onComplete();
+      expect(complete).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('vue chemin', () => {
+    const flowSession: ChecklistSession = {
+      ...mockSession,
+      id: 'runner-flow',
+      templateSnapshot: {
+        ...mockSession.templateSnapshot,
+        sections: [
+          { id: 'prep', title: 'Préparation', icon: 'clipboard-list', items: [{ id: 'p1', label: 'Ticket validé', controlType: 'checkbox', criticality: 'blocking' }] },
+          { id: 'build', title: 'Build', icon: 'hammer', dependsOn: ['prep'], items: [{ id: 'b1', label: 'Build vert', controlType: 'checkbox', criticality: 'blocking' }] }
+        ]
+      },
+      answers: {}
+    };
+
+    const render = () => {
+      // `ngOnInit` charge la session depuis la base : on lui rend la session déjà en place.
+      vi.spyOn(sessionService, 'loadSession').mockResolvedValue(sessionService.currentSession());
+      fixture.detectChanges();
+    };
+    const el = (): HTMLElement => fixture.nativeElement;
+
+    beforeEach(() => {
+      localStorage.removeItem(RUNNER_VIEW_STORAGE_KEY);
+    });
+
+    afterEach(() => {
+      localStorage.removeItem(RUNNER_VIEW_STORAGE_KEY);
+    });
+
+    it('sans dépendance : la vue liste actuelle, sans bascule ni graphe', () => {
+      render();
+      expect(el().querySelector('.view-toggle')).toBeNull();
+      expect(el().querySelector('app-step-graph')).toBeNull();
+      expect(el().querySelectorAll('app-checklist-section')).toHaveLength(1);
+    });
+
+    it('modèle à dépendances : graphe et panneau d’étape, puis bascule mémorisée vers la liste', () => {
+      sessionService.currentSession.set(flowSession);
+      render();
+      expect(el().querySelector('app-step-graph svg.graph')).not.toBeNull();
+      expect(el().querySelector('#step-panel')!.textContent).toContain('Préparation');
+      expect(el().querySelector('app-checklist-section')).toBeNull();
+
+      const liste = [...el().querySelectorAll<HTMLButtonElement>('.view-toggle-btn')].find(b => b.textContent!.includes('Liste'))!;
+      liste.click();
+      fixture.detectChanges();
+      expect(localStorage.getItem(RUNNER_VIEW_STORAGE_KEY)).toBe('list');
+      expect(el().querySelectorAll('app-checklist-section')).toHaveLength(2);
+      // La section verrouillée montre ses prérequis au lieu de lignes de saisie
+      expect(el().querySelector('app-step-locked')!.textContent).toContain('Cette étape attend');
+    });
   });
 
   it('exécute les suppressions de preuves en attente avant une clôture acceptée, pas avant une clôture refusée', async () => {
@@ -216,6 +330,15 @@ describe('ChecklistRunnerComponent', () => {
       await Promise.resolve();
       expect(controller.helpOpen()).toBe(true);
       expect(component.isModalOpen()).toBe(true);
+    });
+
+    it('Espace sur un élément au rôle de bouton (nœud du graphe) ne déclenche pas le geste principal', () => {
+      const node = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      node.setAttribute('role', 'button');
+      document.body.appendChild(node);
+      press(' ', node);
+      node.remove();
+      expect(handle).not.toHaveBeenCalled();
     });
 
     it('laisse Échap tranquille quand aucun tiroir n’est ouvert', () => {

@@ -1,7 +1,8 @@
 import { indexedDB, IDBKeyRange } from 'fake-indexeddb';
 import Dexie from 'dexie';
 import { TestBed } from '@angular/core/testing';
-import { HINT_DURATION_MS, RunnerController } from './runner-controller';
+import { HINT_DURATION_MS, PULSE_DURATION_MS, RUNNER_VIEW_STORAGE_KEY, RunnerController } from './runner-controller';
+import { ConfettiService } from '../../services/confetti';
 import { ChecklistSessionService } from '../../services/checklist-session.service';
 import { TemplateService } from '../../services/template.service';
 import { AppDatabaseService } from '../../services/app-database.service';
@@ -344,6 +345,188 @@ describe('RunnerController', () => {
       await controller.addFiles('b2', [png()]);
       await controller.primary('b2');
       expect(controller.hintItemId()).toBeNull();
+    });
+  });
+
+  describe('vue chemin (modèle à dépendances)', () => {
+    /** Préparation → Build ∥ Documentation (porte souple) → Go / no-go (jonction). */
+    const FLOW: ChecklistTemplate = {
+      id: 'flow',
+      name: 'Mise en production',
+      description: '',
+      version: '1',
+      updatedAt: '2026-10-17T00:00:00.000Z',
+      contextSchema: [],
+      completionPolicy: 'blocking',
+      sections: [
+        {
+          id: 'prep',
+          title: 'Préparation',
+          items: [
+            { id: 'p1', label: 'Ticket validé', controlType: 'checkbox', criticality: 'blocking' },
+            { id: 'p2', label: 'Changelog rédigé', controlType: 'checkbox' }
+          ]
+        },
+        {
+          id: 'build',
+          title: 'Build',
+          dependsOn: ['prep'],
+          items: [
+            { id: 'b1', label: 'Build vert', controlType: 'checkbox', criticality: 'blocking' },
+            { id: 'b2', label: 'Version taggée', controlType: 'checkbox', criticality: 'blocking' }
+          ]
+        },
+        { id: 'doc', title: 'Documentation', dependsOn: ['prep'], gate: 'soft', items: [{ id: 'd1', label: 'Runbook', criticality: 'blocking' }] },
+        {
+          id: 'go',
+          title: 'Go / no-go',
+          dependsOn: ['build', 'doc'],
+          items: [{ id: 'g1', label: 'Validation du PO', controlType: 'checkbox', criticality: 'blocking' }]
+        }
+      ]
+    };
+
+    let launch: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
+
+    beforeEach(async () => {
+      localStorage.removeItem(RUNNER_VIEW_STORAGE_KEY);
+      controller.viewMode.set('path');
+      launch = vi.fn<() => Promise<boolean>>(async () => true);
+      vi.spyOn(TestBed.inject(ConfettiService), 'launch').mockImplementation(launch);
+      await db.templates.put(FLOW);
+      TestBed.inject(TemplateService).availableTemplates.set([TEMPLATE, FLOW]);
+      const created = await session.createSession('flow', 'MEP');
+      await evidence.loadEvidenceCounts(created.id);
+      TestBed.tick();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      localStorage.removeItem(RUNNER_VIEW_STORAGE_KEY);
+    });
+
+    it('sélectionne la première étape ouverte et n’affiche que ses contrôles', () => {
+      expect(controller.isPathView()).toBe(true);
+      expect(controller.selectedStepId()).toBe('prep');
+      expect(controller.visibleIds()).toEqual(['p1', 'p2']);
+      expect(controller.activeItemId()).toBe('p1');
+      expect(controller.graphNodes().map(n => n.id)).toEqual(['prep', 'build', 'doc', 'go']);
+      expect(controller.selectedStepView()?.title).toBe('Préparation');
+    });
+
+    it('selectStep : panneau de l’étape, premier contrôle actif, navigation limitée au panneau', async () => {
+      await controller.primary('p1');
+      controller.selectStep('build');
+      expect(controller.visibleIds()).toEqual(['b1', 'b2']);
+      expect(controller.activeItemId()).toBe('b1');
+      controller.navigate(1);
+      expect(controller.activeItemId()).toBe('b2');
+      controller.navigate(1);
+      expect(controller.activeItemId()).toBe('b2');
+    });
+
+    it('étape verrouillée : aucune ligne, et aucune saisie possible', async () => {
+      controller.selectStep('go');
+      expect(controller.visibleIds()).toEqual([]);
+      await controller.primary('g1');
+      await controller.toggleNa('g1');
+      expect(answer('g1')).toBeUndefined();
+    });
+
+    it('vue liste : les sections verrouillées n’ont pas de lignes', async () => {
+      controller.setViewMode('list');
+      expect(controller.visibleIds()).toEqual(['p1', 'p2']);
+      await controller.primary('p1');
+      expect(controller.visibleIds()).toEqual(['p1', 'p2', 'b1', 'b2', 'd1']);
+    });
+
+    it('focusItem en vue chemin : sélectionne l’étape du contrôle, ou celle d’un contrôle verrouillé', async () => {
+      await controller.primary('p1');
+      controller.focusItem('d1');
+      expect(controller.selectedStepId()).toBe('doc');
+      expect(controller.activeItemId()).toBe('d1');
+
+      controller.focusItem('g1');
+      expect(controller.selectedStepId()).toBe('go');
+      expect(controller.activeItemId()).not.toBe('g1');
+    });
+
+    it('ferme le tiroir d’un contrôle dont l’étape se verrouille, en conservant la note saisie', async () => {
+      controller.setViewMode('list');
+      await controller.primary('p1');
+      await controller.toggleDrawer('d1');
+      controller.updateNote('d1', 'Runbook en relecture');
+      await controller.primary('p1'); // décoche : « Documentation » se verrouille
+      TestBed.tick();
+      expect(controller.drawerItemId()).toBeNull();
+      expect(answer('d1').comment).toBe('Runbook en relecture');
+      await session.flushPendingSave();
+    });
+
+    it('n’anime rien au chargement, puis annonce ensemble les portes qui s’ouvrent', async () => {
+      expect(controller.pulseIds()).toEqual([]);
+      expect(controller.announcement()).toBe('');
+
+      await controller.primary('p1');
+      TestBed.tick();
+      expect(controller.pulseIds()).toEqual(['build', 'doc']);
+      expect(controller.announcement()).toBe('Porte ouverte vers « Build » et « Documentation »');
+
+      await new Promise(resolve => setTimeout(resolve, PULSE_DURATION_MS + 50));
+      expect(controller.pulseIds()).toEqual([]);
+    });
+
+    it('lance les confettis une fois à la fin du chemin, et de nouveau après un retour en arrière', async () => {
+      for (const id of ['p1', 'b1', 'b2', 'd1', 'g1']) {
+        await controller.primary(id);
+        TestBed.tick();
+      }
+      expect(launch).toHaveBeenCalledTimes(1);
+      expect(controller.announcement()).toContain('Toutes les étapes sont franchies');
+
+      await controller.primary('g1');
+      TestBed.tick();
+      expect(launch).toHaveBeenCalledTimes(1);
+      await controller.primary('g1');
+      TestBed.tick();
+      expect(launch).toHaveBeenCalledTimes(2);
+    });
+
+    it('« Prochain item à traiter » : restes dans des étapes verrouillées', async () => {
+      expect(controller.nextState()).toBe('available');
+      for (const id of ['p1', 'p2', 'b1', 'b2']) await controller.primary(id);
+      await controller.ko('d1'); // répondu mais non résolu : « Go / no-go » reste verrouillée
+      expect(controller.nextToProcess()).toBeNull();
+      expect(controller.nextState()).toBe('locked-only');
+    });
+
+    it('laissés en route et forçage d’une porte souple', async () => {
+      await controller.primary('p1');
+      expect(controller.leftBehindEntries()).toEqual([
+        { itemId: 'p2', label: 'Changelog rédigé', sectionTitle: 'Préparation', reason: 'sans réponse' }
+      ]);
+
+      await controller.ko('d1');
+      expect(await controller.forceGate('doc', 'Validé par le PO')).toBe(true);
+      expect(controller.stepViews()['doc'].footer.forced?.reason).toBe('Validé par le PO');
+    });
+
+    it('mémorise la vue choisie, et se passe d’un stockage indisponible', () => {
+      controller.setViewMode('list');
+      expect(localStorage.getItem(RUNNER_VIEW_STORAGE_KEY)).toBe('list');
+      const other = TestBed.runInInjectionContext(() => new RunnerController());
+      expect(other.viewMode()).toBe('list');
+
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('stockage bloqué');
+      });
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('stockage bloqué');
+      });
+      const blocked = TestBed.runInInjectionContext(() => new RunnerController());
+      expect(blocked.viewMode()).toBe('path');
+      expect(() => blocked.setViewMode('list')).not.toThrow();
+      expect(blocked.viewMode()).toBe('list');
     });
   });
 });

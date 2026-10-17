@@ -16,6 +16,8 @@ export class AuditSummaryComponent {
   readonly metrics = input.required<MetricsSummary>();
   readonly filter = input<FilterType>('all');
   readonly readonly = input<boolean>(false);
+  /** « Tout déplier » et « Tout replier » ne concernent que la vue liste (masqués en vue chemin). */
+  readonly showCollapse = input<boolean>(true);
 
   readonly contextChange = output<{ key: string; value: string }>();
   readonly filterChange = output<FilterType>();

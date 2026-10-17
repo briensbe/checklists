@@ -45,11 +45,12 @@
     <button
       type="button"
       class="btn-next"
-      [disabled]="nextDisabled()"
-      [attr.aria-label]="nextDisabled() ? 'Tout est renseigné' : 'Prochain item à traiter'"
+      [disabled]="nextState() !== 'available'"
+      [attr.aria-label]="nextLabel()"
+      [title]="nextLabel()"
       (click)="next.emit()">
       <svg lucideSkipForward [size]="14"></svg>
-      <span class="btn-next-label">{{ nextDisabled() ? 'Tout est renseigné' : 'Prochain item à traiter' }}</span>
+      <span class="btn-next-label">{{ nextLabel() }}</span>
     </button>
     <button type="button" class="btn-help" aria-label="Raccourcis clavier" title="Raccourcis clavier (?)" (click)="help.emit()">
       <svg lucideKeyboard [size]="16"></svg>

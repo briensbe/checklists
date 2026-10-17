@@ -1,0 +1,74 @@
+.step-locked {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.locked-intro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.prerequisites {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.prerequisite {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
+
+.prerequisite-icon {
+  display: inline-flex;
+}
+
+.prerequisite.is-ready .prerequisite-icon {
+  color: var(--step-ready-text);
+}
+
+.prerequisite.is-in-progress .prerequisite-icon {
+  color: var(--step-waiting-text);
+}
+
+.prerequisite.is-not-open .prerequisite-icon {
+  color: var(--step-locked-text);
+}
+
+.prerequisite-state {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.locked-caption {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--step-locked-text);
+}
+
+.locked-items {
+  list-style: disc;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.locked-item {
+  font-size: 0.8125rem;
+  color: var(--step-locked-text);
+}
+
+.locked-answer {
+  font-style: italic;
+}

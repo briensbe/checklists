@@ -2,8 +2,9 @@ import { DestroyRef, Injectable, Injector, afterNextRender, computed, effect, in
 import { ChecklistSessionService } from '../../services/checklist-session.service';
 import { EvidenceService, evidenceTypeOf } from '../../services/evidence.service';
 import { ToastService } from '../../services/toast.service';
+import { ConfettiService } from '../../services/confetti';
 import { EvidenceRecord, ItemAnswer, MAX_EVIDENCE_SIZE } from '../../models/checklist.model';
-import { ApplicableItem, criticalityOf } from '../../domain/session-rules';
+import { ApplicableItem, criticalityOf, isAnswered } from '../../domain/session-rules';
 import {
   choiceGesture,
   declaresBlocking,
@@ -11,6 +12,7 @@ import {
   isEvidenceSatisfied,
   matchesFilter,
   nextActiveItem,
+  nextItemState,
   nextItemToProcess,
   NO_EVIDENCE,
   partitionBySize,
@@ -22,6 +24,17 @@ import {
   unresolvedBlockingCount,
   visibleItems
 } from '../../domain/quick-check';
+import {
+  allStepsPassed,
+  buildStepViews,
+  defaultSelectedStep,
+  lockedSectionIds,
+  newlyUnlocked,
+  StepView,
+  toGraphNodes,
+  unlockedSectionIds
+} from '../../domain/path-view';
+import type { LeftBehindEntry } from '../../components/left-behind/left-behind.component';
 
 /** `notes` : note, preuves et N/A ; `prompt` : demande de la preuve exigée par le modèle. */
 export type DrawerMode = 'notes' | 'prompt';
@@ -32,9 +45,36 @@ export const HINT_DURATION_MS = 2000;
 /** Durée de la fenêtre d'annulation d'une suppression de preuve (ADR 0005). */
 export const UNDO_DURATION_MS = 6000;
 
-interface FocusOptions {
+/** Durée de l'animation d'ouverture des nœuds qui viennent de se débloquer. */
+export const PULSE_DURATION_MS = 700;
+
+/** Vue d'un modèle à dépendances : le chemin (graphe et panneau d'étape) ou la liste des sections. */
+export type RunnerView = 'path' | 'list';
+
+/** Préférence de vue, mémorisée par le navigateur pour tous les modèles à dépendances (jamais dans la session). */
+export const RUNNER_VIEW_STORAGE_KEY = 'checklists.runner-view';
+
+export interface FocusOptions {
   block?: ScrollLogicalPosition;
   smooth?: boolean;
+}
+
+function readViewPreference(): RunnerView {
+  try {
+    return localStorage.getItem(RUNNER_VIEW_STORAGE_KEY) === 'list' ? 'list' : 'path';
+  } catch {
+    return 'path'; // stockage indisponible (navigation privée, stockage bloqué)
+  }
+}
+
+function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  return a.size === b.size && [...a].every(id => b.has(id));
+}
+
+/** « « Build » et « Documentation » » : liste de titres pour une annonce. */
+function titleList(titles: readonly string[]): string {
+  const quoted = titles.map(t => `« ${t} »`);
+  return quoted.length <= 1 ? quoted.join('') : `${quoted.slice(0, -1).join(', ')} et ${quoted[quoted.length - 1]}`;
 }
 
 /**
@@ -49,7 +89,25 @@ export class RunnerController {
   private readonly sessionService = inject(ChecklistSessionService);
   private readonly evidenceService = inject(EvidenceService);
   private readonly toastService = inject(ToastService);
+  private readonly confettiService = inject(ConfettiService);
   private readonly injector = inject(Injector);
+
+  // --- Vue chemin (ADR 0010, point 2 : les deux vues sont des présentations de ce contrôleur) ---
+
+  /** Vue choisie ; elle ne s'applique qu'à un modèle à dépendances. */
+  readonly viewMode = signal<RunnerView>(readViewPreference());
+  /** Étape dont le panneau est affiché en vue chemin. */
+  readonly selectedStepId = signal<string | null>(null);
+  /** Étapes qui viennent de se débloquer (animation des nœuds). */
+  readonly pulseIds = signal<string[]>([]);
+  /** Message de la région d'annonce polie (porte ouverte, fin du chemin). */
+  readonly announcement = signal('');
+
+  readonly stepFlow = this.sessionService.stepFlow;
+  readonly hasFlow = computed(() => this.stepFlow().hasFlow);
+  readonly isPathView = computed(() => this.hasFlow() && this.viewMode() === 'path');
+  /** Sections verrouillées : leurs contrôles ne sont jamais des lignes, dans aucune vue. */
+  readonly lockedSections = computed<ReadonlySet<string>>(() => lockedSectionIds(this.stepFlow()), { equal: sameIds });
 
   readonly activeItemId = signal<string | null>(null);
   readonly drawerItemId = signal<string | null>(null);
@@ -73,14 +131,18 @@ export class RunnerController {
 
   private readonly answers = computed<Record<string, ItemAnswer>>(() => this.sessionService.currentSession()?.answers ?? {});
 
-  /** Contrôles affichés, partagés par le rendu des sections et la navigation au clavier. */
+  /**
+   * Contrôles affichés, partagés par le rendu (sections ou panneau d'étape) et la navigation au clavier :
+   * jamais ceux d'une étape verrouillée ; en vue chemin, seulement ceux de l'étape sélectionnée.
+   */
   readonly visibleItems = computed(() =>
     visibleItems(
       this.items(),
       this.answers(),
       this.sessionService.activeFilter(),
       this.sessionService.collapsedSections(),
-      this.drawerItemId()
+      this.drawerItemId(),
+      { locked: this.lockedSections(), sectionId: this.isPathView() ? (this.selectedStepId() ?? '') : null }
     )
   );
   readonly visibleIds = computed(() => this.visibleItems().map(i => i.id));
@@ -98,13 +160,84 @@ export class RunnerController {
   );
   readonly declaresBlocking = computed(() => declaresBlocking(this.sessionService.currentTemplate()));
   readonly unresolvedBlocking = computed(() => unresolvedBlockingCount(this.sessionService.currentSession()));
-  readonly nextToProcess = computed(() => nextItemToProcess(this.items(), this.answers(), this.activeItemId()));
+  readonly nextToProcess = computed(() =>
+    nextItemToProcess(this.items(), this.answers(), this.activeItemId(), this.lockedSections())
+  );
+  /** État du bouton « Prochain item à traiter » (accessible, tout renseigné, restes verrouillés). */
+  readonly nextState = computed(() => nextItemState(this.items(), this.answers(), this.lockedSections()));
+
+  /** Nœuds du graphe des étapes, dans l'ordre topologique. */
+  readonly graphNodes = computed(() => {
+    const template = this.sessionService.currentTemplate();
+    return template && this.hasFlow() ? toGraphNodes(this.stepFlow(), template, this.sectionProgress()) : [];
+  });
+  /** Affichage de chaque étape (panneau, section de la vue liste) ; vide sans dépendance. */
+  readonly stepViews = computed<Record<string, StepView>>(() => {
+    const session = this.sessionService.currentSession();
+    if (!session || !this.hasFlow()) return {};
+    return buildStepViews(session, this.stepFlow(), this.evidenceService.summaries(), this.sectionProgress());
+  });
+  readonly selectedStepView = computed<StepView | null>(() => this.stepViews()[this.selectedStepId() ?? ''] ?? null);
+
+  /** Bloc « Laissés en route » : contrôles non bloquants oubliés derrière une porte franchie. */
+  readonly leftBehindEntries = computed<LeftBehindEntry[]>(() => {
+    const answers = this.answers();
+    return this.sessionService.leftBehind().map(item => ({
+      itemId: item.id,
+      label: item.label,
+      sectionTitle: item.sectionTitle,
+      reason: isAnswered(item, answers[item.id]) ? 'preuve à compléter' : 'sans réponse'
+    }));
+  });
 
   // Suppressions de preuves en attente : identifiant de preuve → identifiant du toast d'annulation.
   private readonly pendingDeletions = new Map<string, string>();
   private hintTimer: ReturnType<typeof setTimeout> | null = null;
+  private pulseTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    // Passage des portes : rien au premier calcul d'une session (chargement), puis animation et annonce
+    // des étapes qui se débloquent, et célébration quand toutes les étapes deviennent franchies.
+    let baselineSessionId: string | null = null;
+    let previousUnlocked: ReadonlySet<string> = new Set();
+    let previousAllPassed = false;
+    effect(() => {
+      const session = this.sessionService.currentSession();
+      const flow = this.stepFlow();
+      untracked(() => {
+        const sessionId = session?.id ?? null;
+        const unlocked = unlockedSectionIds(flow);
+        const passedAll = allStepsPassed(flow);
+        const isNewSession = sessionId !== baselineSessionId;
+        const opened = isNewSession ? [] : newlyUnlocked(previousUnlocked, flow);
+        const celebrate = !isNewSession && passedAll && !previousAllPassed;
+        baselineSessionId = sessionId;
+        previousUnlocked = unlocked;
+        previousAllPassed = passedAll;
+
+        // Étape sélectionnée : choisie à l'ouverture d'une session, ou si elle a disparu du modèle.
+        // Une autre session repart de son premier contrôle affiché.
+        if (isNewSession) this.activeItemId.set(null);
+        const selected = this.selectedStepId();
+        if (isNewSession || !selected || !flow.steps[selected]) {
+          this.selectedStepId.set(flow.hasFlow ? defaultSelectedStep(flow) : null);
+        }
+        if (!flow.hasFlow || session?.status === 'completed') return;
+
+        const messages: string[] = [];
+        if (opened.length > 0) {
+          this.pulse(opened);
+          const titles = opened.map(id => session?.templateSnapshot.sections.find(s => s.id === id)?.title ?? id);
+          messages.push(`Porte ouverte vers ${titleList(titles)}`);
+        }
+        if (celebrate) {
+          messages.push('Toutes les étapes sont franchies');
+          void this.confettiService.launch();
+        }
+        if (messages.length > 0) this.announce(messages.join('. '));
+      });
+    });
+
     // L'item actif suit la liste affichée ; un tiroir dont le contrôle n'est plus affiché se ferme.
     let previous: readonly string[] = [];
     effect(() => {
@@ -121,7 +254,56 @@ export class RunnerController {
 
     inject(DestroyRef).onDestroy(() => {
       if (this.hintTimer) clearTimeout(this.hintTimer);
+      if (this.pulseTimer) clearTimeout(this.pulseTimer);
     });
+  }
+
+  // --- Vue chemin ----------------------------------------------------------
+
+  /** Bascule « Chemin / Liste », mémorisée par le navigateur. */
+  setViewMode(mode: RunnerView): void {
+    this.viewMode.set(mode);
+    try {
+      localStorage.setItem(RUNNER_VIEW_STORAGE_KEY, mode);
+    } catch {
+      // Stockage indisponible : le choix vaut pour cette page seulement.
+    }
+  }
+
+  /**
+   * Sélectionne une étape : son panneau s'affiche et son premier contrôle affiché devient l'item actif.
+   * `focusPanel` : donne le focus au panneau (lien « Porte ouverte vers … », dont le bouton disparaît).
+   */
+  selectStep(sectionId: string, focusPanel = false): void {
+    if (!this.stepFlow().steps[sectionId]) return;
+    this.selectedStepId.set(sectionId);
+    if (this.isPathView()) {
+      const first = this.visibleItems()[0];
+      this.activeItemId.set(first?.id ?? null);
+      if (focusPanel) this.afterRender(() => this.scrollAndFocus('step-panel', { block: 'nearest' }));
+    } else {
+      this.focusSection(sectionId);
+    }
+  }
+
+  /** « Forcer le passage » d'une porte souple, avec sa justification (ignoré en lecture seule). */
+  async forceGate(sectionId: string, reason: string): Promise<boolean> {
+    if (this.isReadonly()) return false;
+    return this.sessionService.forceGate(sectionId, reason);
+  }
+
+  private pulse(ids: string[]): void {
+    if (this.pulseTimer) clearTimeout(this.pulseTimer);
+    this.pulseIds.set(ids);
+    this.pulseTimer = setTimeout(() => {
+      this.pulseTimer = null;
+      this.pulseIds.set([]);
+    }, PULSE_DURATION_MS);
+  }
+
+  /** Un même message annoncé deux fois de suite doit changer de texte pour être relu : on varie un espace insécable. */
+  private announce(message: string): void {
+    this.announcement.set(this.announcement() === message ? `${message} ` : message);
   }
 
   // --- Lecture -------------------------------------------------------------
@@ -425,13 +607,23 @@ export class RunnerController {
   }
 
   /**
-   * Rend un contrôle visible et lui donne le focus : déplie sa section, repasse le filtre à « Tous »
-   * s'il masque le contrôle, puis, après le rendu, fait défiler et place le focus.
+   * Rend un contrôle visible et lui donne le focus : déplie sa section (en vue chemin : sélectionne son
+   * étape), repasse le filtre à « Tous » s'il masque le contrôle, puis, après le rendu, fait défiler et
+   * place le focus. Un contrôle d'une étape verrouillée n'a pas de ligne : le focus va à son étape.
    */
   focusItem(itemId: string, options: FocusOptions = {}): void {
     const item = this.itemOf(itemId);
     if (!item) return;
-    this.sessionService.expandSection(item.sectionId);
+    if (this.isPathView()) {
+      this.selectedStepId.set(item.sectionId);
+    } else {
+      this.sessionService.expandSection(item.sectionId);
+    }
+    if (this.lockedSections().has(item.sectionId)) {
+      const anchor = this.isPathView() ? 'step-panel' : `section-${item.sectionId}`;
+      this.afterRender(() => this.scrollAndFocus(anchor, { block: 'start', smooth: options.smooth }));
+      return;
+    }
     const filter = this.sessionService.activeFilter();
     if (!matchesFilter(item, this.answerOf(itemId), filter) && this.drawerItemId() !== itemId) {
       this.sessionService.setFilter('all');
@@ -440,8 +632,16 @@ export class RunnerController {
     this.afterRender(() => this.scrollAndFocus(`item-${itemId}`, options));
   }
 
-  /** Déplie une section et la fait défiler dans la zone visible (clic sur un anneau). */
+  /**
+   * Clic sur un anneau : déplie la section et la fait défiler dans la zone visible ;
+   * en vue chemin, sélectionne l'étape et fait défiler son panneau.
+   */
   focusSection(sectionId: string): void {
+    if (this.isPathView()) {
+      this.selectStep(sectionId);
+      this.afterRender(() => this.scrollAndFocus('step-panel', { block: 'start', smooth: true }));
+      return;
+    }
     this.sessionService.expandSection(sectionId);
     this.afterRender(() => this.scrollAndFocus(`section-${sectionId}`, { block: 'start', smooth: true }));
   }

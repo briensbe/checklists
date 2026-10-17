@@ -130,3 +130,23 @@
   font-size: 0.75rem;
   color: var(--color-slate-400);
 }
+
+/* État d'étape (modèle à dépendances) */
+.step-state-pill {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+  background-color: var(--graph-badge-bg);
+  color: var(--graph-badge-text);
+}
+
+.step-state-pill.is-passed,
+.step-state-pill.is-done {
+  background-color: var(--graph-badge-ready-bg);
+  color: var(--graph-badge-ready-text);
+}
+
+.section-card.is-locked .section-icon-box {
+  color: var(--graph-node-locked);
+}

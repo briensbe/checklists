@@ -1,0 +1,40 @@
+<section
+  id="step-panel"
+  class="step-panel"
+  tabindex="-1"
+  [class.is-locked]="locked()"
+  [attr.aria-labelledby]="'step-panel-title-' + view().sectionId">
+  <header class="panel-header">
+    <span class="panel-icon" aria-hidden="true">
+      <svg [lucideIcon]="view().icon" [size]="20"></svg>
+    </span>
+    <h3 class="panel-title" [id]="'step-panel-title-' + view().sectionId">{{ view().title }}</h3>
+    @if (view().isJoin) {
+      <span class="panel-pill is-join">jonction</span>
+    }
+    <span class="panel-pill" [class]="'panel-pill is-' + view().visual">{{ stateLabels[view().visual] }}</span>
+    <span class="panel-progress">
+      @if (!locked() && view().total > 0) {
+        <app-progress-ring [value]="ringValue()" [tone]="ringTone()" [size]="24" [stroke]="3"></app-progress-ring>
+      }
+      <span class="panel-counter">{{ view().answered }}/{{ view().total }}</span>
+    </span>
+  </header>
+
+  @if (locked()) {
+    <app-step-locked [prerequisites]="view().prerequisites" [items]="view().lockedItems"></app-step-locked>
+  } @else {
+    <div class="panel-body">
+      @if (items().length === 0) {
+        <p class="empty-message">
+          {{ view().total === 0 ? 'Aucun contrôle applicable dans cette étape.' : 'Aucun contrôle correspondant au filtre actif dans cette étape.' }}
+        </p>
+      } @else {
+        @for (item of items(); track item.id) {
+          <app-checklist-item [item]="item" [answer]="answers()[item.id]" [readonly]="readonly()"></app-checklist-item>
+        }
+      }
+    </div>
+    <app-step-footer [sectionId]="view().sectionId" [footer]="view().footer" [readonly]="readonly()"></app-step-footer>
+  }
+</section>

@@ -235,7 +235,7 @@ describe('ChecklistSessionService', () => {
       await service.updateAnswerStatus('a', 'NA');
       const before = structuredClone(service.currentSession()!.answers);
 
-      expect(await service.markRemainingAsOk()).toEqual({ modified: 1, skippedForEvidence: 0 });
+      expect(await service.markRemainingAsOk()).toEqual({ modified: 1, skippedForEvidence: 0, skippedLocked: 0 });
       expect(service.currentSession()!.answers['b'].history?.map(e => e.kind)).toEqual(['status']);
       expect(service.currentSession()!.answers['a'].history).toHaveLength(1);
 
@@ -387,7 +387,7 @@ describe('ChecklistSessionService', () => {
       const before = structuredClone(service.currentSession()!.answers);
 
       const result = await service.markRemainingAsOk({});
-      expect(result).toEqual({ modified: 3, skippedForEvidence: 1 });
+      expect(result).toEqual({ modified: 3, skippedForEvidence: 1, skippedLocked: 0 });
       const answers = service.currentSession()!.answers;
       expect(answers['check'].status).toBe('NA');
       expect(answers['check'].checked).toBeUndefined();
@@ -462,6 +462,54 @@ describe('ChecklistSessionService', () => {
       await service.updateAnswerStatus('g1', 'OK');
       expect(await service.completeSession()).toEqual([]);
       expect(await service.forceGate('doc', 'Dérogation')).toBe(false);
+    });
+
+    it('ignore tout changement d’état sur une étape verrouillée, sans événement d’historique', async () => {
+      await service.updateAnswerStatus('d1', 'OK');
+      await service.toggleNa('d1');
+      await service.resolveItem('d1');
+      await service.updateAnswerCheckbox('g1', true, false);
+      await service.updateAnswerChoice('g1', 'x');
+      expect(service.currentSession()!.answers['d1']).toBeUndefined();
+      expect(service.currentSession()!.answers['g1']).toBeUndefined();
+    });
+
+    it('accepte la note d’un contrôle verrouillé, pour ne jamais perdre une frappe', async () => {
+      await service.updateAnswerComment('d1', 'Runbook en relecture');
+      expect(service.currentSession()!.answers['d1'].comment).toBe('Runbook en relecture');
+      // Écriture différée exécutée avant la fermeture de la base en fin de test.
+      await service.flushPendingSave();
+      expect((await db.sessions.get(service.currentSession()!.id))?.answers['d1'].comment).toBe('Runbook en relecture');
+    });
+
+    it('conserve les réponses d’une étape reverrouillée et laisse aboutir l’annulation d’une suppression de preuve', async () => {
+      const sessionId = service.currentSession()!.id;
+      await service.updateAnswerStatus('p1', 'OK');
+      await service.updateAnswerStatus('d1', 'OK');
+      await service.recordEvidenceEvent(sessionId, 'd1', 'evidence-removed', { id: 'ev-1', name: 'runbook.pdf' });
+
+      await service.updateAnswerStatus('p1', 'OK'); // re-clic : retrait du OK, « Documentation » se reverrouille
+      expect(service.stepFlow().steps['doc'].unlocked).toBe(false);
+      expect(service.currentSession()!.answers['d1'].status).toBe('OK');
+
+      await service.removeEvidenceRemovedEvent(sessionId, 'd1', 'ev-1');
+      expect(service.currentSession()!.answers['d1'].history?.some(e => e.kind === 'evidence-removed')).toBe(false);
+    });
+
+    it('« Passer le reste à OK » ne remplit que les étapes débloquées au lancement, sans cascade', async () => {
+      const before = structuredClone(service.currentSession()!.answers);
+      expect(await service.markRemainingAsOk()).toEqual({ modified: 2, skippedForEvidence: 0, skippedLocked: 2 });
+
+      const answers = service.currentSession()!.answers;
+      expect(answers['p1'].status).toBe('OK');
+      expect(answers['p2'].status).toBe('OK');
+      expect(answers['d1']).toBeUndefined();
+      expect(service.stepFlow().steps['doc'].unlocked).toBe(true);
+
+      // L'annulation restaure tout, même si « Documentation » redevient verrouillée.
+      await service.restoreAnswers(before);
+      expect(service.currentSession()!.answers).toEqual(before);
+      expect(service.stepFlow().steps['doc'].unlocked).toBe(false);
     });
 
     it('purge les portes forcées des sections supprimées à l’application d’une version', async () => {

@@ -187,6 +187,33 @@
   --ring-anomaly: var(--color-rose-500);
   --runner-bar-bg: rgba(255, 255, 255, 0.95);
   --overlay-bg: rgba(15, 23, 42, 0.6);
+
+  /* Vue chemin : graphe des étapes, panneau d'étape, pied d'étape, laissés en route */
+  --graph-node-bg: #ffffff;
+  --graph-node-border: var(--color-slate-300);
+  --graph-node-selected: var(--color-brand-600);
+  --graph-node-icon: var(--color-slate-800);
+  --graph-node-locked: var(--color-slate-400);
+  --graph-node-done: var(--color-emerald-600);
+  --graph-link-open: var(--color-emerald-500);
+  --graph-link-closed: var(--color-slate-300);
+  --graph-label: var(--color-slate-600);
+  --graph-badge-bg: var(--color-slate-100);
+  --graph-badge-text: var(--color-slate-600);
+  --graph-badge-ready-bg: var(--color-emerald-100);
+  --graph-badge-ready-text: var(--color-emerald-800);
+  --graph-focus: var(--color-brand-600);
+  --step-panel-bg: var(--color-slate-100);
+  --step-ready-text: var(--color-emerald-700);
+  --step-waiting-text: var(--color-amber-700);
+  --step-locked-text: var(--color-slate-500);
+  --step-gate-open-text: var(--color-emerald-700);
+  --step-gate-wait-text: var(--color-amber-700);
+  --step-forced-bg: var(--color-amber-50);
+  --step-forced-text: var(--color-amber-700);
+  --left-behind-bg: var(--color-amber-50);
+  --left-behind-border: var(--color-amber-200);
+  --left-behind-text: var(--color-amber-700);
   /* Texte sur un fond coloré (boutons pleins), identique dans les deux thèmes */
   --text-on-accent: #ffffff;
 }
@@ -326,6 +353,33 @@
   --ring-complete: #34d399;
   --ring-anomaly: #fb7185;
   --runner-bar-bg: rgba(21, 30, 50, 0.95);
+
+  /* Vue chemin en Dark Mode */
+  --graph-node-bg: #151e32;
+  --graph-node-border: #2c3c58;
+  --graph-node-selected: #38bdf8;
+  --graph-node-icon: #e2e8f0;
+  --graph-node-locked: #64748b;
+  --graph-node-done: #34d399;
+  --graph-link-open: #34d399;
+  --graph-link-closed: #3b4d6b;
+  --graph-label: #cbd5e1;
+  --graph-badge-bg: #1e2b42;
+  --graph-badge-text: #cbd5e1;
+  --graph-badge-ready-bg: rgba(6, 78, 59, 0.6);
+  --graph-badge-ready-text: #34d399;
+  --graph-focus: #38bdf8;
+  --step-panel-bg: #101728;
+  --step-ready-text: #34d399;
+  --step-waiting-text: #fbbf24;
+  --step-locked-text: #94a3b8;
+  --step-gate-open-text: #34d399;
+  --step-gate-wait-text: #fbbf24;
+  --step-forced-bg: rgba(69, 26, 3, 0.4);
+  --step-forced-text: #fbbf24;
+  --left-behind-bg: rgba(69, 26, 3, 0.3);
+  --left-behind-border: #92400e;
+  --left-behind-text: #fbbf24;
 }
 
 /* Écran étroit : l'en-tête (non adapté à cette largeur) défile, seule la barre du runner reste fixée */

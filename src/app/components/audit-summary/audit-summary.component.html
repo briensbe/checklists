@@ -116,9 +116,11 @@
     </button>
   </div>
 
-  <div class="toggle-group">
-    <button type="button" (click)="collapseAll.emit(false)" class="btn-link">Tout déplier</button>
-    <span>•</span>
-    <button type="button" (click)="collapseAll.emit(true)" class="btn-link">Tout replier</button>
-  </div>
+  @if (showCollapse()) {
+    <div class="toggle-group">
+      <button type="button" (click)="collapseAll.emit(false)" class="btn-link">Tout déplier</button>
+      <span>•</span>
+      <button type="button" (click)="collapseAll.emit(true)" class="btn-link">Tout replier</button>
+    </div>
+  }
 </div>

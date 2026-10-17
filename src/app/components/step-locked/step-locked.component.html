@@ -1,0 +1,41 @@
+<div class="step-locked">
+  <p class="locked-intro">
+    <svg lucideLock [size]="16"></svg>
+    <span>{{ prerequisites().joinMode === 'any' ? 'Cette étape attend l’une de ces étapes :' : 'Cette étape attend :' }}</span>
+  </p>
+  <ul class="prerequisites">
+    @for (p of prerequisites().items; track p.sectionId) {
+      <li class="prerequisite" [class]="'prerequisite is-' + p.state">
+        <span class="prerequisite-icon" aria-hidden="true">
+          @switch (p.state) {
+            @case ('ready') { <svg lucideCircleCheck [size]="18"></svg> }
+            @case ('in-progress') { <svg lucideHourglass [size]="18"></svg> }
+            @default { <svg lucideLock [size]="18"></svg> }
+          }
+        </span>
+        <span class="prerequisite-title">{{ p.title }}</span>
+        <span class="prerequisite-state"><span class="sr-only">, </span>{{ labels[p.state] }}</span>
+      </li>
+    }
+  </ul>
+
+  @if (items().length > 0) {
+    <p class="locked-caption">
+      @if (hasAnswers()) {
+        Réponses conservées : elles redeviendront modifiables à l’ouverture de la porte.
+      } @else {
+        Contrôles de cette étape :
+      }
+    </p>
+    <ul class="locked-items">
+      @for (item of items(); track item.id) {
+        <li class="locked-item">
+          <span>{{ item.label }}</span>
+          @if (item.answerText) {
+            <span class="locked-answer"> · {{ item.answerText }}</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

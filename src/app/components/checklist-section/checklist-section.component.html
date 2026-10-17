@@ -1,4 +1,4 @@
-<div class="section-card" [id]="'section-' + section().id" tabindex="-1">
+<div class="section-card" [class.is-locked]="locked()" [id]="'section-' + section().id" tabindex="-1">
   <!-- En-tête de section pliable accessible -->
   <button
     type="button"
@@ -7,7 +7,7 @@
     class="section-header">
     <div class="section-title-group">
       <div class="section-icon-box">
-        <svg lucideListChecks [size]="16"></svg>
+        <svg [lucideIcon]="icon()" [size]="16"></svg>
       </div>
       <div>
         <h3 class="section-title">{{ section().title }}</h3>
@@ -16,12 +16,17 @@
     </div>
 
     <div class="section-header-right">
-      <span
-        class="section-status-pill"
-        [class.is-complete]="isComplete()"
-        [class.is-pending]="!isComplete()">
-        {{ isComplete() ? 'Complet' : (totalCount() - answeredCount()) + ' en attente' }}
-      </span>
+      @if (step(); as s) {
+        <span class="step-state-pill" [class]="'step-state-pill is-' + s.visual">{{ stateLabels[s.visual] }}</span>
+      }
+      @if (!locked()) {
+        <span
+          class="section-status-pill"
+          [class.is-complete]="isComplete()"
+          [class.is-pending]="!isComplete()">
+          {{ isComplete() ? 'Complet' : (totalCount() - answeredCount()) + ' en attente' }}
+        </span>
+      }
 
       <!-- La classe dynamique va sur l'enveloppe : l'icône Lucide réécrit son propre attribut class. -->
       <span class="chevron-icon" [class.is-expanded]="!isCollapsed()" aria-hidden="true">
@@ -32,16 +37,26 @@
 
   <!-- Corps de la section -->
   @if (!isCollapsed()) {
-    <div class="section-body">
-      @if (items().length === 0) {
-        <div class="empty-section-message">
-          Aucun contrôle correspondant au filtre actif dans cette section.
-        </div>
-      } @else {
-        @for (item of items(); track item.id) {
-          <app-checklist-item [item]="item" [answer]="answers()[item.id]" [readonly]="readonly()"></app-checklist-item>
-        }
+    @if (step(); as s) {
+      @if (locked()) {
+        <app-step-locked [prerequisites]="s.prerequisites" [items]="s.lockedItems"></app-step-locked>
       }
-    </div>
+    }
+    @if (!locked()) {
+      <div class="section-body">
+        @if (items().length === 0) {
+          <div class="empty-section-message">
+            Aucun contrôle correspondant au filtre actif dans cette section.
+          </div>
+        } @else {
+          @for (item of items(); track item.id) {
+            <app-checklist-item [item]="item" [answer]="answers()[item.id]" [readonly]="readonly()"></app-checklist-item>
+          }
+        }
+      </div>
+      @if (step(); as s) {
+        <app-step-footer [sectionId]="s.sectionId" [footer]="s.footer" [readonly]="readonly()"></app-step-footer>
+      }
+    }
   }
 </div>

@@ -37,6 +37,11 @@ describe('ChecklistsDashboardComponent', () => {
     updatedAt: '2026-10-16T12:00:00Z'
   };
 
+  afterEach(() => {
+    // Des minuteurs simulés laissés actifs figeraient `fake-indexeddb` dans les fichiers de test suivants.
+    vi.useRealTimers();
+  });
+
   beforeEach(async () => {
     vi.useFakeTimers();
 
@@ -71,6 +76,21 @@ describe('ChecklistsDashboardComponent', () => {
     vi.spyOn(templateService, 'availableTemplates').mockReturnValue([mockTemplate]);
     vi.spyOn(templateService, 'initTemplates').mockResolvedValue();
     vi.spyOn(sessionService, 'loadAllSessions').mockResolvedValue([mockSession]);
+  });
+
+  it('affiche dans la liste le modèle présélectionné par ?new=<id>, même s’il n’est pas le premier', async () => {
+    const second: ChecklistTemplate = { ...mockTemplate, id: 'tpl-2', name: 'Mise en production' };
+    vi.spyOn(templateService, 'availableTemplates').mockReturnValue([mockTemplate, second]);
+    const route = TestBed.inject(ActivatedRoute);
+    vi.mocked(route.snapshot.queryParamMap.get).mockImplementation(key => (key === 'new' ? 'tpl-2' : null));
+
+    await component.ngOnInit();
+    fixture.detectChanges();
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>('.modal-card select')!;
+    expect(component.selectedTemplateId()).toBe('tpl-2');
+    expect(select.value).toBe('tpl-2');
+    expect(select.selectedOptions[0].textContent).toContain('Mise en production');
   });
 
   it('devrait supprimer une session avec possibilité d’annulation (optimiste)', () => {

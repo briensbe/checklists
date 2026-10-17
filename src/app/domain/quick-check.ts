@@ -194,19 +194,34 @@ export function matchesFilter(item: ChecklistItemTemplate, answer: ItemAnswer | 
 }
 
 /**
- * Contrôles affichés, dans l'ordre du modèle : sections dépliées, filtre actif,
- * plus le contrôle épinglé (tiroir ouvert) même si le filtre devrait le masquer.
+ * Portée des contrôles affichés sur un modèle à étapes (change `runner-path-view`) :
+ * - `locked` : sections verrouillées, dont les contrôles ne sont jamais des lignes ;
+ * - `sectionId` : en vue chemin, la seule étape affichée (son panneau ne se replie pas).
+ */
+export interface DisplayScope {
+  locked?: ReadonlySet<string>;
+  sectionId?: string | null;
+}
+
+/**
+ * Contrôles affichés, dans l'ordre du modèle : sections dépliées (ou étape sélectionnée en vue chemin),
+ * filtre actif, plus le contrôle épinglé (tiroir ouvert) même si le filtre devrait le masquer.
+ * Le verrouillage d'une étape l'emporte sur l'épinglage.
  */
 export function visibleItems(
   items: readonly ApplicableItem[],
   answers: Record<string, ItemAnswer>,
   filter: ItemFilter,
   collapsed: Record<string, boolean>,
-  pinnedItemId: string | null
+  pinnedItemId: string | null,
+  scope: DisplayScope = {}
 ): ApplicableItem[] {
-  return items.filter(
-    item => !collapsed[item.sectionId] && (item.id === pinnedItemId || matchesFilter(item, answers[item.id], filter))
-  );
+  const pathSection = scope.sectionId ?? null;
+  return items.filter(item => {
+    if (scope.locked?.has(item.sectionId)) return false;
+    const shown = pathSection !== null ? item.sectionId === pathSection : !collapsed[item.sectionId];
+    return shown && (item.id === pinnedItemId || matchesFilter(item, answers[item.id], filter));
+  });
 }
 
 /**
@@ -236,19 +251,48 @@ export function stepItem(ids: readonly string[], activeId: string | null, delta:
 
 /**
  * Premier contrôle applicable sans réponse qui suit `fromItemId` dans l'ordre du modèle,
- * en reprenant au début si besoin. `null` quand tout est renseigné.
+ * en reprenant au début si besoin, hors étapes verrouillées. `null` quand il n'y en a aucun.
  */
 export function nextItemToProcess(
   items: readonly ApplicableItem[],
   answers: Record<string, ItemAnswer>,
-  fromItemId: string | null
+  fromItemId: string | null,
+  locked: ReadonlySet<string> = new Set()
 ): ApplicableItem | null {
   const start = fromItemId ? items.findIndex(i => i.id === fromItemId) : -1;
   for (let step = 1; step <= items.length; step++) {
     const item = items[(start + step) % items.length];
-    if (!isAnswered(item, answers[item.id])) return item;
+    if (!locked.has(item.sectionId) && !isAnswered(item, answers[item.id])) return item;
   }
   return null;
+}
+
+/**
+ * État du bouton « Prochain item à traiter » : un contrôle est accessible, tout est renseigné,
+ * ou les seuls contrôles sans réponse attendent l'ouverture de leur étape.
+ */
+export type NextItemState = 'available' | 'all-done' | 'locked-only';
+
+export function nextItemState(
+  items: readonly ApplicableItem[],
+  answers: Record<string, ItemAnswer>,
+  locked: ReadonlySet<string> = new Set()
+): NextItemState {
+  const unanswered = items.filter(item => !isAnswered(item, answers[item.id]));
+  if (unanswered.length === 0) return 'all-done';
+  return unanswered.some(item => !locked.has(item.sectionId)) ? 'available' : 'locked-only';
+}
+
+/**
+ * Contrôles signalés « preuve manquante » : réponse conforme donnée, preuve exigée plus fournie,
+ * sans « preuve à compléter » (ADR 0009). Sert à la confirmation de clôture, jamais à la validation.
+ */
+export function missingEvidenceItems(
+  items: readonly ApplicableItem[],
+  answers: Record<string, ItemAnswer>,
+  evidence: Readonly<Record<string, EvidenceSummary>>
+): ApplicableItem[] {
+  return items.filter(item => evidenceState(item, answers[item.id], evidence[item.id] ?? NO_EVIDENCE) === 'missing');
 }
 
 // --- Progression -------------------------------------------------------------

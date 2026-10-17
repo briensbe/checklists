@@ -12,6 +12,11 @@ describe('ToastService', () => {
     service.clear();
   });
 
+  afterEach(() => {
+    // Des minuteurs simulés laissés actifs figeraient `fake-indexeddb` dans les fichiers de test suivants.
+    vi.useRealTimers();
+  });
+
   it('devrait afficher un toast et le retirer après sa durée', () => {
     service.show({ message: 'Bienvenue', durationMs: 2000 });
     expect(service.toasts().length).toBe(1);

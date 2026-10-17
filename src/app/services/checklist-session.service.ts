@@ -58,6 +58,8 @@ export interface MarkRemainingResult {
   modified: number;
   /** Bloquants laissés sans réponse parce que leur preuve exigée manque. */
   skippedForEvidence: number;
+  /** Contrôles sans réponse laissés tels quels parce que leur étape était verrouillée. */
+  skippedLocked: number;
 }
 
 /** Retire l'indicateur « preuve à compléter » en l'historisant ; ne change rien s'il n'est pas posé. */
@@ -185,8 +187,11 @@ export class ChecklistSessionService {
 
   // Chaque changement d'état est historisé ; les saisies de texte (commentaire, champ additionnel) ne le sont pas.
   // L'indicateur « preuve à compléter » ne survit qu'à une réponse conforme : il est retiré avec elle.
+  // Un changement d'état est ignoré sur une étape verrouillée (`isItemLocked`) ; les saisies de texte,
+  // les preuves et les annulations ne le sont jamais, pour ne perdre ni une frappe ni une annulation.
 
   updateAnswerStatus(itemId: string, status: ControlStatus): Promise<void> {
+    if (this.isItemLocked(itemId)) return Promise.resolve();
     return this.mutateAnswer(itemId, ans => {
       const at = new Date().toISOString();
       const next = ans.status === status ? null : status;
@@ -196,6 +201,7 @@ export class ChecklistSessionService {
   }
 
   updateAnswerCheckbox(itemId: string, checked: boolean, withTimestamp: boolean): Promise<void> {
+    if (this.isItemLocked(itemId)) return Promise.resolve();
     const now = new Date().toISOString();
     const checkedAt = checked && withTimestamp ? now : undefined;
     return this.mutateAnswer(itemId, ans => {
@@ -205,6 +211,7 @@ export class ChecklistSessionService {
   }
 
   updateAnswerChoice(itemId: string, choiceId: string): Promise<void> {
+    if (this.isItemLocked(itemId)) return Promise.resolve();
     const item = this.findItem(itemId);
     return this.mutateAnswer(itemId, ans => {
       const at = new Date().toISOString();
@@ -220,6 +227,7 @@ export class ChecklistSessionService {
    * le choix et la preuve en attente ; le lien de preuve éventuel est conservé.
    */
   toggleNa(itemId: string): Promise<void> {
+    if (this.isItemLocked(itemId)) return Promise.resolve();
     return this.mutateAnswer(itemId, ans => {
       const at = new Date().toISOString();
       if (ans.status === 'NA') {
@@ -237,7 +245,7 @@ export class ChecklistSessionService {
   resolveItem(itemId: string, options: ResolveItemOptions = {}): Promise<void> {
     const item = this.findItem(itemId);
     // Un bloquant ne reçoit jamais de réponse sans sa preuve : « Plus tard » lui est refusé (ADR 0009).
-    if (!item || (options.pending && criticalityOf(item) === 'blocking')) return Promise.resolve();
+    if (!item || (options.pending && criticalityOf(item) === 'blocking') || this.isItemLocked(itemId)) return Promise.resolve();
     return this.mutateAnswer(itemId, ans => {
       const at = new Date().toISOString();
       let next = ans;
@@ -346,20 +354,29 @@ export class ChecklistSessionService {
    * Donne une réponse conforme à chaque contrôle applicable encore sans réponse (N/A de tout type
    * compris comme une réponse). Un bloquant dont la preuve exigée manque est laissé sans réponse ;
    * un non bloquant dans ce cas reçoit sa réponse avec « preuve à compléter » (ADR 0009).
+   * Seules les étapes débloquées au lancement sont traitées, sans cascade : une étape que l'action
+   * débloque n'est pas remplie à son tour (ADR 0010, point 3).
    * `evidence` : résumé des preuves de la session, par identifiant d'item.
    */
   async markRemainingAsOk(evidence: Record<string, EvidenceSummary> = {}): Promise<MarkRemainingResult> {
     let modified = 0;
     let skippedForEvidence = 0;
+    let skippedLocked = 0;
     await this.mutate(session => {
       modified = 0;
       skippedForEvidence = 0;
+      skippedLocked = 0;
       const answers = { ...session.answers };
       const now = new Date().toISOString();
+      const steps = computeStepFlow(session).steps;
 
       for (const item of applicableItems(session.templateSnapshot, session.contextValues)) {
         const current = answers[item.id];
         if (isAnswered(item, current)) continue;
+        if (steps[item.sectionId]?.unlocked === false) {
+          skippedLocked++;
+          continue;
+        }
 
         const satisfied = isEvidenceSatisfied(item, current, evidence[item.id] ?? NO_EVIDENCE);
         if (!satisfied && criticalityOf(item) === 'blocking') {
@@ -395,7 +412,7 @@ export class ChecklistSessionService {
       }
       return modified > 0 ? { ...session, answers } : null;
     });
-    return { modified, skippedForEvidence };
+    return { modified, skippedForEvidence, skippedLocked };
   }
 
   /**
@@ -590,6 +607,15 @@ export class ChecklistSessionService {
       if (item) return item;
     }
     return undefined;
+  }
+
+  /**
+   * Les portes s'appliquent à la saisie (ADR 0010, point 3) : vrai si le contrôle appartient à une
+   * étape verrouillée. Un modèle sans dépendance n'a jamais d'étape verrouillée.
+   */
+  private isItemLocked(itemId: string): boolean {
+    const section = this.currentSession()?.templateSnapshot.sections.find(s => s.items.some(i => i.id === itemId));
+    return !!section && this.stepFlow().steps[section.id]?.unlocked === false;
   }
 
   /**

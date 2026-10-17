@@ -1,0 +1,64 @@
+<div class="graph-scroll">
+  <svg
+    class="graph"
+    [attr.width]="layout().width"
+    [attr.height]="layout().height"
+    [attr.viewBox]="'0 0 ' + layout().width + ' ' + layout().height"
+    role="group"
+    aria-label="Chemin des étapes">
+    <!-- Liens décoratifs : l'état des portes est porté par le nom accessible des nœuds -->
+    <g class="edges" aria-hidden="true">
+      @for (edge of edges(); track edge.from + '>' + edge.to) {
+        <path class="edge" [class.is-open]="edge.open" [attr.d]="edge.path" />
+      }
+    </g>
+
+    @for (item of view(); track item.node.id) {
+      <g
+        class="node"
+        [class]="'node is-' + item.node.visual"
+        [class.is-selected]="item.selected"
+        [attr.transform]="item.transform"
+        role="button"
+        tabindex="0"
+        [attr.aria-label]="item.ariaLabel"
+        [attr.aria-current]="item.selected ? 'step' : null"
+        (click)="select.emit(item.node.id)"
+        (keydown.enter)="onNodeKey($event, item.node.id)"
+        (keydown.space)="onNodeKey($event, item.node.id)">
+        <title>{{ item.node.label }}</title>
+        <circle class="focus-ring" [attr.r]="radius + 6" />
+        <g class="node-body" [class.is-pulse]="item.pulse">
+          <circle class="node-disc" [attr.r]="radius" />
+          @if (item.node.visual !== 'locked') {
+            <circle class="ring-track" [attr.r]="ringRadius" [attr.stroke-width]="ringStroke" />
+            <circle
+              class="ring-value"
+              [class.is-complete]="item.tone === 'complete'"
+              [class.is-anomaly]="item.tone === 'anomaly'"
+              [attr.r]="ringRadius"
+              [attr.stroke-width]="ringStroke"
+              [attr.stroke-dasharray]="ringCircumference"
+              [attr.stroke-dashoffset]="item.dashOffset"
+              stroke-linecap="round"
+              transform="rotate(-90)" />
+          }
+          <g class="node-icon" [attr.transform]="'translate(' + iconOffset + ' ' + iconOffset + ')'">
+            @switch (item.node.visual) {
+              @case ('locked') { <svg lucideLock [size]="iconSize"></svg> }
+              @case ('done') { <svg lucideCheck [size]="iconSize"></svg> }
+              @default { <svg [lucideIcon]="item.node.icon" [size]="iconSize"></svg> }
+            }
+          </g>
+          @if (item.node.join; as join) {
+            <g class="join-badge" [class.is-ready]="item.joinReady" transform="translate(8 -40)">
+              <rect width="38" height="18" rx="9" />
+              <text x="19" y="9" text-anchor="middle" dominant-baseline="central">{{ join.ready }}/{{ join.total }}</text>
+            </g>
+          }
+        </g>
+        <text class="node-label" [attr.y]="radius + 18" text-anchor="middle" aria-hidden="true">{{ item.label }}</text>
+      </g>
+    }
+  </svg>
+</div>

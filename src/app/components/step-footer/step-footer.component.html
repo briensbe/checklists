@@ -1,0 +1,90 @@
+<div class="step-footer">
+  @if (!footer().passed) {
+    <p class="footer-line is-blocking">
+      <svg lucideLock [size]="14"></svg>
+      <span>{{ blockingLabel() }}</span>
+    </p>
+  } @else {
+    @for (next of footer().next; track next.sectionId) {
+      @if (next.unlocked) {
+        <button type="button" class="footer-line footer-link is-open" (click)="controller.selectStep(next.sectionId, true)">
+          <svg lucideLockOpen [size]="14"></svg>
+          <span>Porte ouverte vers « {{ next.title }} »</span>
+        </button>
+      } @else {
+        <p class="footer-line is-waiting">
+          <svg lucideHourglass [size]="14"></svg>
+          <span>« {{ next.title }} » attend encore une autre branche</span>
+        </p>
+      }
+    }
+    @if (footer().isFinal) {
+      <p class="footer-line is-open">
+        <svg lucideTrophy [size]="14"></svg>
+        <span>{{ footer().allPassed ? 'Toutes les étapes sont franchies' : 'Étape finale franchie' }}</span>
+      </p>
+    }
+  }
+
+  @if (footer().naBlocking.length > 0) {
+    <p class="footer-line is-notice">
+      <svg lucideCircleAlert [size]="14"></svg>
+      <span>{{ plural(footer().naBlocking.length, 'bloquant passé en N/A', 'bloquants passés en N/A') }} :</span>
+      @for (item of footer().naBlocking; track item.id; let last = $last) {
+        <button type="button" class="btn-link" (click)="controller.focusItem(item.id, { block: 'center', smooth: true })">{{ item.label }}</button>{{ last ? '' : ',' }}
+      }
+    </p>
+  }
+
+  @if (footer().pending.length > 0) {
+    <p class="footer-line is-pending">
+      <svg lucideCircleAlert [size]="14"></svg>
+      <span>{{ plural(footer().pending.length, 'preuve à compléter', 'preuves à compléter') }} :</span>
+      @for (item of footer().pending; track item.id; let last = $last) {
+        <button type="button" class="btn-link" (click)="controller.focusItem(item.id, { block: 'center', smooth: true })">{{ item.label }}</button>{{ last ? '' : ',' }}
+      }
+    </p>
+  }
+
+  @if (footer().missing.length > 0) {
+    <p class="footer-line is-missing">
+      <svg lucideTriangleAlert [size]="14"></svg>
+      <span>{{ plural(footer().missing.length, 'preuve manquante', 'preuves manquantes') }} :</span>
+      @for (item of footer().missing; track item.id; let last = $last) {
+        <button type="button" class="btn-link" (click)="controller.focusItem(item.id, { block: 'center', smooth: true })">{{ item.label }}</button>{{ last ? '' : ',' }}
+      }
+    </p>
+  }
+
+  @if (footer().forced; as forced) {
+    <p class="footer-line footer-forced">
+      <svg lucideShieldAlert [size]="14"></svg>
+      <span>Porte forcée le {{ forced.at | date: 'dd/MM/yyyy à HH:mm' }} : « {{ forced.reason }} »</span>
+    </p>
+  }
+
+  @if (canForce()) {
+    @if (showForm()) {
+      <form class="force-form" (submit)="submit($event)" (keydown.escape)="cancel($event)">
+        <label class="force-label" [for]="'force-reason-' + sectionId()">Justification du forçage (obligatoire)</label>
+        <textarea
+          #reasonInput
+          class="force-reason"
+          rows="2"
+          [id]="'force-reason-' + sectionId()"
+          [value]="reason()"
+          (input)="onReasonInput($event)"
+          placeholder="Ex. : dérogation validée par le PO"></textarea>
+        <div class="force-actions">
+          <button type="button" class="footer-btn" (click)="cancel()">Annuler</button>
+          <button type="submit" class="footer-btn is-primary" [disabled]="!reason().trim()">Forcer</button>
+        </div>
+      </form>
+    } @else {
+      <button #forceButton type="button" class="footer-btn is-force" (click)="openForm()">
+        <svg lucideShieldAlert [size]="14"></svg>
+        Forcer le passage
+      </button>
+    }
+  }
+</div>

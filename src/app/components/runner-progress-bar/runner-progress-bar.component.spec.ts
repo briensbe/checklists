@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RunnerProgressBarComponent } from './runner-progress-bar.component';
 import { MetricsSummary } from '../../models/checklist.model';
-import { SectionProgress } from '../../domain/quick-check';
+import { NextItemState, SectionProgress } from '../../domain/quick-check';
 
 const METRICS: MetricsSummary = { total: 10, answered: 4, okCount: 3, koCount: 1, naCount: 0, pending: 6, percent: 40 };
 
@@ -9,11 +9,11 @@ describe('RunnerProgressBarComponent', () => {
   let fixture: ComponentFixture<RunnerProgressBarComponent>;
   const el = (): HTMLElement => fixture.nativeElement;
 
-  const render = (inputs: { sections?: SectionProgress[]; unresolvedBlocking?: number | null; nextDisabled?: boolean }) => {
+  const render = (inputs: { sections?: SectionProgress[]; unresolvedBlocking?: number | null; nextState?: NextItemState }) => {
     fixture.componentRef.setInput('metrics', METRICS);
     fixture.componentRef.setInput('sections', inputs.sections ?? []);
     fixture.componentRef.setInput('unresolvedBlocking', inputs.unresolvedBlocking ?? null);
-    fixture.componentRef.setInput('nextDisabled', inputs.nextDisabled ?? false);
+    fixture.componentRef.setInput('nextState', inputs.nextState ?? 'available');
     fixture.detectChanges();
   };
 
@@ -64,9 +64,20 @@ describe('RunnerProgressBarComponent', () => {
   });
 
   it('désactive « Prochain item à traiter » quand tout est renseigné', () => {
-    render({ nextDisabled: true });
+    render({ nextState: 'all-done' });
     const next = el().querySelector<HTMLButtonElement>('.btn-next')!;
     expect(next.disabled).toBe(true);
     expect(next.textContent).toContain('Tout est renseigné');
+  });
+
+  it('désactive « Prochain item à traiter » quand les contrôles restants attendent l’ouverture de leur étape', () => {
+    render({ nextState: 'locked-only' });
+    const next = el().querySelector<HTMLButtonElement>('.btn-next')!;
+    expect(next.disabled).toBe(true);
+    expect(next.textContent).toContain('Contrôles restants dans des étapes verrouillées');
+
+    render({ nextState: 'available' });
+    expect(next.disabled).toBe(false);
+    expect(next.getAttribute('aria-label')).toBe('Prochain item à traiter');
   });
 });

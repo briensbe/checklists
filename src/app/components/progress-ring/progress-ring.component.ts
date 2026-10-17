@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
+import { ringGeometry, RingTone } from './ring-geometry';
 
-export type RingTone = 'progress' | 'complete' | 'anomaly';
+export type { RingTone } from './ring-geometry';
 
 /**
  * Anneau de progression en SVG, dimensionné en pixels (jamais en pourcentages, voir
@@ -23,10 +24,10 @@ export class ProgressRingComponent {
   /** Affiche le pourcentage au centre (anneaux assez grands seulement). */
   readonly showPercent = input<boolean>(false);
 
-  protected readonly center = computed(() => this.size() / 2);
-  protected readonly radius = computed(() => (this.size() - this.stroke()) / 2);
-  protected readonly circumference = computed(() => 2 * Math.PI * this.radius());
-  protected readonly clamped = computed(() => Math.min(1, Math.max(0, this.value())));
-  protected readonly dashOffset = computed(() => this.circumference() * (1 - this.clamped()));
-  protected readonly percent = computed(() => Math.round(this.clamped() * 100));
+  private readonly geometry = computed(() => ringGeometry(this.value(), this.size(), this.stroke()));
+  protected readonly center = computed(() => this.geometry().center);
+  protected readonly radius = computed(() => this.geometry().radius);
+  protected readonly circumference = computed(() => this.geometry().circumference);
+  protected readonly dashOffset = computed(() => this.geometry().dashOffset);
+  protected readonly percent = computed(() => Math.round(this.geometry().value * 100));
 }

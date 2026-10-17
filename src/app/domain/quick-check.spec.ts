@@ -7,6 +7,8 @@ import {
   isSafeHttpUrl,
   NO_EVIDENCE,
   nextActiveItem,
+  missingEvidenceItems,
+  nextItemState,
   nextItemToProcess,
   partitionBySize,
   primaryGesture,
@@ -286,5 +288,52 @@ describe('sectionProgress, declaresBlocking et unresolvedBlockingCount', () => {
     const soft = session({ d: answer({ status: 'KO', comment: 'x' }) }, { forcedGates: [{ sectionId: 'build', reason: 'PO', at: 't' }] });
     soft.templateSnapshot.sections[2].gate = 'soft';
     expect(unresolvedBlockingCount(soft)).toBe(1);
+  });
+});
+
+describe('Contrôles affichés et prochain item sur un modèle à étapes (runner-path-view)', () => {
+  const items = applicableItems(template(), { mode: 'full' });
+  const lockedBuild = new Set(['build']);
+
+  it('exclut les étapes verrouillées, même pour le contrôle épinglé par un tiroir ouvert', () => {
+    expect(visibleItems(items, {}, 'all', {}, null, { locked: lockedBuild }).map(i => i.id)).toEqual(['a', 'b', 'c']);
+    expect(visibleItems(items, {}, 'all', {}, 'd', { locked: lockedBuild }).map(i => i.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('en vue chemin, se limite à l’étape sélectionnée, sans tenir compte du repli', () => {
+    expect(visibleItems(items, {}, 'all', { build: true }, null, { sectionId: 'build' }).map(i => i.id)).toEqual(['d', 'e']);
+    const answers = { d: answer({ status: 'OK' }) };
+    expect(visibleItems(items, answers, 'pending', {}, null, { sectionId: 'build' }).map(i => i.id)).toEqual(['e']);
+    expect(visibleItems(items, {}, 'all', {}, null, { sectionId: 'build', locked: lockedBuild })).toEqual([]);
+  });
+
+  it('« Prochain item à traiter » ignore les étapes verrouillées', () => {
+    const answers = { a: answer({ checked: true }) };
+    expect(nextItemToProcess(items, answers, 'a', lockedBuild)?.id).toBe('b');
+    const prepDone = { a: answer({ checked: true }), b: answer({ checked: true }), c: answer({ status: 'OK' }) };
+    expect(nextItemToProcess(items, prepDone, 'c', lockedBuild)).toBeNull();
+    expect(nextItemToProcess(items, prepDone, 'c')?.id).toBe('d');
+  });
+
+  it('état du bouton : accessible, tout renseigné, ou restes dans des étapes verrouillées', () => {
+    const prepDone = { a: answer({ checked: true }), b: answer({ checked: true }), c: answer({ status: 'KO', comment: 'x' }) };
+    expect(nextItemState(items, {}, lockedBuild)).toBe('available');
+    expect(nextItemState(items, prepDone, lockedBuild)).toBe('locked-only');
+    expect(nextItemState(items, prepDone)).toBe('available');
+    const all = Object.fromEntries(items.map(i => [i.id, answer({ status: 'NA' })]));
+    expect(nextItemState(items, all, lockedBuild)).toBe('all-done');
+  });
+});
+
+describe('missingEvidenceItems', () => {
+  const photoItem = { id: 'ph', label: 'Rapport', controlType: 'checkbox' as const, evidenceRequired: 'photo' as const, sectionId: 's', sectionTitle: 'S' };
+  const plain = { id: 'pl', label: 'Simple', controlType: 'checkbox' as const, sectionId: 's', sectionTitle: 'S' };
+
+  it('retient une réponse conforme dont la preuve exigée a disparu, pas une preuve en attente', () => {
+    const answers = { ph: answer({ checked: true }), pl: answer({ checked: true }) };
+    expect(missingEvidenceItems([photoItem, plain], answers, {}).map(i => i.id)).toEqual(['ph']);
+    expect(missingEvidenceItems([photoItem], answers, { ph: photos(1) })).toEqual([]);
+    expect(missingEvidenceItems([photoItem], { ph: answer({ checked: true, evidencePending: true }) }, {})).toEqual([]);
+    expect(missingEvidenceItems([photoItem], {}, {})).toEqual([]);
   });
 });
