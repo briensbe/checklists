@@ -29,7 +29,7 @@ Le système DOIT persister l'état courant de l'audit et l'ensemble des pièces 
 - **THEN** la session d'audit en cours est intégralement restaurée avec ses réponses et ses pièces jointes
 
 ### Requirement: Export de rapports d'audit (Excel et PDF)
-Le système DOIT générer des rapports de traçabilité formels aux formats Excel (.xlsx) et PDF (A4 formel), indépendants du template utilisé : toute information de structure DOIT provenir de la copie figée de la session. Le cartouche DOIT comporter le titre, le nom et la version du modèle, le statut de la session (« En cours » ou « Terminée »), la date de la dernière clôture lorsque la session est terminée, un champ par entrée du schéma de contexte de la copie figée (libellé du schéma et valeur saisie) et la synthèse d'avancement. Aucune clé de contexte NE DOIT être codée en dur.
+Le système DOIT générer des rapports de traçabilité formels aux formats Excel (.xlsx) et PDF (A4 formel), indépendants du template utilisé : toute information de structure DOIT provenir de la copie figée de la session. Le cartouche DOIT comporter le titre, le nom et la version du modèle, le statut de la session (« En cours » ou « Terminée »), la date de la dernière clôture lorsque la session est terminée, un champ par entrée du schéma de contexte de la copie figée (libellé du schéma et valeur saisie) et la synthèse d'avancement. Aucune clé de contexte NE DOIT être codée en dur. La colonne d'état DOIT afficher `N/A` pour un contrôle non applicable quel que soit son type, et signaler une preuve à compléter ; la colonne des observations DOIT reprendre le lien de preuve lorsqu'il existe.
 
 #### Scenario: Export du rapport Excel
 - **WHEN** l'utilisateur clique sur "Export Excel"
@@ -54,6 +54,18 @@ Le système DOIT générer des rapports de traçabilité formels aux formats Exc
 #### Scenario: Libellé des choix personnalisés
 - **WHEN** un item de type choix a une option sélectionnée
 - **THEN** la colonne d'état affiche le libellé de l'option et non son identifiant
+
+#### Scenario: Contrôle non applicable d'un type quelconque
+- **WHEN** un item de type case à cocher ou choix est au statut `N/A`
+- **THEN** la colonne d'état affiche `N/A`, et non « NON FAIT » ou « NON SÉLECTIONNÉ »
+
+#### Scenario: Preuve à compléter
+- **WHEN** un item coché porte l'indicateur « preuve à compléter »
+- **THEN** la colonne d'état affiche l'état de l'item suivi de la mention « preuve à compléter »
+
+#### Scenario: Lien de preuve
+- **WHEN** un item a un commentaire et un lien de preuve
+- **THEN** la colonne des observations affiche le commentaire, puis le lien de preuve précédé de « Lien de preuve : »
 
 ### Requirement: Annexe des preuves dans le rapport PDF
 Le rapport PDF DOIT se terminer par une annexe des preuves de la session, groupées par item applicable dans l'ordre de la checklist. Les preuves images DOIVENT y être reproduites en miniatures ; les autres fichiers DOIVENT être listés par nom, type et taille.

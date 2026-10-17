@@ -10,7 +10,7 @@
 | 4 | `template-builder-v2` | Livré, archivé (`openspec/changes/archive/2026-10-16-template-builder-v2/`) |
 | 5 | `dashboard-productivity` | **À faire** : section 3, indépendant des suivants. Son volet runner est passé dans `quick-check-and-drawer` |
 | 6 | `step-flow-model` | Livré, archivé (`openspec/changes/archive/2026-10-17-step-flow-model/`) |
-| 7 | `quick-check-and-drawer` | **À faire** : section 5 (dépend de `step-flow-model`) |
+| 7 | `quick-check-and-drawer` | Livré, archivé (`openspec/changes/archive/2026-10-17-quick-check-and-drawer/`) |
 | 8 | `runner-path-view` | **À faire** : section 6 (dépend de `step-flow-model`, après `quick-check-and-drawer`) |
 | 9 | `builder-flow-editor` | **À faire** : section 7 (dépend de `runner-path-view`) |
 | — | Backlog | Reporté, voir [BACKLOG.md](BACKLOG.md) |
@@ -259,6 +259,8 @@ Poser les données et les règles de calcul des étapes, des portes et des jonct
 ---
 
 ## 5. `quick-check-and-drawer` : remplissage rapide
+
+**Livré et archivé** (`openspec/changes/archive/2026-10-17-quick-check-and-drawer/`), ADR 0008 (Lucide) et 0009 (règles de saisie). Section conservée pour mémoire. Pour la suite (`runner-path-view`) : le `RunnerController` (`pages/checklist-runner/runner-controller.ts`) porte l'état d'interface et les actions de saisie, réutilisables par le panneau d'étape ; le composant `progress-ring` dessine les anneaux en SVG.
 
 **Dépend de `step-flow-model`** (criticité, preuve obligatoire, historique). Reprend le volet runner de l'ancien `runner-and-dashboard-productivity`. Maquettes 01, 06 et 07.
 
